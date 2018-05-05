@@ -7,3 +7,4 @@ DNETUnitTest/bin/
 DNETUnitTest/obj/
 DNET/obj/
 DNET/bin/
+*.user

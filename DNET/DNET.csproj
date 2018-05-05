@@ -43,6 +43,9 @@
     <Compile Include="Client\DNClient.cs" />
     <Compile Include="Client\EventType.cs" />
     <Compile Include="Client\SocketClient.cs" />
+    <Compile Include="Data\ByteBuffer.cs" />
+    <Compile Include="Data\ByteBufferPool.cs" />
+    <Compile Include="Data\ByteBufferPools.cs" />
     <Compile Include="Common\BytesQueue.cs" />
     <Compile Include="Common\Config.cs" />
     <Compile Include="Common\DQueue.cs" />
@@ -53,6 +56,8 @@
     <Compile Include="Common\LogFile.cs" />
     <Compile Include="Common\NetWorkMsg.cs" />
     <Compile Include="Common\WorkThread.cs" />
+    <Compile Include="Data\DNetPool.cs" />
+    <Compile Include="Data\IBufferPool.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Protocol\Crc32.cs" />
     <Compile Include="Protocol\DPacket.cs" />

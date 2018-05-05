@@ -6,7 +6,7 @@ using System.Threading;
 namespace DNETUnitTest
 {
     [TestClass]
-    public class UnitTest1
+    public partial class UnitTest1
     {
         /// <summary>
         /// 启动一个服务器，它会原样回发接收到的消息。

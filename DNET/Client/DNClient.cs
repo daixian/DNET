@@ -518,14 +518,13 @@ namespace DNET
         /// <summary>
         /// 关闭当前连接
         /// </summary>
-        public void DisConnect()
+        public void Disconnect()
         {
             try
             {
                 this.Clear();
                 if (_socketClient != null)
                 {
-                    //_socketClient.Disconnect();
                     _socketClient.Disconnect();
                 }
             }
