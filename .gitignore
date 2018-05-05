@@ -1,0 +1,9 @@
+/Library
+/Obj
+/Temp
+/.vs
+/Bin
+DNETUnitTest/bin/
+DNETUnitTest/obj/
+DNET/obj/
+DNET/bin/
