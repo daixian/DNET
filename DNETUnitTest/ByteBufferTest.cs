@@ -11,7 +11,7 @@ namespace DNETUnitTest
     public class ByteBufferTest
     {
  
-        [TestMethod]
+        //[TestMethod]
         public void TestMethod_ByteBuffer()
         {
  

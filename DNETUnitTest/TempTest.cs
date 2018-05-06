@@ -9,7 +9,7 @@ namespace DNETUnitTest
 {
     public partial class UnitTest1
     {
-        [TestMethod]
+        //[TestMethod]
         public void TestMethod_Temp1()
         {
             unsafe
@@ -28,7 +28,7 @@ namespace DNETUnitTest
             }
         }
 
-        [TestMethod]
+        //[TestMethod]
         public void TestMethod_Temp2()
         {
             unsafe
