@@ -333,6 +333,8 @@ namespace DNET
                         _streamWriter.Flush();
                         if (_fileStream.Length > maxLogFileSize)
                         {
+                            _streamWriter.WriteLine("too big, new log File!");
+                            _streamWriter.Flush();
                             CreatLogFile(this.folderPath);
                         }
                     }
