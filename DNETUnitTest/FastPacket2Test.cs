@@ -34,7 +34,11 @@ namespace DNETUnitTest
         [TestMethod]
         public void TestMethod_AddSend()
         {
+            Random rand = new Random();
             FastPacket2 fp2 = new FastPacket2();
+
+            int sendLength = 0;
+            byte[] sendBuff = new byte[512];
 
             byte[] data = new byte[256];
             for (int i = 0; i < data.Length; i++)
@@ -42,21 +46,24 @@ namespace DNETUnitTest
                 data[i] = (byte)i;
             }
 
-            int msgCount = 1000;
+            int msgCount = 10000;
 
             //增加1000条待发送消息
             for (int count = 0; count < msgCount; count++)
             {
-               fp2.AddSend(data, 0, data.Length);
+                //一边添加
+                fp2.AddSend(data, 0, data.Length);
+                //一边发送
+                while (true)
+                {
+                    if (fp2.SendMsgCount == 0)
+                    {
+                        break;
+                    }
+                    sendLength += fp2.WriteSendDataToBuffer(sendBuff, 0, rand.Next(sendBuff.Length));
+                }
             }
-
-            int sendLength = 0;
-            byte[] sendBuff = new byte[256 + sizeof(int)];
-            for (int count = 0; count < msgCount; count++)
-            {
-                sendLength += fp2.WriteSendDataToBuffer(sendBuff, 0, sendBuff.Length); 
-            }
-
+            
             Assert.IsTrue(sendLength == (data.Length + sizeof(int)) * msgCount);
         }
     }

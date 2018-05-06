@@ -1,16 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace DNET
 {
-
     /// <summary>
     /// 一种比较快速的打包方式，只用一个数据长度的int作分割(这个写的数据长度值不包含这个int头的长度),
     /// 非常常见的分包方式。
     /// </summary>
-    public class FastPacket2 : IPacket2
+    public unsafe class FastPacket2 : IPacket2
     {
         /// <summary>
         /// 用户添加一段要发送的数据进来
@@ -20,17 +17,18 @@ namespace DNET
         /// <param name="count">计数</param>
         public void AddSend(byte[] data, int offset, int count)
         {
-            unsafe
-            {
-                IntPtr msg = Marshal.AllocHGlobal(sizeof(int) + count);
-                int* p = (int*)msg.ToPointer();
-                p[0]= count;//消息首写一个包长度
-                IntPtr dataPtr = new IntPtr(&p[1]);
-                Marshal.Copy(data, offset, dataPtr, count);
-                //item的长度是整个消息的长度，所以保函了前面的sizeof(int)
-                MsgItem item = new MsgItem { msg = msg, index = 0, length = sizeof(int) + count };
-                _queueSendData.Enqueue(item);
-            }
+            IntPtr msg = Marshal.AllocHGlobal(sizeof(int) + count);
+            int* p = (int*)msg.ToPointer();
+            p[0] = count;//消息首写一个包长度
+            IntPtr dataPtr = new IntPtr(&p[1]);
+            Marshal.Copy(data, offset, dataPtr, count);
+            //item的长度是整个消息的长度，所以保函了前面的sizeof(int)
+            IntPtr ipitem = Marshal.AllocHGlobal(sizeof(MsgItem));
+            MsgItem* item = (MsgItem*)ipitem.ToPointer();
+            item->msg = msg;
+            item->index = 0;
+            item->length = sizeof(int) + count;
+            _queueSendData.Enqueue(ipitem);
         }
 
         /// <summary>
@@ -58,21 +56,29 @@ namespace DNET
                 {
                     break;
                 }
-
-                MsgItem msgItem = _queueSendData._queue.Peek();//得到当前的消息
-                int copyLen = msgItem.length - msgItem.index;
+                if (sendCount == 0)
+                {
+                    break;
+                }
+                IntPtr ipMsgItem = _queueSendData._queue.Peek();
+                MsgItem* msgItem = (MsgItem*)ipMsgItem.ToPointer();//得到当前的消息
+                int copyLen = msgItem->length - msgItem->index;
                 if (copyLen < sendCount)//这一整条消息都能写下
                 {
                     //IntPtr p = Marshal.UnsafeAddrOfPinnedArrayElement(sendBuff, sendBuffOffset);
-                    Marshal.Copy(msgItem.getCurCopyPtr(), sendBuff, sendBuffOffset, copyLen);
+                    Marshal.Copy(msgItem->getCurCopyPtr(), sendBuff, sendBuffOffset, copyLen);
                     _queueSendData.Dequeue();//退出这一条
-                    Marshal.FreeHGlobal(msgItem.msg);//释放这条
+                    Marshal.FreeHGlobal(msgItem->msg);//释放这条
+                    Marshal.FreeHGlobal(ipMsgItem);
                     copyedLength += copyLen;
+                    sendBuffOffset += copyLen;
+                    sendCount -= copyLen;
                 }
                 else//如果这一条消息整个sendBuff都写不下
                 {
                     copyLen = sendCount;//那么使用最大长度为它的要发送的长度
-                    Marshal.Copy(msgItem.getCurCopyPtr(), sendBuff, sendBuffOffset, copyLen);
+                    Marshal.Copy(msgItem->getCurCopyPtr(), sendBuff, sendBuffOffset, copyLen);
+                    msgItem->index += copyLen;
                     copyedLength += copyLen;
                     break;//那么也可以直接退出了
                 }
@@ -127,18 +133,15 @@ namespace DNET
         /// <returns>实际提取到的消息</returns>
         public int GetReceMsg(ByteBuffer[] msgBuffers, int offset, int count)
         {
-
             return 0;
         }
-
 
         /// <summary>
         /// 待发送数据队列
         /// </summary>
-        private DQueue<MsgItem> _queueSendData = new DQueue<MsgItem>(int.MaxValue,256);
+        private DQueue<IntPtr> _queueSendData = new DQueue<IntPtr>(int.MaxValue, 256);
 
-
-        struct MsgItem
+        private struct MsgItem
         {
             /// <summary>
             /// 消息
@@ -161,8 +164,9 @@ namespace DNET
             /// <returns></returns>
             public IntPtr getCurCopyPtr()
             {
-                unsafe {
-                    byte * p=(byte*)msg.ToPointer();
+                unsafe
+                {
+                    byte* p = (byte*)msg.ToPointer();
                     return new IntPtr(&p[index]);
                 }
             }
