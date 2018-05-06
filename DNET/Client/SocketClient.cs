@@ -49,9 +49,6 @@ namespace DNET
                 _clientSocket.SendTimeout = 8 * 1000;
                 _clientSocket.ReceiveTimeout = 0;
 
-                /*   TcpClient client = new TcpClient(hostName, port);
-                   this._hostEndPoint = client.Client.RemoteEndPoint;
-                   this._clientSocket = client.Client;*/
             }
             catch (Exception e)
             {
@@ -89,6 +86,11 @@ namespace DNET
         /// 接收buffer大小
         /// </summary>
         private const int RECE_BUFFER_SIZE = 512 * 1024; //512k
+
+        /// <summary>
+        /// 发送buffer大小
+        /// </summary>
+        private const int SEND_BUFFER_SIZE = 128 * 1024; //128k
 
         ///// <summary>
         ///// 消息的队列最大长度
@@ -128,6 +130,10 @@ namespace DNET
         /// </summary>
         private byte[] _receiveBuffer;
 
+        /// <summary>
+        /// 用来发送的buffer的缓冲区
+        /// </summary>
+        private byte[] _sendBuffer;
 #endif
 
         /// <summary>
