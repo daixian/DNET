@@ -129,6 +129,11 @@ namespace DNET
         private DQueue<NetWorkMsg> _msgQueue = null;
 
         /// <summary>
+        /// 通信类使用的控制消息池
+        /// </summary>
+        private DQueue<NetWorkMsg> _msgPool = null;
+
+        /// <summary>
         /// 当前的信号量计数
         /// </summary>
         private int _curSemCount = 0;
@@ -489,7 +494,17 @@ namespace DNET
 
                 Interlocked.Exchange(ref this._host, host);//给类成员赋值
                 Interlocked.Exchange(ref this._port, port);//给类成员赋值
-                AddMessage(new NetWorkMsg(NetWorkMsg.Tpye.C_Connect, null));
+
+                NetWorkMsg msg = _msgPool.Dequeue();
+                if (msg == null)
+                {
+                    msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Connect);
+                }
+                else
+                {
+                    msg.Reset(NetWorkMsg.Tpye.C_Connect);
+                }
+                AddMessage(msg);
 
                 LastMsgReceTickTime = DateTime.Now.Ticks;
                 LastMsgSendTickTime = DateTime.Now.Ticks;
@@ -518,14 +533,13 @@ namespace DNET
         /// <summary>
         /// 关闭当前连接
         /// </summary>
-        public void DisConnect()
+        public void Disconnect()
         {
             try
             {
                 this.Clear();
                 if (_socketClient != null)
                 {
-                    //_socketClient.Disconnect();
                     _socketClient.Disconnect();
                 }
             }
@@ -541,7 +555,17 @@ namespace DNET
         public void Close()
         {
             DxDebug.LogConsole("DNClient.Close():进入了close函数！");
-            AddMessage(new NetWorkMsg(NetWorkMsg.Tpye.C_AsynClose, null));
+
+            NetWorkMsg msg = _msgPool.Dequeue();
+            if (msg == null)
+            {
+                msg = new NetWorkMsg(NetWorkMsg.Tpye.C_AsynClose);
+            }
+            else
+            {
+                msg.Reset(NetWorkMsg.Tpye.C_AsynClose);
+            }
+            AddMessage(msg);
         }
 
         /// <summary>
@@ -554,7 +578,7 @@ namespace DNET
         }
 
         /// <summary>
-        /// 发送一条数据
+        /// 发送一条数据，之后不能修改参数data数组中内容
         /// </summary>
         /// <param name="data">要发送的整个数据</param>
         public void Send(byte[] data)
@@ -567,7 +591,16 @@ namespace DNET
             try
             {
                 //进行数据的预打包，然后不拷贝
-                AddMessage(new NetWorkMsg(NetWorkMsg.Tpye.C_Send, _packet.PrePack(data, 0, data.Length)));
+                NetWorkMsg msg = _msgPool.Dequeue();
+                if (msg == null)
+                {
+                    msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Send, _packet.PrePack(data, 0, data.Length));
+                }
+                else
+                {
+                    msg.Reset(NetWorkMsg.Tpye.C_Send, _packet.PrePack(data, 0, data.Length));
+                }
+                AddMessage(msg);
             }
             catch (Exception e)
             {
@@ -590,7 +623,16 @@ namespace DNET
             try
             {
                 //进行数据的预打包，然后不拷贝
-                AddMessage(new NetWorkMsg(NetWorkMsg.Tpye.C_Send, _packet.PrePack(data, offset, count)));
+                NetWorkMsg msg = _msgPool.Dequeue();
+                if (msg == null)
+                {
+                    msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Send, _packet.PrePack(data, offset, count));
+                }
+                else
+                {
+                    msg.Reset(NetWorkMsg.Tpye.C_Send, _packet.PrePack(data, offset, count));
+                }
+                AddMessage(msg);
             }
             catch (Exception e)
             {
@@ -679,13 +721,14 @@ namespace DNET
                         break;
                 }
                 DxDebug.LogError("DNClient.AddMessage():大于系统能力，当前最后一条：" + msgtype);
-
                 //throw;//这个throw还是应该去掉
+                _msgPool.EnqueueMaxLimit(msg);
             }
             catch (Exception e)
             {
                 DxDebug.LogError("DNClient.AddMessage():异常：" + e.Message);
                 //throw;//这个throw还是应该去掉
+                _msgPool.EnqueueMaxLimit(msg);
             }
         }
 
@@ -752,6 +795,8 @@ namespace DNET
 
                                     break;
                             }
+                            //用过的消息放回池里
+                            _msgPool.EnqueueMaxLimit(msg);
                         }
                         else
                         {
@@ -884,6 +929,7 @@ namespace DNET
                     _sendQueuePeakLength = 0;//重计峰值长度
 
                     _msgQueue.TrimExcess();
+                    _msgPool.TrimExcess();
                     _receiveDataQueue.TrimExcess();
                     _sendDataQueue.TrimExcess();
 
@@ -964,10 +1010,12 @@ namespace DNET
 
                 // 清理托管资源
                 _msgQueue.Clear();
+                _msgPool.Clear();
                 _receiveDataQueue.Clear();
                 _sendDataQueue.Clear();
 
                 _msgQueue = null;
+                _msgPool = null;
                 _receiveDataQueue = null;
                 _sendDataQueue = null;
                 _reserveData = null;
@@ -1009,6 +1057,9 @@ namespace DNET
                 //}
                 if (_msgQueue == null)
                     _msgQueue = new DQueue<NetWorkMsg>(int.MaxValue, 256);
+                if (_msgPool == null)
+                    _msgPool = new DQueue<NetWorkMsg>(int.MaxValue, 256);
+
                 if (_msgSemaphore == null)
                 {
                     _msgSemaphore = new Semaphore(0, 4);
@@ -1054,8 +1105,19 @@ namespace DNET
 
         private void OnReceive()
         {
-            //DxDebug.Log("-----------EventHandler：进入了OnReceive：信号量： 接收");
-            AddMessage(new NetWorkMsg(NetWorkMsg.Tpye.C_Receive, null));
+            if (this._isDebugLog)
+                DxDebug.LogConsole("-----------EventHandler：进入了OnReceive回调！");
+
+            NetWorkMsg msg = _msgPool.Dequeue();
+            if (msg == null)
+            {
+                msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Receive);
+            }
+            else
+            {
+                msg.Reset(NetWorkMsg.Tpye.C_Receive);
+            }
+            AddMessage(msg);
         }
 
         private void OnSend()
@@ -1066,7 +1128,16 @@ namespace DNET
             Interlocked.Decrement(ref _snedingCount);
             if (_sendDataQueue.Count > 0) //如果待发送队列里有消息,不需要再判断_snedingCount < MAX_SENDING_DATA，直接开始下一次发送
             {
-                AddMessage(new NetWorkMsg(NetWorkMsg.Tpye.C_Send, null));
+                NetWorkMsg msg = _msgPool.Dequeue();
+                if (msg == null)
+                {
+                    msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Send);
+                }
+                else
+                {
+                    msg.Reset(NetWorkMsg.Tpye.C_Send);
+                }
+                AddMessage(msg);
             }
             else
             {
@@ -1135,10 +1206,12 @@ namespace DNET
                 {
                     // 清理托管资源
                     _msgQueue.Clear();
+                    _msgPool.Clear();
                     _receiveDataQueue.Clear();
                     _sendDataQueue.Clear();
 
                     _msgQueue = null;
+                    _msgPool = null;
                     _receiveDataQueue = null;
                     _sendDataQueue = null;
                     _reserveData = null;

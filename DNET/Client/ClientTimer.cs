@@ -103,7 +103,7 @@ namespace DNET
                 if (time > Config.HeartBeatCheckTime)
                 {
                     DxDebug.LogWarning("ClientTimer.OnTimerTick()：长时间没有收到心跳包，判断可能已经掉线！");
-                    client.DisConnect();//关闭连接
+                    client.Disconnect();//关闭连接
                 }
             }
 

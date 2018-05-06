@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace DNET
 {
@@ -15,7 +16,10 @@ namespace DNET
         /// <param name="maxCapacity">队列的最大长度</param>
         public DQueue(int maxCapacity)
         {
-            this._queue = new Queue<T>(maxCapacity);//直接申请最大容量
+            if (maxCapacity < 1024)
+                this._queue = new Queue<T>(maxCapacity);//直接申请最大容量
+            else
+                this._queue = new Queue<T>(1024);//直接申请最大容量
             maxCount = maxCapacity;
         }
 
@@ -32,9 +36,9 @@ namespace DNET
         }
 
         /// <summary>
-        /// 数据队列
+        /// 数据队列,暴露出来使用方便扩展
         /// </summary>
-        private Queue<T> _queue;
+        public Queue<T> _queue;
 
         /// <summary>
         /// 队列的最大长度
@@ -75,7 +79,7 @@ namespace DNET
         }
 
         /// <summary>
-        /// 移除并返回位于 Queue 开始处的对象。
+        /// 移除并返回位于 Queue 开始处的对象，如果没有那么返回default(T)。
         /// </summary>
         /// <returns>返回的条目</returns>
         public T Dequeue()
@@ -195,6 +199,113 @@ namespace DNET
         }
 
         /// <summary>
+        /// 尝试一次取出整个队列的所有数据,如果为空返回null
+        /// </summary>
+        /// <returns>队列的数据数组</returns>
+        public T[] TryGetData()
+        {
+            if (_queue.Count == 0)
+            {
+                return null;
+            }
+
+            if (Monitor.TryEnter(this._queue))
+            {
+                T[] data = _queue.ToArray();
+                this._queue.Clear();
+                Monitor.Exit(this._queue);
+
+                return data;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 尝试一次取出整个队列的所有数据,尝试把结果写到output数组中去,返回成功取出的条数。
+        /// </summary>
+        /// <param name="output">缓存地址</param>
+        /// <param name="offset">output中的偏移</param>
+        /// <returns>成功取出的条数</returns>
+        public int TryGetData(T[] output, int offset)
+        {
+            if (_queue.Count == 0)
+            {
+                return 0;
+            }
+
+            if (Monitor.TryEnter(this._queue))
+            {
+                int curIndex = 0;
+                while (offset + curIndex < output.Length)
+                {
+                    if (_queue.Count > 0)
+                        output[offset + curIndex] = _queue.Dequeue();
+                    else
+                        break;
+                    curIndex++;
+                }
+
+                Monitor.Exit(this._queue);
+
+                return curIndex;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// 尝试一次取出整个队列的所有数据,尝试把结果写到output数组中去,返回成功取出的条数。
+        /// </summary>
+        /// <param name="output">缓存地址</param>
+        /// <param name="offset">output中的偏移</param>
+        /// <returns>成功取出的条数</returns>
+        public int GetData(T[] output, int offset)
+        {
+            lock (this._queue)
+            {
+                if (_queue.Count == 0)
+                {
+                    return 0;
+                }
+
+                int curIndex = 0;
+                while (offset + curIndex < output.Length)
+                {
+                    if (_queue.Count > 0)
+                        output[offset + curIndex] = _queue.Dequeue();
+                    else
+                        break;
+                    curIndex++;
+                }
+                return curIndex;
+            }
+        }
+
+        /// <summary>
+        /// 一次取出整个队列的所有数据,如果为空返回null
+        /// </summary>
+        /// <returns>队列的数据数组</returns>
+        public T[] GetData()
+        {
+            lock (this._queue)
+            {
+                if (_queue.Count == 0)
+                {
+                    return null;
+                }
+
+                T[] data = _queue.ToArray();
+                this._queue.Clear();
+                return data;
+            }
+        }
+
+        /// <summary>
         /// 如果元素数小于当前容量的 90%，将容量设置为队列中的实际元素数。
         /// </summary>
         public void TrimExcess()
@@ -203,6 +314,22 @@ namespace DNET
             {
                 this._queue.TrimExcess();
             }
+        }
+
+        /// <summary>
+        /// 进入锁
+        /// </summary>
+        public void LockEnter()
+        {
+            Monitor.Enter(this._queue);
+        }
+
+        /// <summary>
+        /// 离开锁
+        /// </summary>
+        public void LockExit()
+        {
+            Monitor.Exit(this._queue);
         }
     }
 }

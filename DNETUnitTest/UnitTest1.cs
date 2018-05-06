@@ -5,8 +5,11 @@ using System.Threading;
 
 namespace DNETUnitTest
 {
+    /// <summary>
+    /// 包含有创建服务器，创建客户端，然后互发的测试。
+    /// </summary>
     [TestClass]
-    public class UnitTest1
+    public partial class UnitTest1
     {
         /// <summary>
         /// 启动一个服务器，它会原样回发接收到的消息。
@@ -73,14 +76,14 @@ namespace DNETUnitTest
             int receCount = 0;//接收的消息总条数
             int sendCount = 0;
 
-            //发送100次
+            //发送n次
             for (int count = 0; count < 200; count++)
             {
                 while (DNClient.GetInst().isSendQueueIsFull)
                 {
                     Thread.Sleep(20);
                 }
-                //一次连发100条
+                //一次连发n条
                 for (int i = 0; i < 500; i++)
                 {
                     //发送sendDataLength字节的sendData
@@ -121,6 +124,7 @@ namespace DNETUnitTest
 
             DNClient.GetInst().CloseImmediate();
             DNServer.GetInst().Close();
+            LogFile.GetInst().Close();
         }
 
         /// <summary>
@@ -189,14 +193,14 @@ namespace DNETUnitTest
             int receCount = 0;//接收的消息总条数
             int sendCount = 0;
 
-            //发送100次
+            //发送n次
             for (int count = 0; count < 200; count++)
             {
                 while (DNClient.GetInstance().isSendQueueIsFull)
                 {
                     Thread.Sleep(20);
                 }
-                //一次连发100条
+                //一次连发n条
                 for (int i = 0; i < 500; i++)
                 {
                     //发送sendDataLength字节的sendData
@@ -237,11 +241,11 @@ namespace DNETUnitTest
 
             DNClient.GetInst().CloseImmediate();
             DNServer.GetInst().Close();
+            LogFile.GetInst().Close();
         }
 
         /// <summary>
-        /// 启动一个服务器，它会原样回发接收到的消息。
-        /// 再启动一个客户端和它发送消息，验证发送接收正常。较大压力测法。
+        /// 较大压力的测法。
         /// </summary>
         [TestMethod]
         public void TestMethod_SendRecePressure()
@@ -305,15 +309,16 @@ namespace DNETUnitTest
             int receCount = 0;//接收的消息总条数
             int sendCount = 0;
 
-            //发送100次
+            //发送n次
             for (int count = 0; count < 500; count++)
             {
+                //如果已经队列太满，那就等一下再发
                 while (DNClient.GetInstance().isSendQueueIsFull)
                 {
                     Thread.Sleep(20);
                 }
-                //一次连发100条
-                for (int i = 0; i < 500; i++)
+                //一次连发n条
+                for (int i = 0; i < 1500; i++)
                 {
                     //发送sendDataLength字节的sendData
                     DxDebug.LogConsole("客户端发送:msgNum=" + sendCount);
@@ -322,6 +327,7 @@ namespace DNETUnitTest
                     sendCount++;
                 }
                 Thread.Sleep(20);
+                //边发边收
                 byte[][] datas = DNClient.GetInstance().GetReceiveData();
                 if (datas != null)
                 {
@@ -386,8 +392,10 @@ namespace DNETUnitTest
 
             Assert.IsTrue(receCount == sendCount);
 
+          
             DNClient.GetInst().CloseImmediate();
             DNServer.GetInst().Close();
+            LogFile.GetInst().Close();
         }
     }
 }

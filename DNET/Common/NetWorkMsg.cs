@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-
 
 namespace DNET
 {
-
     /// <summary>
     /// Unity3d主模块和通信模块的工作线程之间异步工作使用的消息,
     /// 一般不应该使用这个，而应该直接使用提供的方法.
@@ -21,10 +18,12 @@ namespace DNET
             /// 连接
             /// </summary>
             C_Connect,
+
             /// <summary>
             /// 向服务器发送
             /// </summary>
             C_Send,
+
             /// <summary>
             /// 接收事件消息
             /// </summary>
@@ -34,23 +33,28 @@ namespace DNET
             /// 异步的关闭客户端
             /// </summary>
             C_AsynClose,
+
             //---------------服务器-----------------
             /// <summary>
             /// 开始服务器
             /// </summary>
             S_Start,
+
             /// <summary>
             /// 认证消息
             /// </summary>
             S_Accept,
+
             /// <summary>
             /// 向某个token发送
             /// </summary>
             S_Send,
+
             /// <summary>
             /// 接收事件
             /// </summary>
             S_Receive,
+
             /// <summary>
             /// 开始向所有用户的一次发送。自动发送这些用户待发送队列中的数据
             /// </summary>
@@ -64,7 +68,7 @@ namespace DNET
         /// <param name="data">如果需要的话会是一个数据</param>
         /// <param name="arg1">附加参数（服务器端用于记录了TokenID） </param>
         /// <param name="isDataCopy">是否进行数据的拷贝（可控为了提高性能）</param>
-        public NetWorkMsg(Tpye type, byte[] data, int arg1 = int.MaxValue, bool isDataCopy = false)
+        public NetWorkMsg(Tpye type, byte[] data = null, int arg1 = int.MaxValue, bool isDataCopy = false)
         {
             this.type = type;
             this.arg1 = arg1;
@@ -130,10 +134,19 @@ namespace DNET
         /// 创建时的timeTick
         /// </summary>
         public long timeTickCreat;
+
         //public int arg2;
 
-
+        /// <summary>
+        /// 重置数据
+        /// </summary>
+        public void Reset(Tpye type = Tpye.C_Connect, byte[] data = null, int arg1 = 0, Token token = null)
+        {
+            this.type = type;
+            this.data = data;
+            this.arg1 = arg1;
+            this.token = null;
+            timeTickCreat = DateTime.Now.Ticks;
+        }
     }
-
-
 }
