@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 
@@ -100,7 +101,7 @@ namespace DNET
         //private int MAX_RECR_DATA_QUEUE = 4096;
 
         /// <summary>
-        /// 最多当前等待发送队列长度（用来提供当前待发送队列是否较长的判断的）
+        /// 最多当前等待发送队列长度(用来提供当前待发送队列是否较长的判断的）
         /// </summary>
         private int MAX_SEND_DATA_QUEUE = 4096;
 
@@ -486,7 +487,7 @@ namespace DNET
             }
             catch (Exception e)
             {
-                DxDebug.LogError("DNClient.SetDirCache(): 设置工作文件夹失败！ " + e.Message);
+                DxDebug.LogError("DNClient.SetDirCache(): 设置工作文件夹失败!" + e.Message);
             }
             return false;
         }
@@ -666,12 +667,58 @@ namespace DNET
         }
 
         /// <summary>
-        /// 获取目前所有的已接收的数据，返回byte[][]的形式,没有则返回null
+        /// 得到一条接收到的数据
+        /// </summary>
+        /// <returns></returns>
+        public ByteBuffer GetOneReceiveData()
+        {
+            return _packet2.GetReceMsg();
+        }
+
+        /// <summary>
+        /// 提供一个Buffer数组批量得到接收到的数据，返回成功得到的数量
+        /// </summary>
+        /// <param name="buffs">Buffer数组</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="count">最大计数</param>
+        /// <returns></returns>
+        public int GetReceiveData(ByteBuffer[] buffs, int offset, int count)
+        {
+            return _packet2.GetReceMsg(buffs, offset, count);
+        }
+
+        /// <summary>
+        /// 获取目前所有的已接收的数据，返回byte[][]的形式,没有则返回null.
+        /// 这是会产生GC的方式，不推荐.
         /// </summary>
         /// <returns>所有的byte[]数据,没有则返回null</returns>
         public byte[][] GetReceiveData()
         {
-            return _receiveDataQueue.GetData();
+            if (_packet2.ReceMsgCount == 0)
+            {
+                return null;
+            }
+            List<ByteBuffer> ListMsg = new List<ByteBuffer>();
+            while (_packet2.ReceMsgCount != 0)
+            {
+                ByteBuffer bf = _packet2.GetReceMsg();//提取一条消息
+                if (bf != null)
+                {
+                    ListMsg.Add(bf);
+                }
+                else
+                {
+                    break;
+                }
+            }
+            byte[][] datas = new byte[ListMsg.Count][];
+            for (int i = 0; i < datas.Length; i++)
+            {
+                datas[i] = new byte[ListMsg[i].validLength];
+                Buffer.BlockCopy(ListMsg[i].buffer, 0, datas[i], 0, ListMsg[i].validLength);
+            }
+
+            return datas;
         }
 
         /// <summary>
@@ -860,7 +907,7 @@ namespace DNET
                 }
                 else
                 {
-                    _socketClient = new SocketClient(_host, _port);
+                    _socketClient = new SocketClient(_host, _port, _packet2);
                     if (_socketClient == null)
                     {
                         DxDebug.LogError("DNClient.DoConnect():-----------连接服务器失败！_socketClient对象未能创建成功。");
@@ -964,49 +1011,22 @@ namespace DNET
         {
             try
             {
-                //得到当前接收到的数据 ，并且和_reserveData拼接
-                byte[] alldata = _socketClient.GetDataOnce(_reserveData);
-                _reserveData = null;
-                if (alldata == null)
+                //不再做心跳包处理，直接发出事件
+
+                //接收数据事件
+                if (EventReceData != null)
                 {
-                    return;
-                }
-                //DxDebug.Log("-----------数据解包");
-                FindPacketResult findPacketResult = _packet.FindPacket(alldata, 0);//解包
-                _reserveData = findPacketResult.reserveData;//更新reserveData
-                if (findPacketResult.dataArr != null) //将结果加入队列
-                {
-                    for (int i = 0; i < findPacketResult.dataArr.Length; i++)
+                    try
                     {
-                        LastMsgReceTickTime = DateTime.Now.Ticks;
-                        //如果这条数据不是心跳包那么加入接收队列
-                        if (!Config.CompareHeartBeat(findPacketResult.dataArr[i]))//Config中的静态函数判断
-                        {
-                            if (!_receiveDataQueue.EnqueueMaxLimit(findPacketResult.dataArr[i]))
-                            {
-                                DxDebug.LogWarning("DNClient.DoReceive():接收到的已经解包的数据队列 丢弃了队列前端的数据");
-                            }
-                            //接收数据事件
-                            if (EventReceData != null)
-                            {
-                                try
-                                {
-                                    EventReceData(this);//发出事件：接收到了数据
-                                }
-                                catch (Exception e)
-                                {
-                                    DxDebug.LogWarning("DNClient.DoReceive()：执行外部事件EventReceData 异常: " + e.Message);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            //如果是心跳包那么就不处理
-                            DxDebug.LogConsole("DNClient.DoReceive():收到了心跳包");
-                        }
+                        EventReceData(this);//发出事件：接收到了数据
                     }
-                    //DxDebug.Log("-----------数据解包完成，数据条数：  " + findPacketResult.data.Length);
+                    catch (Exception e)
+                    {
+                        DxDebug.LogWarning("DNClient.DoReceive()：执行外部事件EventReceData 异常: " + e.Message);
+                    }
                 }
+
+                //DxDebug.Log("-----------数据解包完成，数据条数：  " + findPacketResult.data.Length);
             }
             catch (Exception e)
             {
@@ -1079,8 +1099,8 @@ namespace DNET
                     _msgSemaphore = new Semaphore(0, 4);
                     Interlocked.Exchange(ref _curSemCount, 0);
                 }
-               // if (_sendDataQueue == null)
-               //     _sendDataQueue = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
+                // if (_sendDataQueue == null)
+                //     _sendDataQueue = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
                 if (_receiveDataQueue == null)
                     _receiveDataQueue = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
 
@@ -1109,7 +1129,7 @@ namespace DNET
         {
             _msgQueue.Clear();
             _receiveDataQueue.Clear();
-           // _sendDataQueue.Clear();
+            // _sendDataQueue.Clear();
             _reserveData = null;
             _packet2.Clear();
         }

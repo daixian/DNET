@@ -16,7 +16,7 @@ namespace DNET
         /// <summary>
         /// 构造函数： 创建出一个Socket对象
         /// </summary>
-        internal SocketClient(string hostName, int port)
+        internal SocketClient(string hostName, int port,IPacket2 packet2)
         {
             try
             {
@@ -48,7 +48,6 @@ namespace DNET
                 //设置这个Timeout应该是无效的(是有效的，必须设置为0，否则自动断线)
                 _clientSocket.SendTimeout = 8 * 1000;
                 _clientSocket.ReceiveTimeout = 0;
-
             }
             catch (Exception e)
             {
@@ -62,8 +61,10 @@ namespace DNET
                 _receiveBuffer = new byte[RECE_BUFFER_SIZE];
             if (_sendBuffer == null)
                 _sendBuffer = new byte[SEND_BUFFER_SIZE];
-            if (_dataQueue == null)
-                _dataQueue = new BytesQueue(int.MaxValue, MAX_DATA_QUEUE_BYTES_SIZE, 256);
+
+            _packet2 = packet2;
+            //if (_dataQueue == null)
+            //    _dataQueue = new BytesQueue(int.MaxValue, MAX_DATA_QUEUE_BYTES_SIZE, 256);
 
 #if !NEW_EVENT_AEGS
 
@@ -92,7 +93,7 @@ namespace DNET
         /// <summary>
         /// 发送buffer大小
         /// </summary>
-        private const int SEND_BUFFER_SIZE = 512 * 1024; //128k
+        private const int SEND_BUFFER_SIZE = 128 * 1024; //128k
 
         ///// <summary>
         ///// 消息的队列最大长度
@@ -136,12 +137,13 @@ namespace DNET
         /// 用来发送的buffer的缓冲区
         /// </summary>
         private byte[] _sendBuffer;
+
 #endif
 
         /// <summary>
-        /// 存贮当前接收到的消息的队列
+        /// 带数据管理的新打包器
         /// </summary>
-        private BytesQueue _dataQueue = null;
+        internal IPacket2 _packet2;
 
         /// <summary>
         /// IO消耗时间计算
@@ -334,8 +336,6 @@ namespace DNET
                     _clientSocket.Shutdown(SocketShutdown.Both);
                     _clientSocket.Disconnect(false);//不允许重用套接字
                 }
-
-                Clear();//顺便清空队列
             }
             catch (Exception e)
             {
@@ -411,33 +411,30 @@ namespace DNET
             }
         }
 
+        ///// <summary>
+        ///// 得到当前缓存的数据,返回byte[][]的形式,没有则返回null
+        ///// </summary>
+        //internal byte[][] GetData()
+        //{
+        //    return _dataQueue.GetData();
+        //}
 
-
-
-        /// <summary>
-        /// 得到当前缓存的数据,返回byte[][]的形式,没有则返回null
-        /// </summary>
-        internal byte[][] GetData()
-        {
-            return _dataQueue.GetData();
-        }
-
-        /// <summary>
-        /// 得到当前缓存的数据,返回byte[]的形式,没有则返回reserveData本身
-        /// </summary>
-        /// <param name="reserveData"></param>
-        /// <returns></returns>
-        internal byte[] GetDataOnce(byte[] reserveData)
-        {
-            return _dataQueue.GetDataOnce(reserveData);
-        }
+        ///// <summary>
+        ///// 得到当前缓存的数据,返回byte[]的形式,没有则返回reserveData本身
+        ///// </summary>
+        ///// <param name="reserveData"></param>
+        ///// <returns></returns>
+        //internal byte[] GetDataOnce(byte[] reserveData)
+        //{
+        //    return _dataQueue.GetDataOnce(reserveData);
+        //}
 
         /// <summary>
         /// 清空当前所有的队列和数据结构
         /// </summary>
         internal void Clear()
         {
-            _dataQueue.Clear();
+           // _dataQueue.Clear();
         }
 
         #endregion Exposed Function
@@ -482,11 +479,14 @@ namespace DNET
                 }
                 if (e.BytesTransferred > 0) //有可能会出现接收到的数据长度为0的情形，如当服务器关闭连接的时候
                 {
-                    byte[] data = new byte[e.BytesTransferred]; //当次接收的数据
-                    Buffer.BlockCopy(e.Buffer, e.Offset, data, 0, data.Length);
-                    EnqueueData(data); //记录数据
+                    int msgCount = _packet2.AddRece(e.Buffer, e.Offset, e.BytesTransferred);//写入当前接收的数据
 
-                    if (EventReceive != null) //执行事件
+                    //byte[] data = new byte[e.BytesTransferred]; //当次接收的数据
+                    //Buffer.BlockCopy(e.Buffer, e.Offset, data, 0, data.Length);
+                    //EnqueueData(data); //记录数据
+
+                    //如果确实收到了一条消息
+                    if (msgCount > 0 && EventReceive != null) //执行事件
                     {
                         EventReceive();
                     }
@@ -563,17 +563,17 @@ namespace DNET
             }
         }
 
-        /// <summary>
-        /// 将数据加入到接收缓存数据队列
-        /// </summary>
-        private void EnqueueData(byte[] data)
-        {
-            if (!_dataQueue.EnqueueMaxLimit(data))
-            {
-                DxDebug.LogWarning("SocketClient.EnqueueData():接收缓存数据队列丢弃了一段数据");
-            }
-            return;
-        }
+        ///// <summary>
+        ///// 将数据加入到接收缓存数据队列
+        ///// </summary>
+        //private void EnqueueData(byte[] data)
+        //{
+        //    if (!_dataQueue.EnqueueMaxLimit(data))
+        //    {
+        //        DxDebug.LogWarning("SocketClient.EnqueueData():接收缓存数据队列丢弃了一段数据");
+        //    }
+        //    return;
+        //}
 
         /// <summary>
         /// 开始异步发送
@@ -672,9 +672,6 @@ namespace DNET
                     EventReceive = null;
                     EventSend = null;
                     EventError = null;
-
-                    _dataQueue.Clear();
-                    _dataQueue = null;
                 }
                 // 清理非托管资源
                 if (this._sendArgs != null)
