@@ -35,7 +35,8 @@ namespace DNET
         private long maxBlockSize = 1024 * 1024 * 1;
 
         /// <summary>
-        /// 根据期望大小获得一个buffer 
+        /// 根据期望大小获得一个buffer.
+        /// autoSetValidLength为true则默认设置validLength为期望大小,否则设置为0.
         /// </summary>
         /// <param name="size">期望大小</param>
         /// <param name="autoSetValidLength">是否validLength会自动标记为size</param>
@@ -58,6 +59,10 @@ namespace DNET
             if (autoSetValidLength)
             {
                 bbf.validLength = (int)size;
+            }
+            else
+            {
+                bbf.validLength = 0;
             }
             return bbf;
         }

@@ -33,7 +33,7 @@
         int SendMsgCount { get; }
 
         /// <summary>
-        /// 底层接收buffer将当前这次接收到的数据写入进来.
+        /// 底层接收buffer将当前这次接收到的数据写入进来,这一步就需要进行数据包的解析了.
         /// </summary>
         /// <param name="receBuff">接收buffer</param>
         /// <param name="offset">接收buffer的offset</param>
