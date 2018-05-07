@@ -601,7 +601,7 @@ namespace DNET
         }
 
         /// <summary>
-        /// 发送一条数据，之后不能修改参数data数组中内容
+        /// 发送一条数据
         /// </summary>
         /// <param name="data">要发送的整个数据</param>
         public void Send(byte[] data)

@@ -16,7 +16,7 @@ namespace DNET
         /// <summary>
         /// 构造函数： 创建出一个Socket对象
         /// </summary>
-        internal SocketClient(string hostName, int port,IPacket2 packet2)
+        internal SocketClient(string hostName, int port, IPacket2 packet2)
         {
             try
             {
@@ -91,7 +91,7 @@ namespace DNET
         /// <summary>
         /// 发送buffer大小
         /// </summary>
-        private const int SEND_BUFFER_SIZE = 128 * 1024; //128k
+        private const int SEND_BUFFER_SIZE = 256 * 1024; //128k
 
         ///// <summary>
         ///// 消息的队列最大长度
@@ -414,7 +414,7 @@ namespace DNET
         /// </summary>
         internal void Clear()
         {
-           // _dataQueue.Clear();
+            // _dataQueue.Clear();
         }
 
         #endregion Exposed Function
@@ -459,12 +459,8 @@ namespace DNET
                 }
                 if (e.BytesTransferred > 0) //有可能会出现接收到的数据长度为0的情形，如当服务器关闭连接的时候
                 {
-                    int msgCount = _packet2.AddRece(e.Buffer, e.Offset, e.BytesTransferred);//写入当前接收的数据
-
-                    //byte[] data = new byte[e.BytesTransferred]; //当次接收的数据
-                    //Buffer.BlockCopy(e.Buffer, e.Offset, data, 0, data.Length);
-                    //EnqueueData(data); //记录数据
-
+                    //写入当前接收的数据
+                    int msgCount = _packet2.AddRece(e.Buffer, e.Offset, e.BytesTransferred);
                     //如果确实收到了一条消息
                     if (msgCount > 0 && EventReceive != null) //执行事件
                     {
