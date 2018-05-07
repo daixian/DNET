@@ -3,7 +3,7 @@
     /// <summary>
     /// 客户端和服务器之间通信的数据打包方法以及暂存数据管理的接口。
     /// </summary>
-    internal interface IPacket2
+    public interface IPacket2
     {
         /// <summary>
         /// 用户添加一段要发送的数据进来

@@ -29,7 +29,9 @@ namespace DNET
             //    _instance = null;
             //}
 
-            _packet = new DPacketNoCrc();
+            //_packet = new DPacketNoCrc();
+            _packet = new FastPacket();
+            
             ServerTimer.GetInstance().Start();
 
             Status = new ServerStatus(this);//创建状态统计

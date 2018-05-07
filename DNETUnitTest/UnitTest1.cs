@@ -15,7 +15,7 @@ namespace DNETUnitTest
         /// 启动一个服务器，它会原样回发接收到的消息。
         /// 再启动一个客户端和它发送消息，验证发送接收正常
         /// </summary>
-        [TestMethod]
+        //[TestMethod]
         public void TestMethod_SendReceDPacketNoCrc()
         {
             Config.DefaultConfigOnWindows();
@@ -137,9 +137,7 @@ namespace DNETUnitTest
             Config.DefaultConfigOnWindows();
             Config.IsAutoHeartbeat = false;
             DNClient.GetInst().isDebugLog = true;
-            DNClient.GetInst().Packet = new FastPacket();
-            LogFile.GetInst().isImmediatelyFlush = true;
-            DNServer.GetInst().Packet = new FastPacket();
+            LogFile.GetInst().isImmediatelyFlush = true; 
             DNServer.GetInst().EventTokenReceData += (token) =>
             {
                 byte[][] datas = token.GetReceiveData();
@@ -186,6 +184,7 @@ namespace DNETUnitTest
                 if (DNClient.GetInstance().IsConnected)
                 {
                     DxDebug.LogConsole("TestMethod_Send():连接成功");
+                    Thread.Sleep(1000);
                     break;
                 }
             }

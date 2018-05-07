@@ -60,6 +60,8 @@ namespace DNET
                 _areConnectDone = new AutoResetEvent(false);
             if (_receiveBuffer == null)
                 _receiveBuffer = new byte[RECE_BUFFER_SIZE];
+            if (_sendBuffer == null)
+                _sendBuffer = new byte[SEND_BUFFER_SIZE];
             if (_dataQueue == null)
                 _dataQueue = new BytesQueue(int.MaxValue, MAX_DATA_QUEUE_BYTES_SIZE, 256);
 
@@ -90,7 +92,7 @@ namespace DNET
         /// <summary>
         /// 发送buffer大小
         /// </summary>
-        private const int SEND_BUFFER_SIZE = 128 * 1024; //128k
+        private const int SEND_BUFFER_SIZE = 512 * 1024; //128k
 
         ///// <summary>
         ///// 消息的队列最大长度
@@ -367,6 +369,50 @@ namespace DNET
                 throw new SocketException((int)SocketError.NotConnected);
             }
         }
+
+        ///-------------------------------------------------------------------------------------------------
+        /// <summary> 由于打包器做了数据管理，所以直接丢打包器进来发送数据. </summary>
+        /// <exception cref="SocketException"> Thrown when a
+        ///                                    Socket error
+        ///                                    condition
+        ///                                    occurs. </exception>
+        ///
+        /// <param name="ipt2"> 打包器. </param>
+        ///
+        /// <returns> 如果确实开始发送了则返回true，否则返回false. </returns>
+        ///-------------------------------------------------------------------------------------------------
+        internal bool SendData(IPacket2 ipt2)
+        {
+            if (IsConnected)
+            {
+#if !NEW_EVENT_AEGS
+                //拷贝数据到sendBuffer上
+                int sendLen = ipt2.WriteSendDataToBuffer(_sendBuffer, 0, _sendBuffer.Length);
+                if (sendLen == 0)//为0表示没有要发送的数据
+                {
+                    return false;
+                }
+                _sendArgs.SetBuffer(_sendBuffer, 0, sendLen);
+#else
+                SocketAsyncEventArgs sendArgs = new SocketAsyncEventArgs();
+                sendArgs.UserToken = this.clientSocket;
+                sendArgs.RemoteEndPoint = this.hostEndPoint;
+                sendArgs.SetBuffer(data, 0, data.Length);
+                sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
+#endif
+                PrepareSend(_clientSocket, _sendArgs);
+
+                _sendTime.WorkStart();
+                return true;
+            }
+            else
+            {
+                throw new SocketException((int)SocketError.NotConnected);
+            }
+        }
+
+
+
 
         /// <summary>
         /// 得到当前缓存的数据,返回byte[][]的形式,没有则返回null
