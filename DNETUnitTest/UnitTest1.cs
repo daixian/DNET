@@ -210,7 +210,7 @@ namespace DNETUnitTest
                 }
                 while (receCount != sendCount)
                 {
-                    Thread.Sleep(20);
+                    Thread.Sleep(1);
                     byte[][] datas = DNClient.GetInstance().GetReceiveData();
                     if (datas != null)
                     {
@@ -327,7 +327,7 @@ namespace DNETUnitTest
                 }
                 while (receCount != sendCount)
                 {
-                    Thread.Sleep(20);
+                    Thread.Sleep(1);
                     int msgCount = DNClient.GetInstance().GetReceiveData(dataBuffers, 0, dataBuffers.Length);
                     if (msgCount > 0)
                     {
@@ -443,7 +443,7 @@ namespace DNETUnitTest
                     DNClient.GetInstance().Send(sendData);
                     sendCount++;
                 }
-                Thread.Sleep(20);
+                Thread.Sleep(1);
                 //边发边收
                 byte[][] datas = DNClient.GetInstance().GetReceiveData();
                 if (datas != null)

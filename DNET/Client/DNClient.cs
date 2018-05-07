@@ -166,21 +166,6 @@ namespace DNET
         /// </summary>
         private IPacket2 _packet2;
 
-        ///// <summary>
-        ///// 待发送的数据的队列(未打包)
-        ///// </summary>
-        //private BytesQueue _sendDataQueue = null;
-
-        /// <summary>
-        /// 接收到的已解包的数据的队列
-        /// </summary>
-        private BytesQueue _receiveDataQueue = null;
-
-        /// <summary>
-        /// 当前还未处理的接收消息缓存
-        /// </summary>
-        private byte[] _reserveData = null;
-
         /// <summary>
         /// 当前正在发送的计数
         /// </summary>
@@ -992,8 +977,6 @@ namespace DNET
 
                     _msgQueue.TrimExcess();
                     _msgPool.TrimExcess();
-                    _receiveDataQueue.TrimExcess();
-                    //_sendDataQueue.TrimExcess();
 
                     if (EventSendQueueIsAvailable != null)
                     {
@@ -1046,14 +1029,9 @@ namespace DNET
                 // 清理托管资源
                 _msgQueue.Clear();
                 _msgPool.Clear();
-                _receiveDataQueue.Clear();
-                //_sendDataQueue.Clear();
 
                 _msgQueue = null;
                 _msgPool = null;
-                _receiveDataQueue = null;
-                //_sendDataQueue = null;
-                _reserveData = null;
 
                 // 清理非托管资源
                 _msgSemaphore.Close();
@@ -1100,10 +1078,6 @@ namespace DNET
                     _msgSemaphore = new Semaphore(0, 4);
                     Interlocked.Exchange(ref _curSemCount, 0);
                 }
-                // if (_sendDataQueue == null)
-                //     _sendDataQueue = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
-                if (_receiveDataQueue == null)
-                    _receiveDataQueue = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
 
                 if (_workThread == null)
                 {
@@ -1129,9 +1103,6 @@ namespace DNET
         private void Clear()
         {
             _msgQueue.Clear();
-            _receiveDataQueue.Clear();
-            // _sendDataQueue.Clear();
-            _reserveData = null;
             _packet2.Clear();
         }
 
@@ -1243,14 +1214,9 @@ namespace DNET
                     // 清理托管资源
                     _msgQueue.Clear();
                     _msgPool.Clear();
-                    _receiveDataQueue.Clear();
-                    //_sendDataQueue.Clear();
 
                     _msgQueue = null;
                     _msgPool = null;
-                    _receiveDataQueue = null;
-                    //_sendDataQueue = null;
-                    _reserveData = null;
                 }
                 // 清理非托管资源
                 _packet2.Clear();

@@ -10,7 +10,7 @@ namespace DNETUnitTest
     [TestClass]
     public unsafe class FastPacket2Test
     {
-        [TestMethod]
+        //[TestMethod]
         public void TestMethod_Temp1()
         {
             DQueue<IntPtr> queue = new DQueue<IntPtr>(1024);
@@ -28,6 +28,7 @@ namespace DNETUnitTest
                 IntPtr msg = Marshal.AllocHGlobal(256);
                 queue.Enqueue(msg);
             }
+            Thread.Sleep(500);
             Assert.IsTrue(queue.Count == msgCount * 2);
         }
 

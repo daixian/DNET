@@ -16,6 +16,7 @@ namespace DNET
         {
             //头就只有一个长度，最多是4
             _lastMsgHeadLenBuff = new byte[4];
+            //使用这个指针读值发现了一个问题，有时候只能读到0，有些奇怪，就不用了
             //_lastMsgHeadLenBuffPtrInt = (int*)Marshal.UnsafeAddrOfPinnedArrayElement(_lastMsgHeadLenBuff, 0).ToPointer();
             _lastMsgHeadLenBuffCurIndex = 0;
         }
@@ -123,13 +124,11 @@ namespace DNET
                 throw new Exception("AddRece():receBuff == null || offset + count > receBuff.Length");
             }
 
-            // _queueReceMsg.LockEnter();//随便的使用这个buff来锁好了,但是本质上如果要实现多线程，那么外面给出的data顺序必须要正确，这是很难保证的
             //这次接收到的消息条数
             int receMsgCount = 0;
-
-            lock (_lastMsgHeadLenBuff)
+            // _queueReceMsg.LockEnter();
+            lock (_lastMsgHeadLenBuff)//随便的使用这个buff来锁好了,但是本质上如果要实现多线程，那么外面给出的data顺序必须要正确，这是很难保证的
             {
-                
                 while (true)
                 {
                     if (count == 0)
@@ -198,12 +197,9 @@ namespace DNET
                         }
                     }
                 }
-
-
             }
             //  _queueReceMsg.LockExit();
             return receMsgCount;
-
         }
 
         /// <summary>
@@ -258,7 +254,7 @@ namespace DNET
             while (_queueSendData._queue.Count > 0)
             {
                 IntPtr ipMsgItem = _queueSendData._queue.Dequeue();//退出这一条
-                MsgItem* msgItem = (MsgItem*)ipMsgItem.ToPointer();//得到当前的消息              
+                MsgItem* msgItem = (MsgItem*)ipMsgItem.ToPointer();//得到当前的消息
                 Marshal.FreeHGlobal(msgItem->msg);//释放这条
                 Marshal.FreeHGlobal(ipMsgItem);
             }
