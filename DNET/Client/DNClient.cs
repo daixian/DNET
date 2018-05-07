@@ -716,6 +716,7 @@ namespace DNET
             {
                 datas[i] = new byte[ListMsg[i].validLength];
                 Buffer.BlockCopy(ListMsg[i].buffer, 0, datas[i], 0, ListMsg[i].validLength);
+                ListMsg[i].Recycle();
             }
 
             return datas;

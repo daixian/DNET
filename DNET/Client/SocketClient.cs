@@ -63,8 +63,6 @@ namespace DNET
                 _sendBuffer = new byte[SEND_BUFFER_SIZE];
 
             _packet2 = packet2;
-            //if (_dataQueue == null)
-            //    _dataQueue = new BytesQueue(int.MaxValue, MAX_DATA_QUEUE_BYTES_SIZE, 256);
 
 #if !NEW_EVENT_AEGS
 
@@ -411,24 +409,6 @@ namespace DNET
             }
         }
 
-        ///// <summary>
-        ///// 得到当前缓存的数据,返回byte[][]的形式,没有则返回null
-        ///// </summary>
-        //internal byte[][] GetData()
-        //{
-        //    return _dataQueue.GetData();
-        //}
-
-        ///// <summary>
-        ///// 得到当前缓存的数据,返回byte[]的形式,没有则返回reserveData本身
-        ///// </summary>
-        ///// <param name="reserveData"></param>
-        ///// <returns></returns>
-        //internal byte[] GetDataOnce(byte[] reserveData)
-        //{
-        //    return _dataQueue.GetDataOnce(reserveData);
-        //}
-
         /// <summary>
         /// 清空当前所有的队列和数据结构
         /// </summary>
@@ -562,18 +542,6 @@ namespace DNET
                 EventError();
             }
         }
-
-        ///// <summary>
-        ///// 将数据加入到接收缓存数据队列
-        ///// </summary>
-        //private void EnqueueData(byte[] data)
-        //{
-        //    if (!_dataQueue.EnqueueMaxLimit(data))
-        //    {
-        //        DxDebug.LogWarning("SocketClient.EnqueueData():接收缓存数据队列丢弃了一段数据");
-        //    }
-        //    return;
-        //}
 
         /// <summary>
         /// 开始异步发送
