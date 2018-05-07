@@ -60,5 +60,10 @@
         /// <param name="count">希望提取的最大的长度</param>
         /// <returns>实际提取到的消息</returns>
         int GetReceMsg(ByteBuffer[] msgBuffers, int offset, int count);
+
+        /// <summary>
+        /// 当前重启的时候用来清空内部数据
+        /// </summary>
+        void Clear();
     }
 }

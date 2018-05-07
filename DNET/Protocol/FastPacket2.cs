@@ -123,7 +123,7 @@ namespace DNET
                 throw new Exception("AddRece():receBuff == null || offset + count > receBuff.Length");
             }
 
-            lock (this._lastMsgHeadLenBuff)//随便的使用这个buff来锁好了
+            lock (this._lastMsgHeadLenBuff)//随便的使用这个buff来锁好了,但是本质上如果要实现多线程，那么外面给出的data顺序必须要正确，这是很难保证的
             {
                 //这次接收到的消息条数
                 int receMsgCount = 0;
@@ -138,7 +138,7 @@ namespace DNET
                     //当前还没有收到消息(无半截消息)
                     if (_lastMsgHeadLenBuffCurIndex == 0)
                     {
-                        if (count > sizeof(int))
+                        if (count >= sizeof(int))
                         {
                             //接下来这个4字节一定是消息长度了
                             Buffer.BlockCopy(receBuff, offset, _lastMsgHeadLenBuff, 0, sizeof(int));
@@ -168,7 +168,7 @@ namespace DNET
                             //如果这一次还是不能接受完头的4个字节
                             if (count + _lastMsgHeadLenBuffCurIndex < sizeof(int))
                             {
-                                Buffer.BlockCopy(receBuff, offset, _lastMsgHeadLenBuff, 0, count);//先拷贝到头消息buffer里去
+                                Buffer.BlockCopy(receBuff, offset, _lastMsgHeadLenBuff, _lastMsgHeadLenBuffCurIndex, count);//先拷贝到头消息buffer里去
                                 _lastMsgHeadLenBuffCurIndex += count;
                                 offset += count;
                                 count -= count;
@@ -177,7 +177,7 @@ namespace DNET
                             else//如果这一次可以接收完头4个字节了，知道最后一条消息长度了
                             {
                                 int copyLen = sizeof(int) - _lastMsgHeadLenBuffCurIndex;
-                                Buffer.BlockCopy(receBuff, offset, _lastMsgHeadLenBuff, 0, copyLen);//先拷贝到头消息buffer里去
+                                Buffer.BlockCopy(receBuff, offset, _lastMsgHeadLenBuff, _lastMsgHeadLenBuffCurIndex, copyLen);//先拷贝到头消息buffer里去
                                 _lastMsgHeadLenBuffCurIndex = sizeof(int);
                                 offset += copyLen;
                                 count -= copyLen;
@@ -189,6 +189,11 @@ namespace DNET
                                 CopyMsgData(ref receBuff, ref offset, ref count, ref receMsgCount);
                             }
                         }
+                        else//上次消息的头已经接受完了，长度已经知道了
+                        {
+                            //拷贝一次消息的实际内容
+                            CopyMsgData(ref receBuff, ref offset, ref count, ref receMsgCount);
+                        }
                     }
                 }
 
@@ -199,15 +204,15 @@ namespace DNET
         /// <summary>
         /// 当前保存的接收消息的长度，用于传递给用户查询当前消息条数.
         /// </summary>
-        public int ReceMsgCount { get; }
+        public int ReceMsgCount { get { return _queueReceMsg.Count; } }
 
         /// <summary>
-        /// 得到一条接收的消息，用于传递给用户.
+        /// 得到一条接收的消息，用于传递给用户，没有消息则返回null.
         /// </summary>
         /// <returns>一条消息</returns>
         public ByteBuffer GetReceMsg()
         {
-            return null;
+            return _queueReceMsg.Dequeue();
         }
 
         /// <summary>
@@ -219,7 +224,50 @@ namespace DNET
         /// <returns>实际提取到的消息</returns>
         public int GetReceMsg(ByteBuffer[] msgBuffers, int offset, int count)
         {
-            return 0;
+            _queueReceMsg.LockEnter();
+            int len = count < _queueReceMsg.Count ? count : _queueReceMsg.Count;
+            int getCount = 0;
+            for (int i = 0; i < len; i++)
+            {
+                ByteBuffer bf = _queueReceMsg.Dequeue();
+                if (bf != null)
+                {
+                    msgBuffers[offset + i] = bf;
+                    getCount++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            _queueReceMsg.LockExit();
+            return getCount;
+        }
+
+        /// <summary>
+        /// 当前重启的时候用来清空内部数据
+        /// </summary>
+        public void Clear()
+        {
+            _queueSendData.LockEnter();
+            while (_queueSendData._queue.Count > 0)
+            {
+                IntPtr ipMsgItem = _queueSendData._queue.Dequeue();//退出这一条
+                MsgItem* msgItem = (MsgItem*)ipMsgItem.ToPointer();//得到当前的消息              
+                Marshal.FreeHGlobal(msgItem->msg);//释放这条
+                Marshal.FreeHGlobal(ipMsgItem);
+            }
+            _queueSendData.LockExit();
+
+            _queueReceMsg.LockEnter();
+            while (_queueReceMsg._queue.Count > 0)
+            {
+                ByteBuffer bf = _queueReceMsg._queue.Dequeue();
+                bf.Recycle();//回收这一条
+            }
+            _queueReceMsg.LockExit();
+
+            ClearTempLastMsg();
         }
 
         #region Send
@@ -313,12 +361,13 @@ namespace DNET
         /// <param name="receMsgCount"></param>
         private void CopyMsgData(ref byte[] receBuff, ref int offset, ref int count, ref int receMsgCount)
         {
-            if (count > _lastMsgLength)//如果这次接收到内容长度有完整消息
+            if (count + _lastMsg.validLength >= _lastMsgLength)//如果这次接收到内容长度有完整消息
             {
-                Buffer.BlockCopy(receBuff, offset, _lastMsg.buffer, 0, _lastMsgLength);
+                int copyLen = _lastMsgLength - _lastMsg.validLength;
+                Buffer.BlockCopy(receBuff, offset, _lastMsg.buffer, _lastMsg.validLength, copyLen);
                 _lastMsg.validLength = _lastMsgLength;
-                offset += _lastMsgLength;
-                count -= _lastMsgLength;
+                offset += copyLen;
+                count -= copyLen;
 
                 _queueReceMsg.Enqueue(_lastMsg);//记录这条消息
                 receMsgCount++;
@@ -326,8 +375,8 @@ namespace DNET
             }
             else//如果这次接收到内容长度没有完整消息
             {
-                Buffer.BlockCopy(receBuff, offset, _lastMsg.buffer, 0, count);//只好先拷贝count长度
-                _lastMsg.validLength = count;//记录实际起始,好下次拷贝的时候利用
+                Buffer.BlockCopy(receBuff, offset, _lastMsg.buffer, _lastMsg.validLength, count);//只好先拷贝count长度
+                _lastMsg.validLength += count;//记录实际起始,好下次拷贝的时候利用
 
                 offset += count;
                 count -= count;
