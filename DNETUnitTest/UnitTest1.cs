@@ -15,7 +15,7 @@ namespace DNETUnitTest
         /// 启动一个服务器，它会原样回发接收到的消息。
         /// 再启动一个客户端和它发送消息，验证发送接收正常
         /// </summary>
-        [TestMethod]
+        //[TestMethod]
         public void TestMethod_SendReceDPacketNoCrc()
         {
             Config.DefaultConfigOnWindows();
@@ -137,9 +137,7 @@ namespace DNETUnitTest
             Config.DefaultConfigOnWindows();
             Config.IsAutoHeartbeat = false;
             DNClient.GetInst().isDebugLog = true;
-            DNClient.GetInst().Packet = new FastPacket();
             LogFile.GetInst().isImmediatelyFlush = true;
-            DNServer.GetInst().Packet = new FastPacket();
             DNServer.GetInst().EventTokenReceData += (token) =>
             {
                 byte[][] datas = token.GetReceiveData();
@@ -186,6 +184,7 @@ namespace DNETUnitTest
                 if (DNClient.GetInstance().IsConnected)
                 {
                     DxDebug.LogConsole("TestMethod_Send():连接成功");
+                    Thread.Sleep(1000);
                     break;
                 }
             }
@@ -211,7 +210,7 @@ namespace DNETUnitTest
                 }
                 while (receCount != sendCount)
                 {
-                    Thread.Sleep(20);
+                    Thread.Sleep(1);
                     byte[][] datas = DNClient.GetInstance().GetReceiveData();
                     if (datas != null)
                     {
@@ -231,6 +230,124 @@ namespace DNETUnitTest
                                 Assert.IsTrue(msg[j] == sendData[j]);
                             }
 
+                            receCount++;
+                        }
+                    }
+                }
+            }
+
+            Assert.IsTrue(receCount == sendCount);
+
+            DNClient.GetInst().CloseImmediate();
+            DNServer.GetInst().Close();
+            LogFile.GetInst().Close();
+        }
+
+        /// <summary>
+        /// 启动一个服务器，它会原样回发接收到的消息。
+        /// 再启动一个客户端和它发送消息，验证发送接收正常
+        /// </summary>
+        [TestMethod]
+        public void TestMethod_SendReceFastPacketBF()
+        {
+            Config.DefaultConfigOnWindows();
+            Config.IsAutoHeartbeat = false;
+            DNClient.GetInst().isDebugLog = true;
+            LogFile.GetInst().isImmediatelyFlush = true;
+            DNServer.GetInst().EventTokenReceData += (token) =>
+            {
+                byte[][] datas = token.GetReceiveData();
+                if (datas == null)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < datas.Length; i++)
+                {
+                    //收到的每一条消息.
+                    byte[] data = datas[i];
+
+                    DxDebug.LogConsole("服务端接收到:msgNum=" + BitConverter.ToInt32(data, 0));
+                    //直接原样回发
+                    DNServer.GetInstance().Send(token, data);
+
+                    //得到消息类型然后处理
+                    //int pType = BitConverter.ToInt32(data, 0);
+                    //TypeRegister.GetInstance().Dispatch(token, pType, data, sizeof(int), data.Length - sizeof(int));
+                }
+            };
+
+            DNServer.GetInstance().Start(21024);//启动服务器
+            while (true)
+            {
+                if (DNServer.GetInstance().IsStarted)
+                {
+                    DxDebug.LogConsole("TestMethod_Send():服务器启动成功");
+                    break;
+                }
+            }
+            Random rand = new Random();
+            int sendDataLength = rand.Next(128, 256);
+            byte[] sendData = new byte[sendDataLength];
+            for (int i = 0; i < sendData.Length; i++)
+            {
+                sendData[i] = (byte)rand.Next(128, 256);
+            }
+            DNClient.GetInstance().Connect("127.0.0.1", 21024);
+
+            while (true)
+            {
+                if (DNClient.GetInstance().IsConnected)
+                {
+                    DxDebug.LogConsole("TestMethod_Send():连接成功");
+                    Thread.Sleep(1000);
+                    break;
+                }
+            }
+
+            int receCount = 0;//接收的消息总条数
+            int sendCount = 0;
+            ByteBuffer[] dataBuffers = new ByteBuffer[128];
+
+            //发送n次
+            for (int count = 0; count < 200; count++)
+            {
+                while (DNClient.GetInstance().isSendQueueIsFull)
+                {
+                    Thread.Sleep(20);
+                }
+                //一次连发n条
+                for (int i = 0; i < 500; i++)
+                {
+                    //发送sendDataLength字节的sendData
+                    DxDebug.LogConsole("客户端发送:msgNum=" + sendCount);
+                    Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
+                    DNClient.GetInstance().Send(sendData);
+                    sendCount++;
+                }
+                while (receCount != sendCount)
+                {
+                    Thread.Sleep(1);
+                    int msgCount = DNClient.GetInstance().GetReceiveData(dataBuffers, 0, dataBuffers.Length);
+                    if (msgCount > 0)
+                    {
+                        for (int i = 0; i < msgCount; i++)
+                        {
+                            ByteBuffer msg = dataBuffers[i];
+                            //判断接收长度是否一致
+                            Assert.IsTrue(msg.validLength == sendDataLength);
+                            //判断消息序号
+                            int msgNum = BitConverter.ToInt32(msg.buffer, 0);
+                            DxDebug.LogConsole("客户端接收到回发:msgNum=" + msgNum);
+                            Assert.IsTrue(msgNum == receCount);
+
+                            for (int j = 4; j < msg.validLength; j++)
+                            {
+                                //判断每个字节是否一致
+                                Assert.IsTrue(msg.buffer[j] == sendData[j]);
+                            }
+
+                            msg.Recycle();
                             receCount++;
                         }
                     }
@@ -326,7 +443,7 @@ namespace DNETUnitTest
                     DNClient.GetInstance().Send(sendData);
                     sendCount++;
                 }
-                Thread.Sleep(20);
+                Thread.Sleep(1);
                 //边发边收
                 byte[][] datas = DNClient.GetInstance().GetReceiveData();
                 if (datas != null)
@@ -392,7 +509,6 @@ namespace DNETUnitTest
 
             Assert.IsTrue(receCount == sendCount);
 
-          
             DNClient.GetInst().CloseImmediate();
             DNServer.GetInst().Close();
             LogFile.GetInst().Close();

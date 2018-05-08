@@ -211,7 +211,7 @@ namespace DNET
         }
 
         /// <summary>
-        /// 不指定目录的话，在根目录创建日志文件（失败后放到AppData）
+        /// 不指定目录的话，在根目录的log文件夹创建日志文件（失败后放到AppData）
         /// </summary>
         public void CreatLogFile()
         {

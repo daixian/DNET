@@ -98,6 +98,22 @@ namespace DNET
         }
 
         /// <summary>
+        /// Peek函数一般在使用的时候含义有所不同，得外面自己加锁.所以这个函数本身没有加锁。
+        /// </summary>
+        /// <returns></returns>
+        public T Peek()
+        {
+            if (this._queue.Count > 0)
+            {
+                return this._queue.Peek();
+            }
+            else
+            {
+                return default(T);
+            }       
+        }
+
+        /// <summary>
         /// 将对象添加到 Queue的结尾处。
         /// </summary>
         /// <param name="item">加入的条目</param>

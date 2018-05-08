@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 namespace DNET
 {
     /// <summary>
-    /// 通信传输的服务器类，默认通信数据包打包方法类的类型为DPacketNoCrc。
+    /// 通信传输的服务器类，默认通信数据包打包方法类的类型为FastPacket。
     /// </summary>
     public class DNServer
     {
@@ -29,7 +29,9 @@ namespace DNET
             //    _instance = null;
             //}
 
-            _packet = new DPacketNoCrc();
+            //_packet = new DPacketNoCrc();
+            _packet = new FastPacket();
+            
             ServerTimer.GetInstance().Start();
 
             Status = new ServerStatus(this);//创建状态统计

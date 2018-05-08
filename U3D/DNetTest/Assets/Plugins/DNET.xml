@@ -1,0 +1,3242 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>DNET</name>
+    </assembly>
+    <members>
+        <member name="T:DNET.ClientTimer">
+            <summary>
+            这个类主要就是一个timer，定时器函数中包含了1s一次的事件和心跳包相关函数。
+            </summary>
+        </member>
+        <member name="M:DNET.ClientTimer.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="F:DNET.ClientTimer._instance">
+            <summary>
+            静态构造函数
+            </summary>
+        </member>
+        <member name="M:DNET.ClientTimer.GetInstance">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.ClientTimer.GetInst">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="F:DNET.ClientTimer.KICK_TIME">
+            <summary>
+            定时器间隔
+            </summary>
+        </member>
+        <member name="F:DNET.ClientTimer._timer">
+            <summary>
+            一个定时器
+            </summary>
+        </member>
+        <member name="E:DNET.ClientTimer.EventOnTimer">
+            <summary>
+            定时器函数的事件，目前定时器的默认时间是1秒一次。
+            </summary>
+        </member>
+        <member name="E:DNET.ClientTimer.EventOnTimer3S">
+            <summary>
+            定时器函数的事件，3秒1次
+            </summary>
+        </member>
+        <member name="M:DNET.ClientTimer.Start">
+            <summary>
+            初始化并且开始，如果调用了果了Dispose，那么可以重新调用这个函数再次开始。
+            </summary>
+        </member>
+        <member name="M:DNET.ClientTimer.OnTimerTick(System.Object)">
+            <summary>
+            定时器函数
+            </summary>
+            <param name="state"></param>
+        </member>
+        <member name="M:DNET.ClientTimer.SendHeartBeat">
+            <summary>
+            发送心跳包函数,调用DNClient单例，然后发送。
+            </summary>
+        </member>
+        <member name="M:DNET.ClientTimer.Dispose">
+            <summary>
+            Dispose
+            </summary>
+        </member>
+        <member name="T:DNET.DNClient">
+            <summary>
+            通信传输的客户端类，默认通信数据包打包方法类的类型为FastPacket2。
+            </summary>
+        </member>
+        <member name="M:DNET.DNClient.#ctor">
+            <summary>
+            私有的构造函数，用来构造单例
+            </summary>
+        </member>
+        <member name="M:DNET.DNClient.#ctor(System.String)">
+            <summary>
+            公有的构造函数，可以用来在一个程序中开多个客户端。
+            它没有启动公共Timer
+            </summary>
+            <param name="clientName"></param>
+        </member>
+        <member name="M:DNET.DNClient.GetInstance">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.DNClient.GetInst">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="F:DNET.DNClient.MAX_SEND_DATA_QUEUE">
+            <summary>
+            最多当前等待发送队列长度(用来提供当前待发送队列是否较长的判断的）
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient.MAX_BYTES_SIZE">
+            <summary>
+            队列的最大字节占用，虽然理论上这个大小没有限制，但是实测如果过大则通信不正常（win上15M可工作，31M不能工作）。
+            现规定这个占用为4M，留成6M
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient.MAX_SENDING_DATA">
+            <summary>
+            最多当前正在发送数
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._workThread">
+            <summary>
+            工作线程
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._msgSemaphore">
+            <summary>
+            对应一条消息的信号量
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._msgQueue">
+            <summary>
+            和U3D主模块之间的通信的消息队列
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._msgPool">
+            <summary>
+            通信类使用的控制消息池
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._curSemCount">
+            <summary>
+            当前的信号量计数
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._host">
+            <summary>
+            服务器主机名
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._port">
+            <summary>
+            服务器端口号
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._socketClient">
+            <summary>
+            底层的通信类
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._packet">
+            <summary>
+            打包解包器
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._packet2">
+            <summary>
+            打包器2代
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._snedingCount">
+            <summary>
+            当前正在发送的计数
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._cpuTime">
+            <summary>
+            CPU消耗时间计算，目前没有开启
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._isQueueFull">
+            <summary>
+            标记待发送的队列是否过长
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._sendQueuePeakLength">
+            <summary>
+            队列的峰值长度
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._isDebugLog">
+            <summary>
+            是否输出一些调试型的日志.
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._warringWaitTime">
+            <summary>
+            发出消息处理等待警告时的时间长度，会逐级递增和递减.
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._isThreadWorking">
+            <summary>
+            当前线程是否在工作，0表示false，1表示true.
+            </summary>
+        </member>
+        <member name="F:DNET.DNClient._disposed">
+            <summary>
+            这个对象是否已经被释放掉
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.Name">
+            <summary>
+            这个客户端的名字
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.IsInited">
+            <summary>
+            这个客户端是否已经初始化可用,这个属性目前只对外标记，对内没有用来作判断。
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.IsConnected">
+            <summary>
+            是否已经连接上了服务器
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.IsConnecting">
+            <summary>
+            是否正在连接
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.CpuOccupancyRate">
+            <summary>
+            通信线程线程的cpu占用率（百分率）
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.SendOccupancyRate">
+            <summary>
+            通信发送的IO占用率（百分率）
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.ReceOccupancyRate">
+            <summary>
+            通信接收的IO占用率（百分率）
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.Packet">
+            <summary>
+            打包方法
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.Packet2">
+            <summary>
+            打包器2代
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.token">
+            <summary>
+            方便逻辑统一使用的token，用来记录一些用户保存的对象，传给事件，只有里面的userObj是有意义的
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.LastMsgReceTickTime">
+            <summary>
+            用来记录最后一次收到这个Token发来的消息时间的Tick,创建这Token对象的时候初始化
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.LastMsgSendTickTime">
+            <summary>
+            用来记录最后一次向这个Token发送的消息时间的Tick,创建这Token对象的时候初始化
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.dirCache">
+            <summary>
+            通信库所使用的临时文件工作目录,是绝对路径
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.isDirCanUse">
+            <summary>
+            是否工作文件夹能够使用
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.isSendQueueIsFull">
+            <summary>
+            是否发送队列已经比较满,MAX_SEND_DATA_QUEUE/8=512,要注意这个指标不等于服务器已经收到消息.
+            </summary>
+        </member>
+        <member name="P:DNET.DNClient.isDebugLog">
+            <summary>
+            是否打印调试型的日志.
+            </summary>
+        </member>
+        <member name="E:DNET.DNClient.EventConnectSuccess">
+            <summary>
+            事件：连接服务器成功
+            </summary>
+        </member>
+        <member name="E:DNET.DNClient.EventReceData">
+            <summary>
+            事件：接收到了新的消息，可以将任务加入这个事件交给数据解包线程。
+            有几条数据就会有几次事件，但是由于粘包问题这些事件可能会一连串的来。
+            用户在这个事件中应该自己调用GetReceiveData()。
+            </summary>
+        </member>
+        <member name="E:DNET.DNClient.EventError">
+            <summary>
+            事件：错误,可以用来通知服务器断线，关闭等。当进入这个事件的时候，此时与服务器的连接肯定已经断开了
+            </summary>
+        </member>
+        <member name="E:DNET.DNClient.EventSendQueueIsFull">
+            <summary>
+            事件：发送队列的大小已经过大
+            </summary>
+        </member>
+        <member name="E:DNET.DNClient.EventSendQueueIsAvailable">
+            <summary>
+            事件：发送队列的大小已经可以用了
+            </summary>
+        </member>
+        <member name="M:DNET.DNClient.SetDirCache(System.String)">
+            <summary>
+            设置工作目录路径，如果传入空则表示工作路径为当前程序运行路径
+            </summary>
+        </member>
+        <member name="M:DNET.DNClient.Connect(System.String,System.Int32)">
+            <summary>
+            连接服务器,输入IP和端口号。会强制重新初始化整个类，这样起到底层重启的作用。
+            </summary>
+            <param name="host">主机IP</param>
+            <param name="port">端口号</param>
+        </member>
+        <member name="M:DNET.DNClient.Disconnect">
+            <summary>
+            关闭当前连接
+            </summary>
+        </member>
+        <member name="M:DNET.DNClient.Close">
+            <summary>
+            异步的关闭socket和线程，会在消息队列中执行完这个消息之前的所有消息后，才会执行。
+            </summary>
+        </member>
+        <member name="M:DNET.DNClient.CloseImmediate">
+            <summary>
+            立即的关闭线程和socket，会调用这个类的Dispose()
+            </summary>
+        </member>
+        <member name="M:DNET.DNClient.Send(System.Byte[])">
+            <summary>
+            发送一条数据
+            </summary>
+            <param name="data">要发送的整个数据</param>
+        </member>
+        <member name="M:DNET.DNClient.Send(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            发送一条数据，有起始和长度控制
+            </summary>
+            <param name="data">要发送的数据</param>
+            <param name="offset">数据的起始位置</param>
+            <param name="count">数据的长度</param>
+        </member>
+        <member name="M:DNET.DNClient.GetOneReceiveData">
+            <summary>
+            得到一条接收到的数据
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.DNClient.GetReceiveData(DNET.ByteBuffer[],System.Int32,System.Int32)">
+            <summary>
+            提供一个Buffer数组批量得到接收到的数据，返回成功得到的数量
+            </summary>
+            <param name="buffs">Buffer数组</param>
+            <param name="offset">起始偏移</param>
+            <param name="count">最大计数</param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.DNClient.GetReceiveData">
+            <summary>
+            获取目前所有的已接收的数据，返回byte[][]的形式,没有则返回null.
+            这是会产生GC的方式，不推荐.
+            </summary>
+            <returns>所有的byte[]数据,没有则返回null</returns>
+        </member>
+        <member name="M:DNET.DNClient.AddMessage(DNET.NetWorkMsg)">
+            <summary>
+            加入一条要执行的消息，如果加入的过快而无法发送，则将产生信号量溢出异常，表明当前发送数据频率要大于系统能力
+            </summary>
+            <param name="msg"></param>
+        </member>
+        <member name="M:DNET.DNClient.Init">
+            <summary>
+            初始化这个对象,会创建工作线程
+            </summary>
+        </member>
+        <member name="M:DNET.DNClient.Clear">
+            <summary>
+            清空当前所有队列和数据存储
+            </summary>
+        </member>
+        <member name="M:DNET.DNClient.Dispose">
+            <summary>
+            Dispose，这个对象的Close()函数会调用该函数
+            </summary>
+        </member>
+        <member name="T:DNET.EventType">
+            <summary>
+            DNET模块的事件类型
+            </summary>
+        </member>
+        <member name="F:DNET.EventType.ConnectSucceed">
+            <summary>
+            连接服务器成功
+            </summary>
+        </member>
+        <member name="F:DNET.EventType.ConnectError">
+            <summary>
+            连接服务器失败
+            </summary>
+        </member>
+        <member name="F:DNET.EventType.IOError">
+            <summary>
+            目前这是代表一种广泛的通信错误，
+            发生了这个错误的时候服务器的连接已经断开了需要重新连接
+            </summary>
+        </member>
+        <member name="T:DNET.SocketClient">
+            <summary>
+            客户机实现套接字的连接逻辑。
+            </summary>
+        </member>
+        <member name="M:DNET.SocketClient.#ctor(System.String,System.Int32,DNET.IPacket2)">
+            <summary>
+            构造函数： 创建出一个Socket对象
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient.RECE_BUFFER_SIZE">
+            <summary>
+            接收buffer大小
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient.SEND_BUFFER_SIZE">
+            <summary>
+            发送buffer大小
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient.MAX_DATA_QUEUE_BYTES_SIZE">
+            <summary>
+            消息队列的最大内存大小
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient._clientSocket">
+            <summary>
+            套接字用于发送/接收消息。
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient._hostEndPoint">
+            <summary>
+            主机网络端点
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient._areConnectDone">
+            <summary>
+            信号量，通知等待的线程已经发生了事件
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient._receiveBuffer">
+            <summary>
+            接收的buffer缓冲区
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient._sendBuffer">
+            <summary>
+            用来发送的buffer的缓冲区
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient._packet2">
+            <summary>
+            带数据管理的新打包器
+            </summary>
+        </member>
+        <member name="F:DNET.SocketClient._sendTime">
+            <summary>
+            IO消耗时间计算
+            </summary>
+        </member>
+        <member name="P:DNET.SocketClient.IsConnected">
+            <summary>
+            是否已经连接上了服务器
+            </summary>
+        </member>
+        <member name="P:DNET.SocketClient.socket">
+            <summary>
+            得到Socket
+            </summary>
+        </member>
+        <member name="P:DNET.SocketClient.SendOccupancyRate">
+            <summary>
+            通信发送的IO占用率（百分率）
+            </summary>
+        </member>
+        <member name="P:DNET.SocketClient.ReceOccupancyRate">
+            <summary>
+            通信接收的IO占用率（百分率）
+            </summary>
+        </member>
+        <member name="E:DNET.SocketClient.EventError">
+            <summary>
+            出现错误
+            </summary>
+        </member>
+        <member name="E:DNET.SocketClient.EventConnect">
+            <summary>
+            连接成功的事件
+            </summary>
+        </member>
+        <member name="E:DNET.SocketClient.EventSend">
+            <summary>
+            数据发送完毕
+            </summary>
+        </member>
+        <member name="E:DNET.SocketClient.EventReceive">
+            <summary>
+            数据接收完毕
+            </summary>
+        </member>
+        <member name="M:DNET.SocketClient.Bind(System.String,System.Int32)">
+            <summary>
+            重新绑定一个IP地址
+            </summary>
+            <param name="hostName"></param>
+            <param name="port"></param>
+        </member>
+        <member name="M:DNET.SocketClient.Connect">
+            <summary>
+            连接到服务器,目前这个连接函数是阻塞的
+            </summary>
+        </member>
+        <member name="M:DNET.SocketClient.Disconnect">
+            <summary>
+            断开服务器的连接
+            </summary>
+        </member>
+        <member name="M:DNET.SocketClient.SendData(System.Byte[])">
+            <summary>
+            发送数据
+            </summary>
+        </member>
+        <member name="M:DNET.SocketClient.SendData(DNET.IPacket2)">
+            -------------------------------------------------------------------------------------------------
+             <summary> 由于打包器做了数据管理，所以直接丢打包器进来发送数据. </summary>
+             <exception cref="T:System.Net.Sockets.SocketException"> Thrown when a
+                                                Socket error
+                                                condition
+                                                occurs. </exception>
+            
+             <param name="ipt2"> 打包器. </param>
+            
+             <returns> 如果确实开始发送了则返回true，否则返回false. </returns>
+            -------------------------------------------------------------------------------------------------
+        </member>
+        <member name="M:DNET.SocketClient.Clear">
+            <summary>
+            清空当前所有的队列和数据结构
+            </summary>
+        </member>
+        <member name="M:DNET.SocketClient.ProcessError(System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            发生错误后就关闭连接
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.SocketClient.PrepareSend(System.Net.Sockets.Socket,System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            开始异步发送
+            </summary>
+            <param name="s"></param>
+            <param name="args"></param>
+        </member>
+        <member name="M:DNET.SocketClient.PrepareReceive">
+            <summary>
+            开始一个接收
+            </summary>
+        </member>
+        <member name="T:DNET.ByteBuffer">
+            <summary>
+            一个可回收重复使用的Byte Buffer,使用完毕之后需要调用Recycle()归还自己。
+            </summary>
+        </member>
+        <member name="M:DNET.ByteBuffer.#ctor(System.Int64)">
+            <summary>
+            构造，输入块大小
+            </summary>
+            <param name="blockLength">内存buffer实际大小</param>
+        </member>
+        <member name="M:DNET.ByteBuffer.Finalize">
+            <summary>
+            析构
+            </summary>
+        </member>
+        <member name="F:DNET.ByteBuffer.validLength">
+            <summary>
+            实际有效长度，即在buffer成员中实际有效的区间就是从0到validLength
+            </summary>
+        </member>
+        <member name="F:DNET.ByteBuffer.buffer">
+            <summary>
+            实际buffer块
+            </summary>
+        </member>
+        <member name="F:DNET.ByteBuffer.isInFreePool">
+            <summary>
+            是否被标记的正在空闲池里
+            </summary>
+        </member>
+        <member name="M:DNET.ByteBuffer.Recycle">
+            <summary>
+            归还自己
+            </summary>
+        </member>
+        <member name="M:DNET.ByteBuffer.CopyIn(DNET.ByteBuffer)">
+            <summary>
+            将一个外面的ByteBuffer的内容拷到自己里面来,会提升validLength。所以要注意在拷贝前设置
+            validLength=0;
+            </summary>
+            <param name="other"></param>
+        </member>
+        <member name="M:DNET.ByteBuffer.setValidLength(System.Int32)">
+            <summary>
+            原子操作设置长度值，实际上对这个对象的拷贝操作等等都显然不是线程安全的，所以这个函数实际上没有必有。
+            </summary>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
+        <member name="F:DNET.ByteBuffer._bufferPool">
+            <summary>
+            它的所属buffer池
+            </summary>
+        </member>
+        <member name="M:DNET.ByteBuffer.Recycle(DNET.ByteBuffer[])">
+            <summary>
+            归还一堆buff
+            </summary>
+            <param name="buffs">一组buff</param>
+        </member>
+        <member name="M:DNET.ByteBuffer.Length(DNET.ByteBuffer[])">
+            <summary>
+            一组buff的实际有效总长度
+            </summary>
+            <param name="buffs">一组buff</param>
+            <returns></returns>
+        </member>
+        <member name="T:DNET.ByteBufferPool">
+            <summary>
+            一个byteBuffer池
+            </summary>
+        </member>
+        <member name="M:DNET.ByteBufferPool.#ctor(System.Int64,System.Int64)">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="F:DNET.ByteBufferPool._queueFree">
+            <summary>
+            有效队列
+            </summary>
+        </member>
+        <member name="F:DNET.ByteBufferPool._bolckSize">
+            <summary>
+            buffer块大小
+            </summary>
+        </member>
+        <member name="P:DNET.ByteBufferPool.bolckSize">
+            <summary>
+            buffer块大小
+            </summary>
+        </member>
+        <member name="M:DNET.ByteBufferPool.GetBuffer(System.Int32)">
+            <summary>
+            获得一个buffer
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.ByteBufferPool.RecycleBuffer(DNET.ByteBuffer)">
+            <summary>
+            归还Buffer
+            </summary>
+            <param name="buff">要归还的buffer</param>
+        </member>
+        <member name="F:DNET.ByteBufferPool.countSaveGC">
+            <summary>
+            成功节省GC次数
+            </summary>
+        </member>
+        <member name="F:DNET.ByteBufferPool.countBadGC">
+            <summary>
+            仍然消耗了的gc次数
+            </summary>
+        </member>
+        <member name="F:DNET.ByteBufferPool.countNew">
+            <summary>
+            成功节省GC次数
+            </summary>
+        </member>
+        <member name="T:DNET.ByteBufferPools">
+            <summary>
+            一组ByteBufferPool
+            </summary>
+        </member>
+        <member name="M:DNET.ByteBufferPools.#ctor">
+            <summary>
+             构造
+            </summary>
+        </member>
+        <member name="F:DNET.ByteBufferPools.mixBlockSize">
+            <summary>
+            最小一档的内存块size
+            </summary>
+        </member>
+        <member name="F:DNET.ByteBufferPools.maxBlockSize">
+            <summary>
+            最大一档的内存块size
+            </summary>
+        </member>
+        <member name="M:DNET.ByteBufferPools.GetBuffer(System.Int64,System.Boolean)">
+            <summary>
+            根据期望大小获得一个buffer.
+            autoSetValidLength为true则默认设置validLength为期望大小,否则设置为0.
+            </summary>
+            <param name="size">期望大小</param>
+            <param name="autoSetValidLength">是否validLength会自动标记为size</param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.ByteBufferPools.GetBufferCopy(DNET.ByteBuffer[],System.Boolean)">
+            <summary>
+            将一组数据直接拷贝过来合成新的，isRecycle为true则会自动回收data。
+            </summary>
+            <param name="data"></param>
+            <param name="isRecycle"></param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.ByteBufferPools.GetBufferCopy(System.Collections.Generic.ICollection{DNET.ByteBuffer},System.Boolean)">
+            <summary>
+            将一组数据直接拷贝过来合成新的，isRecycle为true则会自动回收data。
+            </summary>
+            <param name="data"></param>
+            <param name="isRecycle"></param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.ByteBufferPools.ChoosePool(System.Int64)">
+            <summary>
+            根据期望大小选择一个pool,如果期望大小不在pools里那么就返回null
+            </summary>
+            <param name="size">期望大小</param>
+            <returns></returns>
+        </member>
+        <member name="T:DNET.BytesQueue">
+            <summary>
+            一个线程同步Byte数组队列。这个队列有一个自动剔除前段消息的方法。
+            默认队列最大字节数为4M
+            </summary>
+        </member>
+        <member name="M:DNET.BytesQueue.#ctor(System.Int32)">
+            <summary>
+            构造函数，maxCapacity定成队列的最大长度。
+            默认bytes大小为4M。
+            </summary>
+            <param name="maxCapacity">队列的最大长度</param>
+        </member>
+        <member name="M:DNET.BytesQueue.#ctor(System.Int32,System.Int32)">
+            <summary>
+            构造函数。maxCapacity设定成队列的最大长度。
+            byteSize规定最大bytes大小。
+            </summary>
+            <param name="maxCapacity">队列的最大长度</param>
+            <param name="byteSize">最大bytes大小</param>
+        </member>
+        <member name="M:DNET.BytesQueue.#ctor(System.Int32,System.Int32,System.Int32)">
+            <summary>
+            构造函数。maxCapacity设定成队列的最大长度。
+            byteSize规定最大bytes大小,initCapacit规定初始大小。
+            </summary>
+            <param name="maxCapacity">队列的最大长度</param>
+            <param name="byteSize">最大bytes大小</param>
+            <param name="initCapacity">队列初始大小</param>
+        </member>
+        <member name="F:DNET.BytesQueue._queue">
+            <summary>
+            byte数据的队列
+            </summary>
+        </member>
+        <member name="F:DNET.BytesQueue.maxCount">
+            <summary>
+            队列的最大长度
+            </summary>
+        </member>
+        <member name="F:DNET.BytesQueue.maxByteSize">
+            <summary>
+            队列的最大字节数，默认4M
+            </summary>
+        </member>
+        <member name="F:DNET.BytesQueue._curByteSize">
+            <summary>
+            当前的队列中数据的总大小
+            </summary>
+        </member>
+        <member name="P:DNET.BytesQueue.IsFull">
+            <summary>
+            当前这个队列是否已经过大
+            </summary>
+        </member>
+        <member name="M:DNET.BytesQueue.Dequeue">
+            <summary>
+            移除并返回位于 Queue 开始处的对象，没有则返回null。
+            </summary>
+            <returns>一个byte数据，没有则返回null</returns>
+        </member>
+        <member name="M:DNET.BytesQueue.Enqueue(System.Byte[])">
+            <summary>
+            将一个byte[]添加到 Queue的结尾处。
+            </summary>
+            <param name="item">byte数据</param>
+        </member>
+        <member name="M:DNET.BytesQueue.Clear">
+            <summary>
+            清空队列
+            </summary>
+        </member>
+        <member name="M:DNET.BytesQueue.TrimExcess">
+            <summary>
+            如果元素数小于当前容量的 90%，将容量设置为队列中的实际元素数。
+            </summary>
+        </member>
+        <member name="P:DNET.BytesQueue.Count">
+            <summary>
+            队列的数据个数
+            </summary>
+        </member>
+        <member name="M:DNET.BytesQueue.GetData">
+            <summary>
+            返回byte[][]的形式,没有则返回null
+            </summary>
+            <returns>byte[]数据，没有则返回null</returns>
+        </member>
+        <member name="M:DNET.BytesQueue.GetDataOnce">
+            <summary>
+            将整个队列的所有数据一次返回
+            </summary>
+            <returns>结果数据</returns>
+        </member>
+        <member name="M:DNET.BytesQueue.GetDataOnce(System.Byte[])">
+            <summary>
+            将整个队列的所有数据拼接上在他们前端的一段数据，然后一次返回
+            </summary>
+            <param name="frontData">拼在前面的数据</param>
+            <returns>结果数据</returns>
+        </member>
+        <member name="M:DNET.BytesQueue.EnqueueMaxLimit(System.Byte[])">
+            <summary>
+            如果队列达到了限定长度，就自动丢弃最前端的。
+            如果正常返回true,丢弃返回false.
+            </summary>
+            <param name="item">向队列中加入的一项数据</param>
+            <returns>如果正常返回true,丢弃返回false</returns>
+        </member>
+        <member name="M:DNET.BytesQueue.BytesArrayToBytes(System.Byte[][])">
+            <summary>
+            静态方法：将一组byte[]整合成一个，用来代替在某种情况下的GetDataOnce()函数。该方法未使用此类成员。
+            </summary>
+            <param name="dataArr">输入的要整合的一组byte[]</param>
+            <returns>会new一个byte[]作为返回</returns>
+        </member>
+        <member name="T:DNET.Config">
+            <summary>
+            关于通信库的一些配置，目前只有心跳包相关，其它的汇总了一些设置。
+            </summary>
+        </member>
+        <member name="F:DNET.Config.IsAutoHeartbeat">
+            <summary>
+            自动心跳包。
+            只有当它为true的时候，客户端才会在timer中自动发送，服务器才会在timer中检查离线。
+            </summary>
+        </member>
+        <member name="F:DNET.Config.HeartBeatData">
+            <summary>
+            自动心跳包的包数据内容，目前规定假如发送的数据为1个字节，然后这1个字节为0
+            </summary>
+        </member>
+        <member name="M:DNET.Config.CompareHeartBeat(System.Byte[])">
+            <summary>
+            判断一个接收到的数据是不是心跳包
+            </summary>
+            <param name="data">要比较的接收到的数据</param>
+            <returns></returns>
+        </member>
+        <member name="F:DNET.Config.HeartBeatSendTime">
+            <summary>
+            心跳包的发送间隔时间（ms）,目前默认是5秒
+            </summary>
+        </member>
+        <member name="F:DNET.Config.HeartBeatCheckTime">
+            <summary>
+            心跳包的检查间隔时间（ms）,目前默认是15秒
+            </summary>
+        </member>
+        <member name="M:DNET.Config.CreatLogFile">
+            <summary>
+            创建日志文件
+            </summary>
+        </member>
+        <member name="M:DNET.Config.CreatLogFile(System.String)">
+            <summary>
+            创建日志文件(输入文件夹路径)
+            </summary>
+            <param name="folderPath">文件夹路径</param>
+        </member>
+        <member name="P:DNET.Config.IsLogFile">
+            <summary>
+            是否写日志文件
+            </summary>
+        </member>
+        <member name="P:DNET.Config.IsLogConsole">
+            <summary>
+            是否输出到控制台
+            </summary>
+        </member>
+        <member name="M:DNET.Config.SetCacheDir(System.String)">
+            <summary>
+            服务器和客户端一起设置一个缓存文件夹
+            </summary>
+            <param name="path">缓存文件夹路径</param>
+        </member>
+        <member name="M:DNET.Config.DefaultConfigOnWindows">
+             <summary>
+             windows平台下的一套默认设置，输出日志文件，打印到控制台，打开心跳包，Cache目录为根目录.
+             Config.CreatLogFile();
+             Config.IsLogFile = true;
+             Config.IsLogConsole = true;
+             Config.IsAutoHeartbeat = true;
+             Config.SetCacheDir(""); 
+            </summary>
+        </member>
+        <member name="M:DNET.Config.DefaultConfigOnWindows(System.String)">
+             <summary>
+             windows平台下的一套默认设置，输出日志文件，打印到控制台，打开心跳包，Cache和日志目录为输入目录.
+             Config.CreatLogFile(folderPath);
+             Config.IsLogFile = true;
+             Config.IsLogConsole = true;
+             Config.IsAutoHeartbeat = true;
+             Config.SetCacheDir(folderPath); 
+            </summary>
+        </member>
+        <member name="M:DNET.Config.DefaultConfigOnIOS(System.String,System.Action{DNET.DxDebug.LogItem})">
+            <summary>
+             iOS平台下的一套默认设置，日志和Cache文件夹为同一个文件夹，输出日志文件，不打印到控制台.
+            </summary>
+            <param name="path">app的临时文件夹路径</param>
+            <param name="onEventPrint">u3d需要的打印日志事件</param>
+        </member>
+        <member name="T:DNET.DQueue`1">
+            <summary>
+            一个线程同步队列
+            </summary>
+        </member>
+        <member name="M:DNET.DQueue`1.#ctor(System.Int32)">
+            <summary>
+            构造函数，参数是队列的最大长度。
+            如果调用EnqueueMaxLimit()当队列长度要超过的时候会自动丢弃最前端的内容。
+            </summary>
+            <param name="maxCapacity">队列的最大长度</param>
+        </member>
+        <member name="M:DNET.DQueue`1.#ctor(System.Int32,System.Int32)">
+            <summary>
+            构造函数，参数是队列的最大长度，和初始长度。
+            如果调用EnqueueMaxLimit()当队列长度要超过的时候会自动丢弃最前端的内容。
+            </summary>
+            <param name="maxCapacity">队列的最大长度</param>
+            <param name="initSize">初始分配长度</param>
+        </member>
+        <member name="F:DNET.DQueue`1._queue">
+            <summary>
+            数据队列,暴露出来使用方便扩展
+            </summary>
+        </member>
+        <member name="F:DNET.DQueue`1._maxCount">
+            <summary>
+            队列的最大长度
+            </summary>
+        </member>
+        <member name="P:DNET.DQueue`1.maxCount">
+            <summary> 队列的最大数量. </summary>
+        </member>
+        <member name="P:DNET.DQueue`1.Count">
+            <summary>
+            队列的当前数据个数
+            </summary>
+        </member>
+        <member name="P:DNET.DQueue`1.IsFull">
+            <summary>
+            队列是否已经满了
+            </summary>
+        </member>
+        <member name="M:DNET.DQueue`1.Dequeue">
+            <summary>
+            移除并返回位于 Queue 开始处的对象，如果没有那么返回default(T)。
+            </summary>
+            <returns>返回的条目</returns>
+        </member>
+        <member name="M:DNET.DQueue`1.Peek">
+            <summary>
+            Peek函数一般在使用的时候含义有所不同，得外面自己加锁.所以这个函数本身没有加锁。
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.DQueue`1.Enqueue(`0)">
+            <summary>
+            将对象添加到 Queue的结尾处。
+            </summary>
+            <param name="item">加入的条目</param>
+        </member>
+        <member name="M:DNET.DQueue`1.EnqueueMaxLimit(`0)">
+            <summary>
+            如果队列达到了限定长度，就自动丢弃最前端的。
+            如果正常返回true,丢弃返回false.
+            </summary>
+            <param name="item">加入的条目</param>
+            <returns>如果正常返回true,丢弃返回false</returns>
+        </member>
+        <member name="M:DNET.DQueue`1.EnqueueMaxLimit(`0,`0@)">
+            <summary>
+            如果队列达到了限定长度，就自动丢弃最前端的。
+            如果正常返回true,丢弃返回false.
+            </summary>
+            <param name="item">加入的条目</param>
+            <param name="dequeueItem">最前端的</param>
+            <returns>如果正常返回true,丢弃返回false</returns>
+        </member>
+        <member name="M:DNET.DQueue`1.ToArray">
+            <summary>
+            返回当前队列的整个数据拷贝,不会清空队列
+            </summary>
+            <returns>队列的数组拷贝</returns>
+        </member>
+        <member name="M:DNET.DQueue`1.Clear">
+            <summary>
+            清空队列
+            </summary>
+        </member>
+        <member name="M:DNET.DQueue`1.TryGetData">
+            <summary>
+            尝试一次取出整个队列的所有数据,如果为空返回null
+            </summary>
+            <returns>队列的数据数组</returns>
+        </member>
+        <member name="M:DNET.DQueue`1.TryGetData(`0[],System.Int32)">
+            <summary>
+            尝试一次取出整个队列的所有数据,尝试把结果写到output数组中去,返回成功取出的条数。
+            </summary>
+            <param name="output">缓存地址</param>
+            <param name="offset">output中的偏移</param>
+            <returns>成功取出的条数</returns>
+        </member>
+        <member name="M:DNET.DQueue`1.GetData(`0[],System.Int32)">
+            <summary>
+            尝试一次取出整个队列的所有数据,尝试把结果写到output数组中去,返回成功取出的条数。
+            </summary>
+            <param name="output">缓存地址</param>
+            <param name="offset">output中的偏移</param>
+            <returns>成功取出的条数</returns>
+        </member>
+        <member name="M:DNET.DQueue`1.GetData">
+            <summary>
+            一次取出整个队列的所有数据,如果为空返回null
+            </summary>
+            <returns>队列的数据数组</returns>
+        </member>
+        <member name="M:DNET.DQueue`1.TrimExcess">
+            <summary>
+            如果元素数小于当前容量的 90%，将容量设置为队列中的实际元素数。
+            </summary>
+        </member>
+        <member name="M:DNET.DQueue`1.LockEnter">
+            <summary>
+            进入锁
+            </summary>
+        </member>
+        <member name="M:DNET.DQueue`1.LockExit">
+            <summary>
+            离开锁
+            </summary>
+        </member>
+        <member name="T:DNET.DThreadTimeAnalyze">
+            <summary>
+            用于计算一个"工作-等待"模型的工作时间占用
+            </summary>
+        </member>
+        <member name="M:DNET.DThreadTimeAnalyze.#ctor(System.Int32,System.Int32)">
+            <summary>
+            构造函数 
+            </summary>
+            <param name="Length">记录的工作循环总次数</param>
+            <param name="updataCount">每工作循环多少次计算一次</param>
+        </member>
+        <member name="F:DNET.DThreadTimeAnalyze.isWork">
+            <summary>
+            默认是不开启的
+            </summary>
+        </member>
+        <member name="P:DNET.DThreadTimeAnalyze.OccupancyRate">
+            <summary>
+            工作占时比（百分率）
+            </summary>
+        </member>
+        <member name="M:DNET.DThreadTimeAnalyze.WorkStart">
+            <summary>
+            工作开始调用
+            </summary>
+        </member>
+        <member name="M:DNET.DThreadTimeAnalyze.WaitStart">
+            <summary>
+            工作结束，进入等待时调用
+            </summary>
+        </member>
+        <member name="M:DNET.DThreadTimeAnalyze.Calculate">
+            <summary>
+            计算一次
+            </summary>
+        </member>
+        <member name="M:DNET.DThreadTimeAnalyze.CalculateOccupancyRate(System.Double[],System.Double[],System.Int32)">
+            <summary>
+            计算平均占用率
+            </summary>
+            <param name="waitTime">记录等待时间的数组</param>
+            <param name="costTime">记录消耗时间的数组</param>
+            <param name="length">要计算的长度</param>
+            <returns>百分率</returns>
+        </member>
+        <member name="T:DNET.DxDebug">
+            <summary>
+            U3D和windows控制台显示信息
+            </summary>
+        </member>
+        <member name="T:DNET.DxDebug.LogItem">
+            <summary>
+            一个日志的结构体(内存中保存日志队列使用它)
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.LogItem.priority">
+            <summary>
+            优先级
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.LogItem.message">
+            <summary>
+            日志文本
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.MAX_LENGTH">
+            <summary>
+            内存中暂时保存的日志的条数
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug._logQueue">
+            <summary>
+            内存中暂存的日志队列
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug._lockMem">
+            <summary>
+            内存日志的锁
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.isLog">
+            <summary>
+            是否进行日志的操作,默认值是true.
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.IsLogFile">
+            <summary>
+            是否写到一个本地的log文件，默认值是false，需要手动调用LogFile.CreatLogFile()创建一个日志文件再设置这个值.
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.IsConsole">
+            <summary>
+            是否写到控制台,移动端的时候也应该关闭，对应System.Console.WriteLine()函数，默认值是false.
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.MemoryPriority">
+            <summary>
+            如果要保存到这个内存队列中，日志需要的最低优先级，低于这个优先级的日志不会被保存，默认值是1；
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.ConsolePriority">
+            <summary>
+            如果要显示到控制台需要的最低优先级，默认值是2
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.WarningPriority">
+            <summary>
+            警告日志优先级，默认值是4
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.ErrorPriority">
+            <summary>
+            错误日志优先级，默认值是8
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.FilePriority">
+            <summary>
+            需要写到文件中的优先级(一般可以和控制台优先级一样)
+            </summary>
+        </member>
+        <member name="E:DNET.DxDebug.EventPrint">
+            <summary>
+            提供一个打印事件把日志打印到调用模块的日志里去。参数是优先级和文本
+            </summary>
+        </member>
+        <member name="F:DNET.DxDebug.isInit">
+            <summary>
+            标记这个日志系统是否经过了初始化。因为实际上执行的功能函数就一个log。所以暂时用这个方法。
+            </summary>
+        </member>
+        <member name="M:DNET.DxDebug.Log(System.String,System.Int32)">
+            <summary>
+            输出一条日志，默认这条日志的优先级为0
+            </summary>
+            <param name="e"></param>
+            <param name="priority"></param>
+        </member>
+        <member name="M:DNET.DxDebug.LogWarning(System.String)">
+            <summary>
+            警告日志，以WarningPriority来记录
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.DxDebug.LogError(System.String)">
+            <summary>
+            错误日志，以ErrorPriority来记录
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.DxDebug.LogConsole(System.String)">
+            <summary>
+            显示到控制台中的日志
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.DxDebug.LogConsoleOnly(System.String)">
+            <summary>
+            只显示在控制台，不影响到其他的地方(这个函数和Log函数是独立并行)
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.DxDebug.LogFileOnly(System.String)">
+            <summary>
+            写日志到文件，不影响其他的地方(这个函数和Log函数是独立并行)
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.DxDebug.ClearMemLog">
+            <summary>
+            清空当前的所有内存日志
+            </summary>
+        </member>
+        <member name="M:DNET.DxDebug.AddMemLog(System.Int32,System.String@)">
+            <summary>
+            往内存日志队列添加一行日志
+            </summary>
+            <param name="pri">优先级</param>
+            <param name="msg">日志内容</param>
+        </member>
+        <member name="M:DNET.DxDebug.GetAllLog">
+            <summary>
+            得到内存日志队列所有记录的日志
+            </summary>
+            <returns>日志内容的拷贝</returns>
+        </member>
+        <member name="M:DNET.DxDebug.AllMemLogOutput">
+            <summary>
+            输出当前所有内存中的日志
+            </summary>
+        </member>
+        <member name="T:DNET.GZip">
+            <summary>
+            使用.net内置的GZIP，一个简单的用来压缩数据的类。包含静态方法，在序列化之后，发送前调用即可。
+            不能使用它来压缩大文件，最好不要超过1-2M。对于未经压缩过的数据，还是有一定的效果。
+            但是对一些已经压缩过的数据可能出现越压越大的情形= =
+            </summary>
+        </member>
+        <member name="M:DNET.GZip.CompressFile(System.String,System.String)">
+            <summary>
+            压缩文件，参数是输入文件路径和输出文件路径。
+            </summary>
+            <param name="sourceFile">输入文件路径</param>
+            <param name="destinationFile">输出文件路径</param>
+        </member>
+        <member name="M:DNET.GZip.DecompressFile(System.String,System.String)">
+            <summary>
+            解压缩文件，参数是输入文件路径和输出文件路径。
+            </summary>
+            <param name="sourceFile">输入文件路径</param>
+            <param name="destinationFile">输出文件路径</param>
+        </member>
+        <member name="M:DNET.GZip.CompressBytes(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            压缩一段数据，这个数据长度不能过大，最好在1M以内
+            </summary>
+            <param name="sourceData">用于存储压缩字节的数组</param>
+            <param name="offset">数组中开始读取的位置</param>
+            <param name="count">压缩的字节数</param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.GZip.CompressBytes(System.Byte[])">
+            <summary>
+            压缩整段数据
+            </summary>
+            <param name="sourceData">源数据</param>
+            <returns>结果数据</returns>
+        </member>
+        <member name="M:DNET.GZip.DecompressBytes(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+             解压缩一段数据，这个数据长度也不能过大
+            </summary>
+            <param name="sourceData">用于存储压缩字节的数组</param>
+            <param name="offset">数组中开始读取的位置</param>
+            <param name="count">压缩的字节数</param>
+            <returns>解压缩出来的数据</returns>
+        </member>
+        <member name="M:DNET.GZip.DecompressBytes(System.Byte[])">
+            <summary>
+            解压缩一段数据，这个数据长度也不能过大
+            </summary>
+            <param name="sourceData">源数据</param>
+            <returns>解压缩出来的数据</returns>
+        </member>
+        <member name="T:DNET.IWorkMsg">
+            <summary>
+            传递给工作线程的消息接口
+            </summary>
+        </member>
+        <member name="P:DNET.IWorkMsg.Name">
+            <summary>
+            这个消息的名字。通常会用于追踪异常
+            </summary>
+        </member>
+        <member name="P:DNET.IWorkMsg.srcObj">
+            <summary>
+            发出这个消息的源对象(通常是ILogic接口的逻辑对象)
+            </summary>
+        </member>
+        <member name="M:DNET.IWorkMsg.DoWork">
+            <summary>
+            执行方法,在线程开始处理时调用，如果需要执行结束事件，可以在这个函数的最后自行实现
+            </summary>
+        </member>
+        <member name="T:DNET.LogFile">
+            <summary>
+            将日志记录到本地文件，在移动端应该要设置一个正确的路径
+            </summary>
+        </member>
+        <member name="M:DNET.LogFile.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="M:DNET.LogFile.Finalize">
+            <summary>
+            析构
+            </summary>
+        </member>
+        <member name="M:DNET.LogFile.GetInst">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="F:DNET.LogFile._fileStream">
+            <summary>
+            日志文件的FileStream
+            </summary>
+        </member>
+        <member name="F:DNET.LogFile._streamWriter">
+            <summary>
+            日志文件的streamWriter
+            </summary>
+        </member>
+        <member name="F:DNET.LogFile._tempString">
+            <summary>
+            当日志文件还没有创建的时候，临时的记录到这个字符串队列中。。
+            </summary>
+        </member>
+        <member name="F:DNET.LogFile._timer">
+            <summary>
+            用来隔一段时间自动刷新
+            </summary>
+        </member>
+        <member name="F:DNET.LogFile.programName">
+            <summary>
+            程序名，会用在日志文件中
+            </summary>
+        </member>
+        <member name="F:DNET.LogFile.fileExtension">
+            <summary>
+            日志文件的扩展名(由于.net库中的FileInfo是使用带.号的，所以这里也认为带.号)
+            </summary>
+        </member>
+        <member name="F:DNET.LogFile.folderPath">
+            <summary>
+            日志文件夹路径
+            </summary>
+        </member>
+        <member name="F:DNET.LogFile.maxLogFileSize">
+            <summary>
+            日志文件最大字节数
+            </summary>
+        </member>
+        <member name="F:DNET.LogFile.isImmediatelyFlush">
+            <summary>
+            是否立即刷新日志,默认为false
+            </summary>
+        </member>
+        <member name="F:DNET.LogFile._lockFile">
+            <summary>
+            文件日志的锁
+            </summary>
+        </member>
+        <member name="M:DNET.LogFile.OnTimerTick(System.Object)">
+            <summary>
+            定时器回调：每隔5秒钟刷新一次文件
+            </summary>
+            <param name="state"></param>
+        </member>
+        <member name="M:DNET.LogFile.ClearLogFileInFolder(System.String,System.Single)">
+            <summary>
+            清除文件夹中的较早的日志文件
+            </summary>
+            <param name="folderPath">文件夹路径</param>
+            <param name="day">清除天数</param>
+        </member>
+        <member name="M:DNET.LogFile.CreatLogFile(System.String,System.Boolean,System.Single)">
+            <summary>
+            指定目录创建日志文件(输入文件夹路径)
+            </summary>
+            <param name="folderPath">文件夹路径</param>
+            <param name="isClearFolder">是否清除较早的日志文件</param>
+            <param name="day">清除天数</param>
+        </member>
+        <member name="M:DNET.LogFile.CreatLogFile">
+            <summary>
+            不指定目录的话，在根目录的log文件夹创建日志文件（失败后放到AppData）
+            </summary>
+        </member>
+        <member name="M:DNET.LogFile.SetFileStream(System.IO.FileStream)">
+            <summary>
+            直接设置一个FileStream
+            </summary>
+        </member>
+        <member name="M:DNET.LogFile.Add(System.String@)">
+            <summary>
+            向文件里写日志
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.LogFile.AddLine(System.String@)">
+            <summary>
+            向文件里写一行日志
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.LogFile.Flush">
+            <summary>
+            刷新日志文件流
+            </summary>
+        </member>
+        <member name="M:DNET.LogFile.Close">
+            <summary>
+            关闭日志文件，在程序退出的时候应该调用
+            </summary>
+        </member>
+        <member name="T:DNET.NetWorkMsg">
+            <summary>
+            Unity3d主模块和通信模块的工作线程之间异步工作使用的消息,
+            一般不应该使用这个，而应该直接使用提供的方法.
+            </summary>
+        </member>
+        <member name="T:DNET.NetWorkMsg.Tpye">
+            <summary>
+            消息类型
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.Tpye.C_Connect">
+            <summary>
+            连接
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.Tpye.C_Send">
+            <summary>
+            向服务器发送
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.Tpye.C_Receive">
+            <summary>
+            接收事件消息
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.Tpye.C_AsynClose">
+            <summary>
+            异步的关闭客户端
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.Tpye.S_Start">
+            <summary>
+            开始服务器
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.Tpye.S_Accept">
+            <summary>
+            认证消息
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.Tpye.S_Send">
+            <summary>
+            向某个token发送
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.Tpye.S_Receive">
+            <summary>
+            接收事件
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.Tpye.S_SendAll">
+            <summary>
+            开始向所有用户的一次发送。自动发送这些用户待发送队列中的数据
+            </summary>
+        </member>
+        <member name="M:DNET.NetWorkMsg.#ctor(DNET.NetWorkMsg.Tpye,System.Byte[],System.Int32,System.Boolean)">
+            <summary>
+            构造函数
+            </summary>
+            <param name="type">线程用来判断的类型</param>
+            <param name="data">如果需要的话会是一个数据</param>
+            <param name="arg1">附加参数（服务器端用于记录了TokenID） </param>
+            <param name="isDataCopy">是否进行数据的拷贝（可控为了提高性能）</param>
+        </member>
+        <member name="M:DNET.NetWorkMsg.#ctor(DNET.NetWorkMsg.Tpye,System.Byte[],System.Int32,System.Int32,System.Int32)">
+            <summary>
+            构造函数，这个MSG一定会作一个拷贝
+            </summary>
+            <param name="type">线程用来判断的类型</param>
+            <param name="data">如果需要的话会是一个数据</param>
+            <param name="offset">数据的起始位置</param>
+            <param name="count">数据的长度</param>
+            <param name="arg1">附加参数（服务器端用于记录了TokenID）</param>
+        </member>
+        <member name="F:DNET.NetWorkMsg.type">
+            <summary>
+            这个消息的类型
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.data">
+            <summary>
+            数据
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.arg1">
+            <summary>
+            附加参数（服务器端用于记录了TokenID）
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.token">
+            <summary>
+            这个字段一般被直接赋值了，应该合并这个字段和arg1字段
+            </summary>
+        </member>
+        <member name="F:DNET.NetWorkMsg.timeTickCreat">
+            <summary>
+            创建时的timeTick
+            </summary>
+        </member>
+        <member name="M:DNET.NetWorkMsg.Reset(DNET.NetWorkMsg.Tpye,System.Byte[],System.Int32,DNET.Token)">
+            <summary>
+            重置数据
+            </summary>
+        </member>
+        <member name="T:DNET.WorkThread">
+            <summary>
+            工作线程模型,一组线程等待一个信号量队列
+            <example>创建的时候会自动开启:
+            <code>
+            _workThread = new WorkThread(1024 * 512, 2, "LogicManager", 8192);
+            </code>
+            </example>
+            </summary>
+        </member>
+        <member name="M:DNET.WorkThread.#ctor(System.Int32,System.Int32,System.String,System.Int32)">
+            <summary>
+            构造函数：输入参数是最大消息队列长度和线程个数。 会自动开始工作.
+            </summary>
+            <param name="MaxMsgQueue"> 最大消息队列长度. </param>
+            <param name="threadCount"> 线程个数. </param>
+            <param name="name">        这一组工作线程的名字. </param>
+            <param name="initMsgQueueSize">初始队列长度. </param>
+        </member>
+        <member name="M:DNET.WorkThread.#ctor">
+            <summary>
+            构造函数，会自动开始工作。
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread.name">
+            <summary>
+            这一组工作线程的名字
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread.MSG_QUEUE_CAPACITY">
+            <summary>
+            消息队列最大数
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._initMsgQueueSize">
+            <summary>
+            初始消息队列长度
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._threadCount">
+            <summary>
+            总共的工作线程的个数
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._workThread">
+            <summary>
+            工作线程
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._workThreadID">
+            <summary>
+            线程的ID
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._isRun">
+            <summary>
+            用来强行停止线程
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._msgSemaphore">
+            <summary>
+            对应一条消息的信号量
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._msgQueue">
+            <summary>
+            这个线程待处理的消息队列
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._curSemCount">
+            <summary>
+            当前的信号量计数
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._msgQueuePeakLength">
+            <summary>
+            队列的峰值长度
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._disposed">
+            <summary>
+            这个类是否已经被释放掉
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._procMsgCount">
+            <summary>
+            已经处理过的消息的计数
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._isWorking">
+            <summary>
+            工作线程的工作状态
+            </summary>
+        </member>
+        <member name="F:DNET.WorkThread._lastWorkTime">
+            <summary>
+            工作线程的上一次的工作时间
+            </summary>
+        </member>
+        <member name="P:DNET.WorkThread.msgQueueCapacity">
+            <summary>
+            服务器队列的最大长度
+            </summary>
+        </member>
+        <member name="P:DNET.WorkThread.msgQueuePeakLength">
+            <summary>
+            队列的峰值长度
+            </summary>
+        </member>
+        <member name="M:DNET.WorkThread.Start">
+            <summary>
+            工作线程启动
+            </summary>
+        </member>
+        <member name="M:DNET.WorkThread.AddMessage(DNET.IWorkMsg)">
+            <summary>
+            添加一个工作任务到消息队列，提供给这些线程来处理
+            </summary>
+            <param name="msg"></param>
+        </member>
+        <member name="M:DNET.WorkThread.CheckThreadWorkOverTime(System.Int32,System.Double)">
+            <summary>
+            检查线程工作超时。超时时间的单位为ms
+            </summary>
+            <param name="index">线程的index</param>
+            <param name="time_ms">超时时间，单位为毫秒</param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.WorkThread.GetCostTime(System.Int32)">
+            <summary>
+            得到一个线程当前这次工作的耗时，如果当前线程是空闲，那么返回0单位毫秒
+            </summary>
+            <param name="index">线程index</param>
+            <returns>某个线程的当前工作耗时</returns>
+        </member>
+        <member name="M:DNET.WorkThread.ClearStatus">
+            <summary>
+            清除这个类对象的里的状态记录，如消息队列达到的最大长度msgQueuePeakLength
+            </summary>
+        </member>
+        <member name="M:DNET.WorkThread.DoWork">
+            <summary>
+            线程的工作函数
+            </summary>
+        </member>
+        <member name="M:DNET.WorkThread.RecThreadStatus(System.Int32,System.Boolean)">
+            <summary>
+            记录线程的状态
+            </summary>
+            <param name="managedThreadId">线程标识符id</param>
+            <param name="isWorking">要记录线程当前的工作状态是多少</param>
+        </member>
+        <member name="M:DNET.WorkThread.Dispose">
+            <summary>
+            Dispose函数
+            </summary>
+        </member>
+        <member name="T:DNET.DNetPool">
+            <summary>
+            内部的buffer池
+            </summary>
+        </member>
+        <member name="M:DNET.DNetPool.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="M:DNET.DNetPool.GetInst">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="F:DNET.DNetPool.byteBufPools">
+            <summary>
+            内存buff池
+            </summary>
+        </member>
+        <member name="P:DNET.DNetPool.ByteBuffPools">
+            <summary>
+            内存buff池
+            </summary>
+        </member>
+        <member name="T:DNET.IBufferPool">
+            <summary>
+            BufferPool接口
+            </summary>
+        </member>
+        <member name="M:DNET.IBufferPool.GetBuffer(System.Int32)">
+            <summary>
+            获得一个buffer
+            </summary>
+            <param name="size">期望的buffer大小</param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.IBufferPool.RecycleBuffer(DNET.ByteBuffer)">
+            <summary>
+            归还一个buffer
+            </summary>
+            <param name="buff"></param>
+        </member>
+        <member name="T:DNET.Crc32">
+            <summary>
+            CRC32计算类
+            </summary>
+        </member>
+        <member name="M:DNET.Crc32.Crc(System.Int32)">
+            <summary>
+            计算Crc
+            </summary>
+            <param name="bval"></param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.Crc32.Crc(System.Byte[])">
+            <summary>
+            计算Crc
+            </summary>
+            <param name="buffer"></param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.Crc32.Crc(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            计算Crc
+            </summary>
+            <param name="buf"></param>
+            <param name="off"></param>
+            <param name="len"></param>
+            <returns></returns>
+        </member>
+        <member name="T:DNET.DPacket">
+            <summary>
+            一种C/S两端的基本通信协议
+            数据头 + 长度（整个包总长度）  + 数据域 + 校验字节(4个字节) + 数据尾
+            </summary>
+        </member>
+        <member name="F:DNET.DPacket.isCheckCRC">
+            <summary>
+            是否检查CRC
+            </summary>
+        </member>
+        <member name="F:DNET.DPacket.head">
+            <summary>
+            帧头
+            </summary>
+        </member>
+        <member name="F:DNET.DPacket.end">
+            <summary>
+            帧尾
+            </summary>
+        </member>
+        <member name="M:DNET.DPacket.UnPack(System.Byte[],DNET.DPacket.OnceFindResult)">
+            <summary>
+            输入一段有头尾的数据包，尝试拆出数据
+            </summary>
+        </member>
+        <member name="M:DNET.DPacket.GetCRC(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            从数据包中得到CRC
+            </summary>
+        </member>
+        <member name="M:DNET.DPacket.GetLength(System.Byte[],System.Int32)">
+            <summary>
+            从数据包中得到Length
+            </summary>
+        </member>
+        <member name="M:DNET.DPacket.CheckHead(System.Byte[],System.Int32)">
+            <summary>
+            检查数据包的头是否正确
+            </summary>
+        </member>
+        <member name="M:DNET.DPacket.CheckEnd(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            检查数据包的尾是否正确
+            </summary>
+        </member>
+        <member name="M:DNET.DPacket.PacketCheck(System.Byte[],System.Int32)">
+            <summary>
+            检测测数据包是否正确的功能函数。输入一个判断位置，会检测包头，长度，包尾巴，然后返回结果。
+            </summary>
+            <param name="PacketData"></param>
+            <param name="startIndex"></param>
+            <returns></returns>
+        </member>
+        <member name="T:DNET.DPacket.PacketError">
+            <summary>
+            检测测数据包是否正确的错误信息
+            </summary>
+        </member>
+        <member name="F:DNET.DPacket.PacketError.PacketLengthTooShort">
+            <summary>长度就小于最小长度</summary>
+        </member>
+        <member name="F:DNET.DPacket.PacketError.HeadError">
+            <summary>包头字节不对</summary>
+        </member>
+        <member name="F:DNET.DPacket.PacketError.EndError">
+            <summary>包尾字节不对</summary>
+        </member>
+        <member name="F:DNET.DPacket.PacketError.PacketReceiveing">
+            <summary>数据包还正在接受，有帧头，但是长度还不够</summary>
+        </member>
+        <member name="F:DNET.DPacket.PacketError.CRCError">
+            <summary>CRC</summary>
+        </member>
+        <member name="F:DNET.DPacket.PacketError.Succeed">
+            <summary>成功</summary>
+        </member>
+        <member name="M:DNET.DPacket.FindPacketOnce(System.Byte[],System.Int32)">
+            <summary>
+            从一段数据流中从前至后查找数据包，返回第一个数据包的位置,如果出现第一个未接收完整的疑似包，
+            而该疑似包之后没有再发现下一个数据包，则传出这个疑似包的结果。
+            </summary>
+            <param name="data"></param>
+            <param name="startIndex"></param>
+            <returns></returns>
+        </member>
+        <member name="T:DNET.DPacket.OnceFindResult">
+             <summary>
+            寻找一次数据包结果的结构体
+             </summary>
+        </member>
+        <member name="F:DNET.DPacket.OnceFindResult.startIndex">
+            <summary>
+            如果结果是成功，结果的起始位置
+            </summary>
+        </member>
+        <member name="F:DNET.DPacket.OnceFindResult.length">
+            <summary>
+            结果的长度
+            </summary>
+        </member>
+        <member name="T:DNET.DPacketNoCrc">
+            <summary>
+            一种C/S两端的基本通信协议
+            数据头 + 长度（整个包总长度）  + 数据域  + 数据尾
+            </summary>
+        </member>
+        <member name="F:DNET.DPacketNoCrc.head">
+            <summary>
+            帧头
+            </summary>
+        </member>
+        <member name="F:DNET.DPacketNoCrc.end">
+            <summary>
+            帧尾
+            </summary>
+        </member>
+        <member name="M:DNET.DPacketNoCrc.UnPack(System.Byte[],DNET.DPacketNoCrc.OnceFindResult)">
+            <summary>
+            输入一段有头尾的数据包，尝试拆出数据
+            </summary>
+        </member>
+        <member name="M:DNET.DPacketNoCrc.GetLength(System.Byte[],System.Int32)">
+            <summary>
+            从数据包中得到Length
+            </summary>
+        </member>
+        <member name="M:DNET.DPacketNoCrc.CheckHead(System.Byte[],System.Int32)">
+            <summary>
+            检查数据包的头是否正确
+            </summary>
+        </member>
+        <member name="M:DNET.DPacketNoCrc.CheckEnd(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            检查数据包的尾是否正确startIndex+length要等于这个数据包的末尾
+            </summary>
+        </member>
+        <member name="M:DNET.DPacketNoCrc.PacketCheck(System.Byte[],System.Int32)">
+            <summary>
+            检测测数据包是否正确的功能函数。输入一个判断位置，会检测包头，长度，包尾巴，然后返回结果。
+            </summary>
+            <param name="PacketData"></param>
+            <param name="startIndex"></param>
+            <returns></returns>
+        </member>
+        <member name="T:DNET.DPacketNoCrc.PacketError">
+            <summary>
+            检测测数据包是否正确的错误信息
+            </summary>
+        </member>
+        <member name="F:DNET.DPacketNoCrc.PacketError.PacketLengthTooShort">
+            <summary>长度就小于最小长度</summary>
+        </member>
+        <member name="F:DNET.DPacketNoCrc.PacketError.HeadError">
+            <summary>包头字节不对</summary>
+        </member>
+        <member name="F:DNET.DPacketNoCrc.PacketError.EndError">
+            <summary>包尾字节不对</summary>
+        </member>
+        <member name="F:DNET.DPacketNoCrc.PacketError.PacketReceiveing">
+            <summary>数据包还正在接受，有帧头，但是长度还不够</summary>
+        </member>
+        <member name="F:DNET.DPacketNoCrc.PacketError.Succeed">
+            <summary>成功</summary>
+        </member>
+        <member name="M:DNET.DPacketNoCrc.FindPacketOnce(System.Byte[],System.Int32)">
+            <summary>
+            从一段数据流中从前至后查找数据包，返回第一个数据包的位置,如果出现第一个未接收完整的疑似包，
+            而该疑似包之后没有再发现下一个数据包，则传出这个疑似包的结果。
+            </summary>
+            <param name="data"></param>
+            <param name="startIndex"></param>
+            <returns></returns>
+        </member>
+        <member name="T:DNET.DPacketNoCrc.OnceFindResult">
+             <summary>
+            寻找一次数据包结果的结构体
+             </summary>
+        </member>
+        <member name="F:DNET.DPacketNoCrc.OnceFindResult.startIndex">
+            <summary>
+            如果结果是成功，结果的起始位置
+            </summary>
+        </member>
+        <member name="F:DNET.DPacketNoCrc.OnceFindResult.length">
+            <summary>
+            结果的长度
+            </summary>
+        </member>
+        <member name="T:DNET.FastPacket">
+            <summary>
+            一种比较快速的打包方式，只用一个数据长度的int作分割(这个写的数据长度值不包含这个int头的长度),
+            非常常见的分包方式。
+            </summary>
+        </member>
+        <member name="T:DNET.FastPacket2">
+            <summary>
+            一种比较快速的打包方式，只用一个数据长度的int作分割(这个写的数据长度值不包含这个int头的长度),
+            非常常见的分包方式。
+            </summary>
+        </member>
+        <member name="M:DNET.FastPacket2.#ctor">
+            <summary>
+            构造
+            </summary>
+        </member>
+        <member name="M:DNET.FastPacket2.AddSend(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            用户添加一段要发送的数据进来
+            </summary>
+            <param name="data">数据</param>
+            <param name="offset">偏移</param>
+            <param name="count">计数</param>
+        </member>
+        <member name="M:DNET.FastPacket2.WriteSendDataToBuffer(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            将待发送数据提取拷贝到待发送的buffer中,其中sendCount为可写的长度。这是为了拼接多条消息一起发送。
+            </summary>
+            <param name="sendBuff">要写入的发送buffer</param>
+            <param name="sendBuffOffset">发送buffer的起始偏移</param>
+            <param name="sendCount">期望的可发送长度(byte单位)</param>
+            <returns>实际写入发送的长度(byte单位)</returns>
+        </member>
+        <member name="P:DNET.FastPacket2.SendDataLength">
+            <summary>
+            当前的待发送数据长度(未实现).
+            </summary>
+        </member>
+        <member name="P:DNET.FastPacket2.SendMsgCount">
+            <summary>
+            当前待发消息条数，程序会使用这个来判断当前是否还有未发送的数据
+            </summary>
+        </member>
+        <member name="M:DNET.FastPacket2.AddRece(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            底层接收buffer将当前这次接收到的数据写入进来,这一步就需要进行数据包的解析了.
+            </summary>
+            <param name="receBuff">接收buffer</param>
+            <param name="offset">接收buffer的offset</param>
+            <param name="count">数据长度</param>
+            <returns>当次接收到的数据条数</returns>
+        </member>
+        <member name="P:DNET.FastPacket2.ReceMsgCount">
+            <summary>
+            当前保存的接收消息的长度，用于传递给用户查询当前消息条数.
+            </summary>
+        </member>
+        <member name="M:DNET.FastPacket2.GetReceMsg">
+            <summary>
+            得到一条接收的消息，用于传递给用户，没有消息则返回null.
+            </summary>
+            <returns>一条消息</returns>
+        </member>
+        <member name="M:DNET.FastPacket2.GetReceMsg(DNET.ByteBuffer[],System.Int32,System.Int32)">
+            <summary>
+            用户提供一组消息Buffer缓存，提取一组消息。offset是用户提供的msgBuffers的起始位置，count是希望提取的最多的长度.
+            </summary>
+            <param name="msgBuffers">用户提供一组消息Buffer缓存</param>
+            <param name="offset">用户提供的msgBuffers的起始位置</param>
+            <param name="count">希望提取的最大的长度</param>
+            <returns>实际提取到的消息</returns>
+        </member>
+        <member name="M:DNET.FastPacket2.Clear">
+            <summary>
+            当前重启的时候用来清空内部数据
+            </summary>
+        </member>
+        <member name="F:DNET.FastPacket2._queueSendData">
+            <summary>
+            待发送数据队列
+            </summary>
+        </member>
+        <member name="F:DNET.FastPacket2.MsgItem.msg">
+            <summary>
+            消息
+            </summary>
+        </member>
+        <member name="F:DNET.FastPacket2.MsgItem.index">
+            <summary>
+            当前已经拷贝出去的index
+            </summary>
+        </member>
+        <member name="F:DNET.FastPacket2.MsgItem.length">
+            <summary>
+            总长度
+            </summary>
+        </member>
+        <member name="M:DNET.FastPacket2.MsgItem.getCurCopyPtr">
+            <summary>
+            得到当前要拷贝的位置的指针
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="F:DNET.FastPacket2._queueReceMsg">
+            <summary>
+            接收到的消息队列
+            </summary>
+        </member>
+        <member name="F:DNET.FastPacket2._lastMsg">
+            <summary>
+            最后一条接收到的消息
+            </summary>
+        </member>
+        <member name="F:DNET.FastPacket2._lastMsgLength">
+            <summary>
+            最后一条接收到的消息长度
+            </summary>
+        </member>
+        <member name="F:DNET.FastPacket2._lastMsgHeadLenBuff">
+            <summary>
+            用来保存最后一条消息的头和长度
+            </summary>
+        </member>
+        <member name="F:DNET.FastPacket2._lastMsgHeadLenBuffCurIndex">
+            <summary>
+            当前接收到最后一条消息的头和长度的当前位置
+            </summary>
+        </member>
+        <member name="M:DNET.FastPacket2.ClearTempLastMsg">
+            <summary>
+            清空临时记录的最后一条消息的所有记录
+            </summary>
+        </member>
+        <member name="M:DNET.FastPacket2.CopyMsgData(System.Byte[]@,System.Int32@,System.Int32@,System.Int32@)">
+            <summary>
+            拷贝一次消息数据的实际内容
+            </summary>
+            <param name="receBuff"></param>
+            <param name="offset"></param>
+            <param name="count"></param>
+            <param name="receMsgCount"></param>
+        </member>
+        <member name="T:DNET.IPacket">
+            <summary>
+            客户端和服务器之间通信的数据打包方法的接口
+            </summary>
+        </member>
+        <member name="M:DNET.IPacket.PrePack(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            预打包，为了减少内存分配。
+            创建一段打包长度的数据，将用户数据放在这个更长的数据的相应的位置。
+            然后在之后的操作中调用CompletePack，完成这个数据的打包。
+            注意：这一步是由“用户线程”执行的。
+            </summary>
+            <param name="data">用户要传输的数据</param>
+            <param name="index">起始位置</param>
+            <param name="length">长度</param>
+            <returns>与打包结果空间大小一致的数据</returns>
+        </member>
+        <member name="M:DNET.IPacket.CompletePack(System.Byte[])">
+            <summary>
+            从一个预打包数据中，完成这次打包。
+            注意：这一步由“打包线程”执行的。
+            </summary>
+            <param name="data">预打包结果数据</param>
+            <returns>最终打包结果</returns>
+        </member>
+        <member name="M:DNET.IPacket.Pack(System.Byte[])">
+            <summary>
+            将数据打包成数据包，输入要传输的数据，输出打包之后的数据
+            </summary>
+            <param name="data">要传输的数据</param>
+            <returns>打包后的数据包</returns>
+        </member>
+        <member name="M:DNET.IPacket.UnPack(System.Byte[],System.Int32)">
+            <summary>
+            从数据流的某一处为起点，尝试解包一次数据
+            </summary>
+            <param name="sData">数据包数据流</param>
+            <param name="startIndex">解包起点</param>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.IPacket.FindPacket(System.Byte[],System.Int32)">
+            <summary>
+            从数据流的某一处为起点， 返回一个当前流里所有的数据包的解包结果
+            </summary>
+            <param name="sData">数据包数据流</param>
+            <param name="startIndex">解包起点</param>
+            <returns></returns>
+        </member>
+        <member name="T:DNET.FindPacketResult">
+            <summary>
+            寻找数据包结果结构体。包含:寻找结果和保留作下次的数据
+            </summary>
+        </member>
+        <member name="F:DNET.FindPacketResult.dataArr">
+            <summary>
+            寻找到的结果,正确的数据包
+            </summary>
+        </member>
+        <member name="F:DNET.FindPacketResult.reserveData">
+            <summary>
+            不能判断所以仍然应该保留的数据：如接收了一半的数据包，作为下次数据流的起始
+            </summary>
+        </member>
+        <member name="T:DNET.IPacket2">
+            <summary>
+            客户端和服务器之间通信的数据打包方法以及暂存数据管理的接口。
+            </summary>
+        </member>
+        <member name="M:DNET.IPacket2.AddSend(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            用户添加一段要发送的数据进来
+            </summary>
+            <param name="data">数据</param>
+            <param name="offset">偏移</param>
+            <param name="count">计数</param>
+        </member>
+        <member name="M:DNET.IPacket2.WriteSendDataToBuffer(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            讲待发送数据提取拷贝到待发送的buffer中,其中sendCount为可写的长度。这是为了拼接多条消息一起发送。
+            </summary>
+            <param name="sendBuff">要写入的发送buffer</param>
+            <param name="sendBuffOffset">发送buffer的起始偏移</param>
+            <param name="sendCount">期望的可发送长度</param>
+            <returns>实际写入发送的长度</returns>
+        </member>
+        <member name="P:DNET.IPacket2.SendDataLength">
+            <summary>
+            当前的待发送数据长度.(一般不用)
+            </summary>
+        </member>
+        <member name="P:DNET.IPacket2.SendMsgCount">
+            <summary>
+            当前待发消息条数，程序会使用这个来判断当前是否还有未发送的数据
+            </summary>
+        </member>
+        <member name="M:DNET.IPacket2.AddRece(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            底层接收buffer将当前这次接收到的数据写入进来,这一步就需要进行数据包的解析了.
+            </summary>
+            <param name="receBuff">接收buffer</param>
+            <param name="offset">接收buffer的offset</param>
+            <param name="count">数据长度</param>
+            <returns>当次接收到的数据条数</returns>
+        </member>
+        <member name="P:DNET.IPacket2.ReceMsgCount">
+            <summary>
+            当前保存的接收消息的长度，用于传递给用户查询当前消息条数.
+            </summary>
+        </member>
+        <member name="M:DNET.IPacket2.GetReceMsg">
+            <summary>
+            得到一条接收的消息，用于传递给用户.
+            </summary>
+            <returns>一条消息</returns>
+        </member>
+        <member name="M:DNET.IPacket2.GetReceMsg(DNET.ByteBuffer[],System.Int32,System.Int32)">
+            <summary>
+            用户提供一组消息Buffer缓存，提取一组消息。offset是用户提供的msgBuffers的起始位置，count是希望提取的最多的长度.
+            </summary>
+            <param name="msgBuffers">用户提供一组消息Buffer缓存</param>
+            <param name="offset">用户提供的msgBuffers的起始位置</param>
+            <param name="count">希望提取的最大的长度</param>
+            <returns>实际提取到的消息</returns>
+        </member>
+        <member name="M:DNET.IPacket2.Clear">
+            <summary>
+            当前重启的时候用来清空内部数据
+            </summary>
+        </member>
+        <member name="T:DNET.ServerStatus">
+            <summary>
+            服务器的工作状态类，依赖于ServerTimer来工作，每秒一次的统计频率
+            </summary>
+        </member>
+        <member name="M:DNET.ServerStatus.#ctor(DNET.DNServer)">
+            <summary>
+            构造函数要记录它的归属服务器
+            </summary>
+            <param name="server"></param>
+        </member>
+        <member name="F:DNET.ServerStatus._dnServer">
+            <summary>
+            它所属的服务器
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus.CountReceive">
+            <summary>
+            接收到的消息条数统计,由DNServer对象直接修改
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus.CountSend">
+            <summary>
+            发送出的消息条数统计,由DNServer对象直接修改
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus.CountReceiveBytes">
+            <summary>
+            接收到的消息字节数统计,由DNServer对象直接修改
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus.CountSendBytes">
+            <summary>
+            发送出的消息字节数统计,由DNServer对象直接修改
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus.CountReceive10s">
+            <summary>
+            最近10秒的接收消息计数
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus.CountSend10s">
+            <summary>
+            最近10秒的发送消息计数
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus.CountReceiveBytes10s">
+            <summary>
+            最近10秒的接收消息计数
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus.CountSendBytes10s">
+            <summary>
+            最近10秒的发送消息计数
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus.isPrintCur1s">
+            <summary>
+            是否打印当前一秒
+            </summary>
+        </member>
+        <member name="M:DNET.ServerStatus.BindTimer(DNET.ServerTimer)">
+            <summary>
+            绑定一个服务器定时器ServerTimer，它是一个1秒一工作的定时器
+            </summary>
+            <param name="timer"></param>
+        </member>
+        <member name="M:DNET.ServerStatus.Clear">
+            <summary>
+            统计数据清空
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus._lastCountReceive">
+            <summary>
+            保存的上一秒的计数,用来计算最近一秒内的消息次数
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus._lastCountSend">
+            <summary>
+            保存的上一秒的计数,用来计算最近一秒内的消息次数
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus._lastCountReceiveBytes">
+            <summary>
+            保存的上一秒的计数,用来计算最近一秒内的数据流量长度
+            </summary>
+        </member>
+        <member name="F:DNET.ServerStatus._lastCountSendBytes">
+            <summary>
+            保存的上一秒的计数,用来计算最近一秒内的数据流量长度
+            </summary>
+        </member>
+        <member name="M:DNET.ServerStatus.OnUpdate">
+            <summary>
+            在定时器中调用的函数
+            </summary>
+        </member>
+        <member name="T:DNET.TokenErrorType">
+            <summary>
+            服务器删除一个Token时的删除原因
+            </summary>
+        </member>
+        <member name="F:DNET.TokenErrorType.BytesTransferredZero">
+            <summary>
+            接收字节数为0
+            </summary>
+        </member>
+        <member name="F:DNET.TokenErrorType.SocketError">
+            <summary>
+            底层API能够捕获的错误
+            </summary>
+        </member>
+        <member name="F:DNET.TokenErrorType.HeartBeatTimeout">
+            <summary>
+            心跳包超时
+            </summary>
+        </member>
+        <member name="F:DNET.TokenErrorType.ClearAllToken">
+            <summary>
+            清空所有Token
+            </summary>
+        </member>
+        <member name="F:DNET.TokenErrorType.UserDelete">
+            <summary>
+            用户逻辑上的删除
+            </summary>
+        </member>
+        <member name="T:DNET.ServerTimer">
+            <summary>
+            一个默认的服务器Timer单例类，在 DNServer()的构造函数中会自动启动它。
+            </summary>
+        </member>
+        <member name="M:DNET.ServerTimer.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="F:DNET.ServerTimer._instance">
+            <summary>
+            静态构造函数
+            </summary>
+        </member>
+        <member name="M:DNET.ServerTimer.GetInstance">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.ServerTimer.GetInst">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="E:DNET.ServerTimer.EventOnTimer">
+            <summary>
+            定时器函数的事件，目前定时器的默认时间是1秒一次。
+            </summary>
+        </member>
+        <member name="F:DNET.ServerTimer.KICK_TIME">
+            <summary>
+            定时器间隔，目前是1s，最好不要修改这个时间
+            </summary>
+        </member>
+        <member name="F:DNET.ServerTimer._timer">
+            <summary>
+            一个定时器
+            </summary>
+        </member>
+        <member name="F:DNET.ServerTimer._countHeartBeatCheckTime">
+            <summary>
+            心跳包检测计时器
+            </summary>
+        </member>
+        <member name="F:DNET.ServerTimer._countHeartBeatSendTime">
+            <summary>
+            心跳包发送计时器
+            </summary>
+        </member>
+        <member name="F:DNET.ServerTimer._checkTickTime">
+            <summary>
+            上一次进心跳包检查的时间。
+            如果从这个时间开始token都一直没有收到消息，那么就是心跳包超时。
+            </summary>
+        </member>
+        <member name="F:DNET.ServerTimer.disposed">
+            <summary>
+            disposed标志
+            </summary>
+        </member>
+        <member name="M:DNET.ServerTimer.Start">
+            <summary>
+            初始化并且开始，如果调用了果了Dispose，那么可以重新调用这个函数再次开始。
+            如果已经初始化，那么不会执行。
+            </summary>
+        </member>
+        <member name="M:DNET.ServerTimer.OnTimerTick(System.Object)">
+            <summary>
+            定时器函数
+            </summary>
+            <param name="state"></param>
+        </member>
+        <member name="M:DNET.ServerTimer.CheckOffLineAndSend">
+            <summary>
+            检查用户是否其实已经离线，在OnTimerTick函数里调用
+            </summary>
+        </member>
+        <member name="M:DNET.ServerTimer.Dispose">
+            <summary>
+            Dispose
+            </summary>
+        </member>
+        <member name="T:DNET.DNServer">
+            <summary>
+            通信传输的服务器类，默认通信数据包打包方法类的类型为FastPacket。
+            </summary>
+        </member>
+        <member name="M:DNET.DNServer.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="M:DNET.DNServer.GetInstance">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.DNServer.GetInst">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="E:DNET.DNServer.EventTokenError">
+            <summary>
+            事件：某个Token发生了错误后，会自动调用关闭，这是错误及关闭事件
+            </summary>
+        </member>
+        <member name="E:DNET.DNServer.EventTokenReceData">
+            <summary>
+            事件：某个Token接收到了数据，可以将轻量任务加入这个事件，交给数据解包线程
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer.MAX_CONNECTIONS">
+            <summary>
+            最大客户端连接数（未使用）
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer.CONNECTIONS_BUFFER_SIZE">
+            <summary>
+            客户端数据buffer大小，当这个buffer比较小的时候也是可以接收到一个比较长的消息的。
+            128K则有1000个客户端的时候至少内存占用128M。1W人是1.28G
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer.MSG_QUEUE_CAPACITY">
+            <summary>
+            消息队列最大数(服务器的消息队列最大长度应该比较长才对，它基本等于狂发情况下的同时在线人数)
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer.MAX_TOKEN_SENDING_COUNT">
+            <summary>
+            Token的最大发送数
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer._workThread">
+            <summary>
+            工作线程组
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer._msgSemaphore">
+            <summary>
+            对应一条消息的信号量
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer._msgQueue">
+            <summary>
+            和U3D主模块之间的通信的消息队列
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer._curSemCount">
+            <summary>
+            当前的信号量计数
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer._port">
+            <summary>
+            服务器端口号
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer._socketListener">
+            <summary>
+            底层的通信类
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer._packet">
+            <summary>
+            打包解包器
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer._cpuTime">
+            <summary>
+            CPU消耗时间计算，目前没有开启
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer._warringWaitTime">
+            <summary>
+            发出消息处理等待警告时的时间长度，会逐级递增和递减.
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer.disposed">
+            <summary>
+            标记是否已经被disposed
+            </summary>
+        </member>
+        <member name="F:DNET.DNServer.Status">
+            <summary>
+            服务器工作状态（只是字段，外面使用自行注意安全）
+            </summary>
+        </member>
+        <member name="P:DNET.DNServer.IsStarted">
+            <summary>
+            服务器启动成功标志
+            </summary>
+        </member>
+        <member name="P:DNET.DNServer.Packet">
+            <summary>
+            打包方法
+            </summary>
+        </member>
+        <member name="P:DNET.DNServer.dirCache">
+            <summary>
+            通信库所使用的临时文件工作目录,是绝对路径。这个目录是由SetDirCache()函数设置的
+            </summary>
+        </member>
+        <member name="P:DNET.DNServer.isDirCanUse">
+            <summary>
+            是否工作文件夹能够使用
+            </summary>
+        </member>
+        <member name="P:DNET.DNServer.msgQueueLength">
+            <summary>
+            当前的消息队列长度
+            </summary>
+        </member>
+        <member name="M:DNET.DNServer.SetDirCache(System.String)">
+            <summary>
+            设置工作目录路径，如果传入空则表示工作路径为当前程序运行路径.通常来说在运行之前都应该指定一个目录
+            </summary>
+        </member>
+        <member name="M:DNET.DNServer.Start(System.Int32,System.Int32)">
+            <summary>
+            启动服务器，会开启工作线程然后释放一个DoStart信号量。
+            </summary>
+            <param name="port">端口号</param>
+            <param name="threadCount">服务器使用的处理线程数量</param>
+        </member>
+        <member name="M:DNET.DNServer.Close">
+            <summary>
+            关闭服务器
+            </summary>
+        </member>
+        <member name="M:DNET.DNServer.Send(System.Int32,System.Byte[])">
+            <summary>
+            向某个token发送一条数据。
+            </summary>
+            <param name="tokenID">tokenID</param>
+            <param name="data">要发送的数据</param>
+        </member>
+        <member name="M:DNET.DNServer.Send_(DNET.Token,System.Byte[])">
+            <summary>
+            向某个token发送一条数据。直接使用Token对象来发送
+            </summary>
+            <param name="token"></param>
+            <param name="data"></param>
+        </member>
+        <member name="M:DNET.DNServer.Send(DNET.Token,System.Byte[])">
+            -------------------------------------------------------------------------------------------------
+             <summary> 向某个token发送一条数据. </summary>
+            
+             <remarks> Dx, 2017/6/26. </remarks>
+            
+             <param name="token">  </param>
+             <param name="data">  要发送的数据. </param>
+            -------------------------------------------------------------------------------------------------
+        </member>
+        <member name="M:DNET.DNServer.SendAll">
+            <summary>
+            向所有的Token发送它们的待发送消息。
+            </summary>
+        </member>
+        <member name="M:DNET.DNServer.AddMessage(DNET.NetWorkMsg)">
+            <summary>
+            加入一条要执行的消息，如果加入的过快而无法发送，则将产生信号量溢出异常，表明当前发送数据频率要大于系统能力
+            </summary>
+            <param name="msg"></param>
+        </member>
+        <member name="M:DNET.DNServer.DoSend(DNET.NetWorkMsg)">
+            <summary>
+            线程函数：发送
+            </summary>
+            <param name="msg">这个消息参数的arg1为tokenID</param>
+        </member>
+        <member name="M:DNET.DNServer.DoSendAll(DNET.NetWorkMsg)">
+            <summary>
+            线程函数，向所有Token发送他们的待发送数据
+            </summary>
+            <param name="msg"></param>
+        </member>
+        <member name="M:DNET.DNServer.Dispose">
+            <summary>
+            这个对象的Close()函数会调用该函数
+            </summary>
+        </member>
+        <member name="T:DNET.SocketAsyncEventArgsPool">
+            <summary>
+            Based on example from http://msdn2.microsoft.com/en-us/library/system.net.sockets.socketasynceventargs.socketasynceventargs.aspx
+            Represents a collection of reusable SocketAsyncEventArgs objects.
+            </summary>
+        </member>
+        <member name="F:DNET.SocketAsyncEventArgsPool.pool">
+            <summary>
+            Pool of SocketAsyncEventArgs.
+            </summary>
+        </member>
+        <member name="M:DNET.SocketAsyncEventArgsPool.#ctor(System.Int32)">
+            <summary>
+            Initializes the object pool to the specified size.
+            </summary>
+            <param name="capacity">Maximum number of SocketAsyncEventArgs objects the pool can hold.</param>
+        </member>
+        <member name="M:DNET.SocketAsyncEventArgsPool.Pop">
+            <summary>
+            Removes a SocketAsyncEventArgs instance from the pool.
+            </summary>
+            <returns>SocketAsyncEventArgs removed from the pool.</returns>
+        </member>
+        <member name="M:DNET.SocketAsyncEventArgsPool.Push(System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            Add a SocketAsyncEventArg instance to the pool.
+            </summary>
+            <param name="item">SocketAsyncEventArgs instance to add to the pool.</param>
+        </member>
+        <member name="M:DNET.SocketListener.#ctor(DNET.DNServer,System.Int32)">
+            <summary>
+            构造函数：创建一个未初始化的服务器实例。
+            来开始一个监听服务，
+            调用Init方法之后再Start方法
+            </summary>
+            <param name="server">它所关联的DNServer</param>
+            <param name="bufferSize">给每个连接的IO操作的buffer大小</param>
+        </member>
+        <member name="F:DNET.SocketListener._dnserver">
+            <summary>
+            保存创建它的DNServer,用来在token中标记归属
+            </summary>
+        </member>
+        <member name="F:DNET.SocketListener._listenSocket">
+            <summary>
+            用于监听的套接字的连接请求。
+            </summary>
+        </member>
+        <member name="F:DNET.SocketListener._bufferSize">
+            <summary>
+            缓冲区大小为每个套接字I / O操作使用。
+            </summary>
+        </member>
+        <member name="F:DNET.SocketListener._isStarted">
+            <summary>
+            服务器启动成功标志
+            </summary>
+        </member>
+        <member name="F:DNET.SocketListener._acceptEventArg">
+            <summary>
+            专门给Accept用的
+            </summary>
+        </member>
+        <member name="F:DNET.SocketListener._acceptEventArgs">
+            <summary>
+            专门给Accept用的,改为一组，在代码里设置为使用2个
+            </summary>
+        </member>
+        <member name="F:DNET.SocketListener._lockAccept">
+            <summary>
+            一个锁尝试解决并发Accept问题，现在此问题已解决，这个锁还是保留
+            </summary>
+        </member>
+        <member name="P:DNET.SocketListener.IsStarted">
+            <summary>
+            服务器启动成功标志
+            </summary>
+        </member>
+        <member name="E:DNET.SocketListener.EventAccept">
+            <summary>
+            接受认证完成
+            </summary>
+        </member>
+        <member name="E:DNET.SocketListener.EventSend">
+            <summary>
+            数据发送完毕
+            </summary>
+        </member>
+        <member name="E:DNET.SocketListener.EventReceive">
+            <summary>
+            数据接收完毕
+            </summary>
+        </member>
+        <member name="E:DNET.SocketListener.EventError">
+            <summary>
+            关闭了某个客户端
+            </summary>
+        </member>
+        <member name="M:DNET.SocketListener.Start(System.Int32)">
+            <summary>
+            启动服务器
+            </summary>
+            <param name="port">本机的服务器端口</param>
+        </member>
+        <member name="M:DNET.SocketListener.Send(DNET.Token,System.Byte[])">
+            <summary>
+            由Socket开始一个异步发送
+            </summary>
+            <param name="token"></param>
+            <param name="data"></param>
+        </member>
+        <member name="M:DNET.SocketListener.OnIOCompleted(System.Object,System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            这个函数只绑定了acceptEventArg
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.SocketListener.ProcessAccept(System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            Accept的处理。
+            </summary>
+        </member>
+        <member name="M:DNET.SocketListener.OnCompletedProcessReceive(System.Object,System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            执行异步接收完成处理
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.SocketListener.OnCompletedProcessSend(System.Object,System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            执行异步发送完成
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.SocketListener.ProcessError(System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            发生了错误，通常是断开连接了
+            </summary>
+            <param name="e"></param>
+        </member>
+        <member name="M:DNET.SocketListener.StartAccept(System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            开始接受客户端的Accept
+            </summary>
+        </member>
+        <member name="M:DNET.SocketListener.StartAccept2">
+            <summary>
+            开始接受客户端的Accept,使用一组SocketAsyncEventArgs
+            </summary>
+        </member>
+        <member name="M:DNET.SocketListener.PrepareReceive(System.Net.Sockets.Socket,System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            开始一个接收
+            </summary>
+            <param name="s"></param>
+            <param name="args"></param>
+        </member>
+        <member name="T:DNET.Token">
+            <summary>
+            用户对象 ，Token里面起码要封装一个Socket对象
+            </summary>
+        </member>
+        <member name="M:DNET.Token.#ctor(System.Net.Sockets.Socket,System.Net.Sockets.SocketAsyncEventArgs,System.Net.Sockets.SocketAsyncEventArgs,System.Int32)">
+            <summary>
+            构造函数，应该是内部的。由内部机制创建
+            </summary>
+            <param name="socket">用户对应的 Socket</param>
+            <param name="sendArgs">创建出来的发送用的SocketAsyncEventArgs（将来可以放到池里）</param>
+            <param name="receiveArgs">创建出来的接收用的SocketAsyncEventArgs（将来可以放到池里）</param>
+            <param name="receiveBufferSize">数据接收缓存大小</param>
+        </member>
+        <member name="M:DNET.Token.#ctor">
+            <summary>
+            现在由于在客户端也添加了一个Token，用于在协议事件的时候方便统一逻辑，当初始化客户端的token的时候调用这个构造方法
+            </summary>
+        </member>
+        <member name="E:DNET.Token.EventDispose">
+            <summary>
+            事件：当这个Token被释放时产生，可以用于确保释放UserObj对象
+            </summary>
+        </member>
+        <member name="F:DNET.Token.MAX_BYTES_SIZE">
+            <summary>
+            队列的最大字节长度，为4M，虽然理论上这个大小没有限制，但是实测如果过大则通信不正常（win上15M可工作，31M不能工作）。
+            现规定这个占用为4M，留成6M
+            </summary>
+        </member>
+        <member name="F:DNET.Token._tokenScket">
+            <summary>
+            记录该客户端的Socket
+            </summary>
+        </member>
+        <member name="F:DNET.Token._sendQueue">
+            <summary>
+            要发送的数据队列（逻辑部分，已经预打包）
+            </summary>
+        </member>
+        <member name="F:DNET.Token._receiveQueue">
+            <summary>
+            接收到的数据队列（对应逻辑部分，已解包）
+            </summary>
+        </member>
+        <member name="F:DNET.Token._reserveQueuePacked">
+            <summary>
+            当前接收到的还未解包的数据
+            </summary>
+        </member>
+        <member name="F:DNET.Token._lockReserveData">
+            <summary>
+            ReserveData的锁
+            </summary>
+        </member>
+        <member name="F:DNET.Token._reserveData">
+            <summary>
+            当前还未处理的接收消息缓存
+            </summary>
+        </member>
+        <member name="F:DNET.Token._snedingCount">
+            <summary>
+            当前异步发送计数
+            </summary>
+        </member>
+        <member name="F:DNET.Token.disposed">
+            <summary>
+            disposed接口实现相关
+            </summary>
+        </member>
+        <member name="P:DNET.Token.ID">
+            <summary>
+            Token的ID，这个ID会一直递增的被分配
+            </summary>
+        </member>
+        <member name="P:DNET.Token.userObj">
+            <summary>
+            用户自定义的绑定对象，用于简单的绑定关联一个对象
+            </summary>
+        </member>
+        <member name="P:DNET.Token.client">
+            <summary>
+            拥有这个token的DNClient对象。
+            </summary>
+        </member>
+        <member name="P:DNET.Token.server">
+            <summary>
+            拥有这个token的DNServer对象。
+            </summary>
+        </member>
+        <member name="P:DNET.Token.LastMsgReceTickTime">
+            <summary>
+            用来记录最后一次收到这个Token发来的消息时间的Tick,创建这Token对象的时候初始化
+            </summary>
+        </member>
+        <member name="P:DNET.Token.LastMsgSendTickTime">
+            <summary>
+            用来记录最后一次向这个Token发送的消息时间的Tick,创建这Token对象的时候初始化
+            </summary>
+        </member>
+        <member name="F:DNET.Token.ReceiveBuffer">
+            <summary>
+            接收buffer
+            </summary>
+        </member>
+        <member name="P:DNET.Token.SendingCount">
+            <summary>
+            当前异步发送计数,由SocketListener对象控制修改。如果为1，表示正在发送
+            </summary>
+        </member>
+        <member name="P:DNET.Token.SendQueueCount">
+            <summary>
+            未解包的发送队列的长度
+            </summary>
+        </member>
+        <member name="P:DNET.Token.ReceiveQueueCount">
+            <summary>
+            接收队列的长度
+            </summary>
+        </member>
+        <member name="P:DNET.Token.socket">
+            <summary>
+            记录客户端连接的Socket
+            </summary>
+        </member>
+        <member name="P:DNET.Token.IP">
+            <summary>
+            客户端的IP
+            </summary>
+        </member>
+        <member name="M:DNET.Token.GetReceiveData">
+             <summary>
+            面向逻辑层，获取目前所有的已接收的数据(已解包)，返回byte[][]的形式,没有则返回null
+             </summary>
+             <returns>已接收的byte[]数据,没有则返回null</returns>
+        </member>
+        <member name="M:DNET.Token.AddSendData(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            添加一条要发送的消息（未打包的数据）,不会自动发送。
+            这一个方法会进行数据的预打包
+            </summary>
+            <param name="data">要发送的数据</param>
+            <param name="index">数据起始</param>
+            <param name="length">数据长度</param>
+        </member>
+        <member name="M:DNET.Token.Close">
+            <summary>
+            关闭这个Token和它的连接
+            </summary>
+        </member>
+        <member name="M:DNET.Token.SetData(System.Net.Sockets.SocketAsyncEventArgs)">
+            <summary>
+            记录下从客户端的接收到的未解包数据
+            </summary>
+            <param name="args"></param>
+        </member>
+        <member name="M:DNET.Token.UnpackReceiveData(DNET.IPacket,System.Int32@)">
+             <summary>
+             解包当前已经接收到的原始数据，结果存放进了已接收消息队列, 返回true如果接收到了消息.
+             </summary>
+             <param name="packeter"> 打包方法. </param>
+             <param name="length">   [out] 接收到数据长度. </param>
+            
+             <returns> 解包出来的消息条数(注意不是长度). </returns>
+        </member>
+        <member name="M:DNET.Token.PackSendData(DNET.IPacket)">
+            <summary>
+            打包并整合所有要发送的数据,从一个未打包队列里提取然后完成打包，之后直接传出
+            </summary>
+            <param name="packeter"></param>
+        </member>
+        <member name="M:DNET.Token.DecrementSendingCount">
+            <summary>
+            递减一个正在发送计数
+            </summary>
+        </member>
+        <member name="M:DNET.Token.IncrementSendingCount">
+            <summary>
+            递增一个正在发送计数
+            </summary>
+        </member>
+        <member name="M:DNET.Token.Dispose">
+            <summary>
+            Dispose，会断开连接
+            </summary>
+        </member>
+        <member name="T:DNET.TokenManager">
+            <summary>
+            要负责管理已连接的客户端的个数
+            </summary>
+        </member>
+        <member name="M:DNET.TokenManager.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="M:DNET.TokenManager.GetInstance">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DNET.TokenManager.GetInst">
+            <summary>
+            获得实例
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="F:DNET.TokenManager._dictToken">
+            <summary>
+            所有用户的字典，key是token的ID
+            </summary>
+        </member>
+        <member name="F:DNET.TokenManager._lockDict">
+            <summary>
+            字典的锁
+            </summary>
+        </member>
+        <member name="F:DNET.TokenManager._isDictEqualArr">
+            <summary>
+            是否当前字典和列表相等了,用于在GetAllToken()遍历所有用户的时候，如果相等了就不需要再次重新生成列表
+            </summary>
+        </member>
+        <member name="F:DNET.TokenManager._arrToken">
+            <summary>
+            所有用户的数组
+            </summary>
+        </member>
+        <member name="F:DNET.TokenManager._curID">
+            <summary>
+            一个递增的ID计数，会分配给新的Token
+            </summary>
+        </member>
+        <member name="F:DNET.TokenManager.disposed">
+            <summary>
+            disposed标志
+            </summary>
+        </member>
+        <member name="P:DNET.TokenManager.TokensCount">
+            <summary>
+            当前用户的计数
+            </summary>
+        </member>
+        <member name="E:DNET.TokenManager.EventAddToken">
+            <summary>
+            事件：新连接上了一个客户。
+            参数int: Token的id
+            </summary>
+        </member>
+        <member name="E:DNET.TokenManager.EventDeleteToken">
+            <summary>
+            事件：删除/关闭了一个客户。
+            参数int: Token的id
+            参数TokenErrorType: 删除原因
+            </summary>
+        </member>
+        <member name="M:DNET.TokenManager.AddToken(DNET.Token)">
+            <summary>
+            添加一个token
+            </summary>
+            <param name="token"></param>
+        </member>
+        <member name="M:DNET.TokenManager.CloseToken(System.Int32,DNET.TokenErrorType)">
+            <summary>
+            关闭一个token，释放token的资源，但是不会从当前列表中删除这个token
+            </summary>
+            <param name="id">Token的id</param>
+            <param name="type">错误原因</param>
+        </member>
+        <member name="M:DNET.TokenManager.DeleteToken(System.Int32,System.Net.Sockets.SocketError)">
+            <summary>
+            内部的删除一个Token，原因有：
+            发生了SocketError导致，内部的删除一个Token（SocketError）
+            </summary>
+            <param name="id"></param>
+            <param name="socketError">错误参数是SocketError</param>
+        </member>
+        <member name="M:DNET.TokenManager.DeleteToken(System.Int32,DNET.TokenErrorType)">
+            <summary>
+            内部的删除一个Token，原因有：
+            1、函数返回了0，远端已经关闭了这个连接
+            2、长时间没有收到心跳包
+            3、deleteAllToken()
+            </summary>
+            <param name="id"></param>
+            <param name="errorType">错误参数是TokenErrorType</param>
+        </member>
+        <member name="M:DNET.TokenManager.DeleteToken(System.Int32)">
+            <summary>
+            删除一个token，会自动关闭连接。会产生事件
+            </summary>
+            <param name="id">根据ID删除已个Token</param>
+        </member>
+        <member name="M:DNET.TokenManager.DeleteAllToken">
+            <summary>
+            删除所有客户端，目前在关闭了服务器的时候会调用
+            </summary>
+        </member>
+        <member name="M:DNET.TokenManager.GetToken(System.Int32)">
+            <summary>
+            根据ID号获得一个token，没有获得到就返回null
+            </summary>
+            <param name="id">Token的id</param>
+            <returns>Token对象，没有则返回null</returns>
+        </member>
+        <member name="M:DNET.TokenManager.GetAllToken">
+            <summary>
+            得到所有当前的Token。用来对所有Token进行遍历（仮）.
+            因为遍历操作频率较低，暂时目前所有对用户的处理都是通过这个来得到，将来可能需要改进。
+            加一个缓存数组.
+            </summary>
+            <returns>Token数组</returns>
+        </member>
+        <member name="M:DNET.TokenManager.SendToAllToken(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            向所有token发送数据。
+            在他们的消息队列中添加这个数据，但是不会开始一次发送。
+            </summary>
+            <param name="data">数据</param>
+            <param name="index">数据的起始位置</param>
+            <param name="length">数据的长度</param>
+        </member>
+        <member name="M:DNET.TokenManager.SendToAllTokenExcept(System.Int32,System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            向除了XX以外的所有token发送数据。
+            在他们的消息队列中添加这个数据，但是不会开始一次发送。
+            </summary>
+            <param name="exceptTokenID">排除的用户ID</param>
+            <param name="data">数据</param>
+            <param name="index">数据起始位置</param>
+            <param name="length">数据长度</param>
+        </member>
+        <member name="M:DNET.TokenManager.Clear">
+            <summary>
+            未实现这个Clear()方法，但是存在Delete相关方法。
+            </summary>
+        </member>
+        <member name="M:DNET.TokenManager.Dispose">
+            <summary>
+            这个释放其实不会用到
+            </summary>
+        </member>
+        <member name="T:DNET.UserObj">
+            <summary>
+            绑定Token的用户自定义对象,使用的时候要及时清除
+            </summary>
+        </member>
+        <member name="F:DNET.UserObj._dict">
+            <summary>
+            对象字典
+            </summary>
+        </member>
+        <member name="F:DNET.UserObj.obj">
+            <summary>
+            可以直接使用，省的使用字典
+            </summary>
+        </member>
+        <member name="F:DNET.UserObj.obj2">
+            <summary>
+            可以直接使用，省的使用字典
+            </summary>
+        </member>
+        <member name="F:DNET.UserObj.obj3">
+            <summary>
+            可以直接使用，省的使用字典
+            </summary>
+        </member>
+        <member name="M:DNET.UserObj.Get(System.Int32)">
+            <summary>
+            得到一个记录的对象
+            </summary>
+            <param name="key">对象的key，可以使用common协议中的type</param>
+            <returns>如果不存在则返回null</returns>
+        </member>
+        <member name="M:DNET.UserObj.Add(System.Int32,System.Object)">
+            <summary>
+            得到一个记录的对象，没有做判断和安全处理
+            </summary>
+            <param name="key">对象的key，可以使用common协议中的type</param>
+            <param name="obj">要加入的obj</param>
+            <returns>成功添加返回true，重复返回false</returns>
+        </member>
+        <member name="M:DNET.UserObj.Set(System.Int32,System.Object)">
+            <summary>
+            重设一个key的值
+            </summary>
+            <param name="key">对象的key，可以使用common协议中的type</param>
+            <param name="obj">要重设的obj</param>
+            <returns>成功 重设返回true，重复返回false</returns>
+        </member>
+        <member name="M:DNET.UserObj.Delete(System.Int32)">
+            <summary>
+            删除一个键值
+            </summary>
+            <param name="key"></param>
+            <returns></returns>
+        </member>
+    </members>
+</doc>
