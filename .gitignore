@@ -10,3 +10,6 @@ DNET/bin/
 *.user
 SimpleSever/bin/
 SimpleSever/obj/
+U3D/DNetTest/\.vs/
+U3D/DNetTest/Library/
+U3D/DNetTest/log/

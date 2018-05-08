@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-
-
-namespace DNET
+﻿namespace DNET
 {
     /// <summary>
     /// 客户端和服务器之间通信的数据打包方法的接口
     /// </summary>
     public interface IPacket
     {
-
         /// <summary>
         /// 预打包，为了减少内存分配。
         /// 创建一段打包长度的数据，将用户数据放在这个更长的数据的相应的位置。
@@ -52,7 +47,6 @@ namespace DNET
         /// <param name="startIndex">解包起点</param>
         /// <returns></returns>
         FindPacketResult FindPacket(byte[] sData, int startIndex = 0);
-
     }
 
     /// <summary>
@@ -69,8 +63,5 @@ namespace DNET
         /// 不能判断所以仍然应该保留的数据：如接收了一半的数据包，作为下次数据流的起始
         /// </summary>
         public byte[] reserveData;
-
     }
-
-
 }

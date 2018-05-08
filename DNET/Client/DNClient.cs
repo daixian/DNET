@@ -6,7 +6,7 @@ using System.Threading;
 namespace DNET
 {
     /// <summary>
-    /// 通信传输的客户端类，默认通信数据包打包方法类的类型为DPacketNoCrc。
+    /// 通信传输的客户端类，默认通信数据包打包方法类的类型为FastPacket2。
     /// </summary>
     public class DNClient
     {
