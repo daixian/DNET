@@ -52,6 +52,8 @@ namespace DNETUnitTest
             }
 
             int msgCount = 10000;
+            //对线程池的最小个数作限制，防止池里不够
+            ThreadPool.SetMinThreads(32, 32);
 
             Task.Run(() =>
             {
