@@ -131,7 +131,7 @@ namespace DNET
         /// Config.IsLogFile = true;
         /// Config.IsLogConsole = true;
         /// Config.IsAutoHeartbeat = true;
-        /// Config.SetCacheDir(""); 
+        /// Config.SetCacheDir("");
         ///</summary>
         public static void DefaultConfigOnWindows()
         {
@@ -143,15 +143,18 @@ namespace DNET
         }
 
         /// <summary>
-        /// windows平台下的一套默认设置，输出日志文件，打印到控制台，打开心跳包，Cache和日志目录为输入目录.
+        /// windows平台下的一套默认设置，输出日志文件，打印到控制台，打开心跳包，Cache和日志目录为APPDATA+程序名
         /// Config.CreatLogFile(folderPath);
         /// Config.IsLogFile = true;
         /// Config.IsLogConsole = true;
         /// Config.IsAutoHeartbeat = true;
-        /// Config.SetCacheDir(folderPath); 
+        /// Config.SetCacheDir(folderPath);
         ///</summary>
-        public static void DefaultConfigOnWindows(string folderPath)
+        public static void ConfigOnWindows(string programName)
         {
+            string appdata = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string folderPath = System.IO.Path.Combine(appdata, programName);
+
             Config.CreatLogFile(folderPath);
             Config.IsLogFile = true;
             Config.IsLogConsole = true;
