@@ -23,7 +23,6 @@ namespace DNET
                 _instance = null;
             }
             this.Name = "unname client";
-            _packet = new FastPacket();
             _packet2 = new FastPacket2();
 
             token = new Token();
@@ -45,7 +44,6 @@ namespace DNET
         public DNClient(string clientName = "unname client")
         {
             this.Name = clientName;
-            _packet = new DPacketNoCrc();
             _packet2 = new FastPacket2();
 
             token = new Token();
@@ -155,11 +153,6 @@ namespace DNET
         /// 底层的通信类
         /// </summary>
         private SocketClient _socketClient = null;
-
-        /// <summary>
-        /// 打包解包器
-        /// </summary>
-        private IPacket _packet;
 
         /// <summary>
         /// 打包器2代
@@ -288,21 +281,6 @@ namespace DNET
                 {
                     return 0;
                 }
-            }
-        }
-
-        /// <summary>
-        /// 打包方法
-        /// </summary>
-        public IPacket Packet
-        {
-            get
-            {
-                return _packet;
-            }
-            set
-            {
-                _packet = value;
             }
         }
 
@@ -627,7 +605,7 @@ namespace DNET
         {
             if (data == null)
             {
-                DxDebug.LogWarning("DNClient.Send(p1,p2,p3):要发送的数据为null！");
+                DxDebug.LogWarning("DNClient.Send(data,offset,count):要发送的数据为null！");
             }
             try
             {
@@ -996,7 +974,7 @@ namespace DNET
             try
             {
                 //不再做心跳包处理，直接发出事件
-
+                LastMsgReceTickTime = DateTime.Now.Ticks;
                 //接收数据事件
                 if (EventReceData != null)
                 {
