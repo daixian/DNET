@@ -1,4 +1,6 @@
 # DNET
+[![Build status](https://dev.azure.com/daixian/Pipeline/_apis/build/status/Pipeline%20-%20DNET)](https://dev.azure.com/daixian/Pipeline/_build/latest?definitionId=5)
+
 一个简单的TCP通信库，包含了客户端和服务端，可给Unity使用。可以任意对接自定义的的TCP分包协议。
 
 #### 特点：
