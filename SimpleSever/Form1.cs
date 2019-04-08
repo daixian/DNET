@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -21,11 +21,11 @@ namespace SimpleSever
 
             isReSend = this.checkBox1.Checked;
 
-            Config.DefaultConfigOnWindows();
+            //Config.DefaultConfigOnWindows();//在自己根目录下创建日志
+            Config.ConfigOnWindows("SimplerServer");//在appdata文件夹下创建日志
             Config.IsAutoHeartbeat = false;
 
             DNServer.GetInstance().EventTokenReceData += OnTokenReceData;
-
             DNServer.GetInstance().Start(23333);
         }
 
@@ -45,7 +45,7 @@ namespace SimpleSever
             {
                 byte[] data = datas[i];
                 if (isReSend)//如果CheckBox选择了要回发
-                { 
+                {
                     //直接回发
                     DNServer.GetInstance().Send(token, data);
                 }

@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-
+using System.IO;
 
 namespace DNET
 {
@@ -153,7 +152,7 @@ namespace DNET
         public static void ConfigOnWindows(string programName)
         {
             string appdata = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string folderPath = System.IO.Path.Combine(appdata, programName);
+            string folderPath = Path.Combine(Path.Combine(appdata, programName), "log");
 
             Config.CreatLogFile(folderPath);
             Config.IsLogFile = true;

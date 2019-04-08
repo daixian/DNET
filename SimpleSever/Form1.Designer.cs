@@ -30,9 +30,9 @@
         {
             this.checkBox1 = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
-            // 
+            //
             // checkBox1
-            // 
+            //
             this.checkBox1.AutoSize = true;
             this.checkBox1.Location = new System.Drawing.Point(32, 63);
             this.checkBox1.Name = "checkBox1";
@@ -41,9 +41,9 @@
             this.checkBox1.Text = "收到消息后是否回包";
             this.checkBox1.UseVisualStyleBackColor = true;
             this.checkBox1.CheckedChanged += new System.EventHandler(this.checkBox1_CheckedChanged);
-            // 
+            //
             // Form1
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
