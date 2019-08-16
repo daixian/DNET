@@ -8,5 +8,5 @@
 ##### 调用接口简单。
 <img src="https://github.com/daixian/InnoPack/raw/master/assets/images/external/wiki/DNET/QQ2018050900155.jpg" alt="Profile"> 
 <img src="https://github.com/daixian/InnoPack/raw/master/assets/images/external/wiki/DNET/QQ2018050900171.jpg" alt="测试界面"> 
-<img src="https://github.com/daixian/InnoPack/raw/master/assets/images/external/wiki/DNETQQ2018050900314.jpg" alt="运行状态"> 
+<img src="https://github.com/daixian/InnoPack/raw/master/assets/images/external/wiki/DNET/QQ2018050900314.jpg" alt="运行状态"> 
  
