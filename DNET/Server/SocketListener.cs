@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 
 namespace DNET
 {
@@ -108,12 +109,33 @@ namespace DNET
         /// 启动服务器
         /// </summary>
         /// <param name="port">本机的服务器端口</param>
-        internal void Start(int port)
+        internal void Start(string hostName, int port)
         {
             try
             {
                 _isStarted = false;
                 IPAddress address = IPAddress.Any;
+                if (hostName == "Any")
+                {
+                    address = IPAddress.Any;
+                }
+                else if (Regex.IsMatch(hostName, @"\d{1,3}[.]\d{1,3}[.]\d{1,3}[.]\d{1,3}"))
+                {
+                    byte[] ipadr = new byte[4];
+
+                    MatchCollection ms = Regex.Matches(hostName, @"\d{1,3}");
+                    for (int i = 0; i < ms.Count; i++)
+                    {
+                        ipadr[i] = Convert.ToByte(hostName.Substring(ms[i].Index, ms[i].Length));
+                    }
+                }
+                else
+                {
+                    IPHostEntry host = Dns.GetHostEntry(hostName);
+                    IPAddress[] addressList = host.AddressList;
+                    address = addressList[addressList.Length - 1];
+
+                }
                 IPEndPoint localEndPoint = new IPEndPoint(address, port);
 
                 //创建一个监听Socket

@@ -126,6 +126,11 @@ namespace DNET
         public int arg1;
 
         /// <summary>
+        /// 附加参数
+        /// </summary>
+        public string text1;
+
+        /// <summary>
         /// 这个字段一般被直接赋值了，应该合并这个字段和arg1字段
         /// </summary>
         public Token token;
@@ -145,6 +150,7 @@ namespace DNET
             this.type = type;
             this.data = data;
             this.arg1 = arg1;
+            this.text1 = null;
             this.token = null;
             timeTickCreat = DateTime.Now.Ticks;
         }

@@ -290,7 +290,8 @@ namespace DNET
         /// </summary>
         /// <param name="port">端口号</param>
         /// <param name="threadCount">服务器使用的处理线程数量</param>
-        public void Start(int port, int threadCount = 1)
+        /// <param name="hostName">服务器的主机IP,一般使用Any表示所有的可能IP</param>
+        public void Start(int port, int threadCount = 1, string hostName = "Any")
         {
             try
             {
@@ -316,7 +317,9 @@ namespace DNET
                 }
 
                 _port = port;
-                AddMessage(new NetWorkMsg(NetWorkMsg.Tpye.S_Start, null));
+                NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Start, null);
+                msg.text1 = hostName;
+                AddMessage(msg);
             }
             catch (Exception e)
             {
@@ -499,7 +502,7 @@ namespace DNET
                 switch (msg.type)
                 {
                     case NetWorkMsg.Tpye.S_Start:
-                        DoStart();
+                        DoStart(msg);
                         break;
 
                     case NetWorkMsg.Tpye.S_Send:
@@ -523,7 +526,7 @@ namespace DNET
             }
         }
 
-        private void DoStart()
+        private void DoStart(NetWorkMsg msg)
         {
             try
             {
@@ -541,7 +544,7 @@ namespace DNET
                 _socketListener.EventSend += OnSend;
                 _socketListener.EventError += OnTokenError;
                 DxDebug.Log("DNServer.DoStart(): _socketListener.Start(" + _port + ");");
-                _socketListener.Start(_port);
+                _socketListener.Start(msg.text1, _port);
                 DxDebug.LogConsole("DNServer.DoStart()执行完毕！");
             }
             catch (Exception e)
