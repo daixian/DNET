@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 
 namespace DNET
@@ -165,6 +166,61 @@ namespace DNET
             }
         }
 
+
+        public static void LogText(string text, int priority = 0)
+        {
+            //如果优先级很低就不作任何处理了，避免拼接字符串，这能提高很多服务器的速度
+            if (priority < MemoryPriority && priority < ConsolePriority && priority < FilePriority)
+            {
+                return;
+            }
+
+
+            //如果优先级达到了显示到控制台的优先级
+            if (priority >= ConsolePriority)
+            {
+#if UNITY_EDITOR
+                    UnityEngine.Debug.Log(e);
+#else
+                //是否显示在控制台（主要是控制移动端或者没有控制台界面的情况）
+                // 其中这句话也会在unity的日志系统（日志文件）中写入一个日志。
+                if (IsConsole)
+                {
+                    try
+                    {
+                        System.Console.WriteLine(text);
+                    }
+                    catch (Exception)
+                    {
+                    }
+                }
+#endif
+            }
+
+            //是否写日志文件（Android和ios平台有一个路径问题）
+            if (IsLogFile && priority >= FilePriority)
+            {
+                LogFile.GetInst().AddLine(ref text);
+            }
+
+            LogItem log = null;
+
+            //如果优先级达到了记录到内存中的优先级
+            if (priority >= MemoryPriority)
+            {
+                log = AddMemLog(priority, ref text);
+            }
+
+            if (EventPrint != null)//如果有打印事件就执行事件
+            {
+                if (log == null)
+                    log = new LogItem() { priority = priority, message = text };
+                try { EventPrint(log); }
+                catch (Exception) { }
+            }
+        }
+
+
         /// <summary>
         /// 警告日志，以WarningPriority来记录
         /// </summary>
@@ -172,6 +228,18 @@ namespace DNET
         public static void LogWarning(string e)
         {
             Log("[warning]" + e, WarningPriority);
+
+            LogText($"StackTrace:", WarningPriority);
+            StackTrace st = new StackTrace(true);
+            StackFrame[] sfs = st.GetFrames();
+            int showLineNum = 30 < sfs.Length ? 30 : sfs.Length;
+            for (int i = 1; i < showLineNum; i++)//因为最上一行就是这个函数，所以从i=1开始
+            {
+                if (string.IsNullOrEmpty(sfs[i].GetFileName()))
+                    LogText($"{sfs[i].GetMethod()}", WarningPriority);
+                else
+                    LogText($"{sfs[i].GetFileName()}.{sfs[i].GetMethod()}:line{sfs[i].GetFileLineNumber()}", WarningPriority);
+            }
         }
 
         /// <summary>
@@ -181,6 +249,17 @@ namespace DNET
         public static void LogError(string e)
         {
             Log("[error]" + e, ErrorPriority);
+            LogText($"StackTrace:", ErrorPriority);
+            StackTrace st = new StackTrace(true);
+            StackFrame[] sfs = st.GetFrames();
+            int showLineNum = 30 < sfs.Length ? 30 : sfs.Length;
+            for (int i = 1; i < showLineNum; i++)//因为最上一行就是这个函数，所以从i=1开始
+            {
+                if (string.IsNullOrEmpty(sfs[i].GetFileName()))
+                    LogText($"{sfs[i].GetMethod()}", ErrorPriority);
+                else
+                    LogText($"{sfs[i].GetFileName()}.{sfs[i].GetMethod()}:line{sfs[i].GetFileLineNumber()}", ErrorPriority);
+            }
         }
 
         /// <summary>

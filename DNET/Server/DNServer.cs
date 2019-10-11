@@ -31,7 +31,7 @@ namespace DNET
 
             //_packet = new DPacketNoCrc();
             _packet = new FastPacket();
-            
+
             ServerTimer.GetInstance().Start();
 
             Status = new ServerStatus(this);//创建状态统计
@@ -39,7 +39,7 @@ namespace DNET
             Status.isPrintCur1s = false;//默认不打印状态统计（1s一打印）
         }
 
-        private static DNServer _instance;
+        private static DNServer _instance = null;
 
         /// <summary>
         /// 获得实例
@@ -297,6 +297,7 @@ namespace DNET
                 DxDebug.LogConsole("DNServer.Start()：服务器工作线程数 " + threadCount);
                 if (disposed)
                 {
+                    TokenManager.GetInst().Clear();
                     _msgQueue = new DQueue<NetWorkMsg>(MSG_QUEUE_CAPACITY);
                     _msgSemaphore = new Semaphore(0, MSG_QUEUE_CAPACITY);
 
@@ -724,9 +725,12 @@ namespace DNET
         public void Dispose()
         {
             DxDebug.LogWarning("DNServer.Dispose():进入了Dispose.");
-            for (int i = 0; i < _workThread.Length; i++)
+            if (_workThread != null)
             {
-                DxDebug.LogConsole("DNServer.Dispose():[" + _workThread[i].Name + "].IsAlive 为:" + _workThread[i].IsAlive);
+                for (int i = 0; i < _workThread.Length; i++)
+                {
+                    DxDebug.LogConsole("DNServer.Dispose():[" + _workThread[i].Name + "].IsAlive 为:" + _workThread[i].IsAlive);
+                }
             }
 
             Dispose(true);
@@ -751,13 +755,18 @@ namespace DNET
                 EventTokenReceData = null;
 
                 _msgSemaphore.Close();//关信号量队列
-                for (int i = 0; i < _workThread.Length; i++)
+                if (_workThread != null)
                 {
-                    if (_workThread[i].IsAlive) //关线程
+                    for (int i = 0; i < _workThread.Length; i++)
                     {
                         try
                         {
-                            _workThread[i].Abort();
+                            if (_workThread[i].IsAlive) //关线程
+                            {
+
+                                _workThread[i].Abort();
+
+                            }
                         }
                         catch (Exception e)
                         {

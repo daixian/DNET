@@ -20,12 +20,12 @@ namespace DNET
             if (_instance != null)
             {
                 DxDebug.LogWarning("TokenManager是个单例，被多次调用构造函数");
-                this.Dispose();
-                _instance = null;
+                //this.Dispose();
+                //_instance = null;
             }
         }
 
-        private static TokenManager _instance;
+        private static TokenManager _instance = new TokenManager();
 
         /// <summary>
         /// 获得实例
@@ -33,10 +33,6 @@ namespace DNET
         /// <returns></returns>
         public static TokenManager GetInstance()
         {
-            if (_instance == null)
-            {
-                _instance = new TokenManager();
-            }
             return _instance;
         }
 
@@ -46,10 +42,6 @@ namespace DNET
         /// <returns></returns>
         public static TokenManager GetInst()
         {
-            if (_instance == null)
-            {
-                _instance = new TokenManager();
-            }
             return _instance;
         }
 
@@ -395,8 +387,10 @@ namespace DNET
         /// <summary>
         /// 未实现这个Clear()方法，但是存在Delete相关方法。
         /// </summary>
-        public void Clear()
+        internal void Clear()
         {
+            _dictToken.Clear();
+            _arrToken = null;
         }
 
         #endregion Exposed Function

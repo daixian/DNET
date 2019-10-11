@@ -11,6 +11,22 @@ namespace DNETUnitTest
     [TestClass]
     public partial class UnitTest1
     {
+        [TestMethod]
+        public void TestMethod_Log()
+        {
+            Config.DefaultConfigOnWindows();
+            Config.IsAutoHeartbeat = false;
+            DNClient.GetInst().isDebugLog = true;
+            LogFile.GetInst().isImmediatelyFlush = true;
+            DxDebug.LogWarning("123");
+            DxDebug.LogError("123");
+
+            DNClient.GetInst().CloseImmediate();
+            DNServer.GetInst().Close();
+            LogFile.GetInst().Close();
+        }
+
+
         /// <summary>
         /// 启动一个服务器，它会原样回发接收到的消息。
         /// 再启动一个客户端和它发送消息，验证发送接收正常
