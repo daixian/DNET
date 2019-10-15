@@ -108,6 +108,7 @@ namespace DNET
         /// <summary>
         /// 启动服务器
         /// </summary>
+        /// <param name="hostName">服务器的ip</param>
         /// <param name="port">本机的服务器端口</param>
         internal void Start(string hostName, int port)
         {
@@ -128,6 +129,7 @@ namespace DNET
                     {
                         ipadr[i] = Convert.ToByte(hostName.Substring(ms[i].Index, ms[i].Length));
                     }
+                    address = new IPAddress(ipadr);
                 }
                 else
                 {
@@ -137,6 +139,7 @@ namespace DNET
 
                 }
                 IPEndPoint localEndPoint = new IPEndPoint(address, port);
+                DxDebug.LogConsole("SocketListener.Start():尝试启动服务器 " + address + ":" + port);
 
                 //创建一个监听Socket
                 this._listenSocket = new Socket(localEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
