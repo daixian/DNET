@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading;
 
 namespace DNET
@@ -630,6 +631,29 @@ namespace DNET
         }
 
         /// <summary>
+        /// 发送字符串数据
+        /// </summary>
+        /// <param name="text">字符串数据</param>
+        public void Send(string text)
+        {
+            try
+            {
+                byte[] dataBytes = null;
+                if (string.IsNullOrEmpty(text))
+                {
+                    Send(dataBytes);
+                    return;
+                }
+                dataBytes = Encoding.UTF8.GetBytes(text);
+                Send(dataBytes);
+            }
+            catch (Exception e)
+            {
+                DxDebug.LogWarning($"DNClient.Send:异常 {e}");
+            }
+        }
+
+        /// <summary>
         /// 得到一条接收到的数据
         /// </summary>
         /// <returns></returns>
@@ -735,31 +759,32 @@ namespace DNET
                     }
                 }
             }
-            catch (SemaphoreFullException)
-            {
-                //当前发送数据频率要大于系统能力，可尝试增加消息队列长度
-                string msgtype = "";
-                switch (msg.type)
-                {
-                    case NetWorkMsg.Tpye.C_Connect:
-                        msgtype = "C_Connect";
-                        break;
+            // dx: 这个现在在u3d中没有这个类型,所以干脆不用了
+            //catch (SemaphoreFullException)
+            //{
+            //    //当前发送数据频率要大于系统能力，可尝试增加消息队列长度
+            //    string msgtype = "";
+            //    switch (msg.type)
+            //    {
+            //        case NetWorkMsg.Tpye.C_Connect:
+            //            msgtype = "C_Connect";
+            //            break;
 
-                    case NetWorkMsg.Tpye.C_Send:
-                        msgtype = "C_Send";
-                        break;
+            //        case NetWorkMsg.Tpye.C_Send:
+            //            msgtype = "C_Send";
+            //            break;
 
-                    case NetWorkMsg.Tpye.C_Receive:
-                        msgtype = "C_Receive";
-                        break;
+            //        case NetWorkMsg.Tpye.C_Receive:
+            //            msgtype = "C_Receive";
+            //            break;
 
-                    default:
-                        break;
-                }
-                DxDebug.LogError("DNClient.AddMessage():大于系统能力，当前最后一条：" + msgtype);
-                //throw;//这个throw还是应该去掉
-                _msgPool.EnqueueMaxLimit(msg);
-            }
+            //        default:
+            //            break;
+            //    }
+            //    DxDebug.LogError("DNClient.AddMessage():大于系统能力，当前最后一条：" + msgtype);
+            //    //throw;//这个throw还是应该去掉
+            //    _msgPool.EnqueueMaxLimit(msg);
+            //}
             catch (Exception e)
             {
                 DxDebug.LogError("DNClient.AddMessage():异常：" + e.Message);

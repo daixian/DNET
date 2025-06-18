@@ -3,6 +3,7 @@
 using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 
 #if Multitask
@@ -374,6 +375,31 @@ namespace DNET
             token.AddSendData(data, 0, data.Length);
             msg.token = token;
             AddMessage(msg);
+        }
+
+        /// <summary> 向某个token发送一条数据. </summary>
+        ///
+        /// <remarks> Dx, 2017/6/26. </remarks>
+        ///
+        /// <param name="token">  </param>
+        /// <param name="text">  要发送的数据. </param>
+        public void Send(Token token, string text)
+        {
+            try
+            {
+                byte[] dataBytes = null;
+                if (string.IsNullOrEmpty(text))
+                {
+                    Send(token, dataBytes);
+                    return;
+                }
+                dataBytes = Encoding.UTF8.GetBytes(text);
+                Send(token, dataBytes);
+            }
+            catch (Exception e)
+            {
+                DxDebug.LogError($"DNServer.Send()：异常 {e}");
+            }
         }
 
         /// <summary>

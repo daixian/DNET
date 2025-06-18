@@ -1,7 +1,7 @@
 /Library
 /Obj
 /Temp
-/.vs
+**/.vs/
 /Bin
 DNETUnitTest/bin/
 DNETUnitTest/obj/
@@ -14,3 +14,4 @@ U3D/DNetTest/\.vs/
 U3D/DNetTest/Library/
 U3D/DNetTest/log/
 U3D/DNetTest/Temp/
+

@@ -229,12 +229,12 @@ namespace DNET
                     _msgQueuePeakLength = _msgQueue.Count;//记录当前的峰值长度
                 }
             }
-            catch (SemaphoreFullException)
-            {
-                DxDebug.LogError("WorkThread.AddMessage():大于工作线程的能力了：");
+            //catch (SemaphoreFullException)
+            //{
+            //    DxDebug.LogError("WorkThread.AddMessage():大于工作线程的能力了：");
 
-                throw;
-            }
+            //    throw;
+            //}
             catch (Exception e)
             {
                 DxDebug.LogError("WorkThread.AddMessage():异常：" + e.Message);
