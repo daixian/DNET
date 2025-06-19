@@ -49,7 +49,7 @@ namespace DNET
                 // Now write the compressed data to the destination file
                 compressedStream.Write(buffer, 0, buffer.Length);
             } catch (ApplicationException e) {
-                DxDebug.LogWarning("GZip.CompressFile():异常:" + e.Message);
+                LogProxy.LogWarning("GZip.CompressFile():异常:" + e.Message);
             } finally {
                 // Make sure we allways close all streams
                 if (sourceStream != null)
@@ -118,7 +118,7 @@ namespace DNET
                 // and flush everyhting to clean out the buffer
                 destinationStream.Flush();
             } catch (ApplicationException e) {
-                DxDebug.LogWarning("GZip.DecompressFile():异常:" + e.Message);
+                LogProxy.LogWarning("GZip.DecompressFile():异常:" + e.Message);
             } finally {
                 // Make sure we allways close all streams
                 if (sourceStream != null)
@@ -157,7 +157,7 @@ namespace DNET
                 destinationStream.Close();
                 return CompressedData;
             } catch (Exception e) {
-                DxDebug.LogWarning("GZip.CompressBytes():异常:" + e.Message);
+                LogProxy.LogWarning("GZip.CompressBytes():异常:" + e.Message);
             } finally {
                 // Make sure we allways close all streams
                 if (destinationStream != null)

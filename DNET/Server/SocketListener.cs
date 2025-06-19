@@ -79,22 +79,22 @@ namespace DNET
         /// <summary>
         /// 接受认证完成
         /// </summary>
-        internal event Action<Token> EventAccept;
+        internal event Action<Peer> EventAccept;
 
         /// <summary>
         /// 数据发送完毕
         /// </summary>
-        internal event Action<Token> EventSend;
+        internal event Action<Peer> EventSend;
 
         /// <summary>
         /// 数据接收完毕
         /// </summary>
-        internal event Action<Token> EventReceive;
+        internal event Action<Peer> EventReceive;
 
         /// <summary>
         /// 关闭了某个客户端
         /// </summary>
-        internal event Action<Token, SocketError> EventError;
+        internal event Action<Peer, SocketError> EventError;
 
         private bool disposed;
 
@@ -130,7 +130,7 @@ namespace DNET
                     address = addressList[addressList.Length - 1];
                 }
                 IPEndPoint localEndPoint = new IPEndPoint(address, port);
-                DxDebug.LogConsole("SocketListener.Start():尝试启动服务器 " + address + ":" + port);
+                LogProxy.LogDebug("SocketListener.Start():尝试启动服务器 " + address + ":" + port);
 
                 //创建一个监听Socket
                 this._listenSocket = new Socket(localEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
@@ -149,40 +149,40 @@ namespace DNET
 
                 _isStarted = true; //服务器启动成功
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketListener.Start()：Start函数错误：" + e.Message);
+                LogProxy.LogWarning("SocketListener.Start()：Start函数错误：" + e.Message);
             }
         }
 
         /// <summary>
         /// 由Socket开始一个异步发送
         /// </summary>
-        /// <param name="token"></param>
+        /// <param name="peer"></param>
         /// <param name="data"></param>
-        internal void Send(Token token, byte[] data)
+        internal void Send(Peer peer, byte[] data)
         {
             int errorCount = 0;
             try {
-                if (token.disposed == false) //如果这个token已经被释放，那就不要再发送了
+                if (peer.disposed == false) //如果这个token已经被释放，那就不要再发送了
                 {
-                    token.IncrementSendingCount(); //计数递增：这里需要及早标记，否则多线程调用SocketAsyncEventArgs会异常。
+                    peer.IncrementSendingCount(); //计数递增：这里需要及早标记，否则多线程调用SocketAsyncEventArgs会异常。
 
-                    SocketAsyncEventArgs sendEventArgs = token.SendArgs;
+                    SocketAsyncEventArgs sendEventArgs = peer.SendArgs;
                     sendEventArgs.SetBuffer(data, 0, data.Length);
 
                     //这里这个有可能会出现异常:"现在已经正在使用此 SocketAsyncEventArgs 实例进行异步套接字操作。
                     //所以这句可能要加锁
-                    if (!token.socket.SendAsync(sendEventArgs)) //开始发送  ,这里作异常处理()
+                    if (!peer.socket.SendAsync(sendEventArgs)) //开始发送  ,这里作异常处理()
                     {
                         OnCompletedProcessSend(this, sendEventArgs);
                     }
                 }
             } catch (Exception e) {
                 errorCount++;
-                DxDebug.LogWarning("SocketListener.Send()：异常:" + e.Message);
-                token.DecrementSendingCount(); //直接异常了就去掉这个计数递减
+                LogProxy.LogWarning("SocketListener.Send()：异常:" + e.Message);
+                peer.DecrementSendingCount(); //直接异常了就去掉这个计数递减
                 if (errorCount <= 2) {
-                    DxDebug.LogConsole("SocketListener.Send()尝试自动重试！errorCount=" + errorCount);
-                    Send(token, data);
+                    LogProxy.LogDebug("SocketListener.Send()尝试自动重试！errorCount=" + errorCount);
+                    Send(peer, data);
                 }
             }
         }
@@ -216,7 +216,7 @@ namespace DNET
                       this.ProcessSend(this,e);
                       break;*/
                 default:
-                    DxDebug.LogWarning("SocketListener：OnIOCompleted(): 进入了未预料的switch分支！");
+                    LogProxy.LogWarning("SocketListener：OnIOCompleted(): 进入了未预料的switch分支！");
                     break;
             }
             //}
@@ -236,17 +236,17 @@ namespace DNET
                     SocketAsyncEventArgs sendEventArgs = new SocketAsyncEventArgs();
                     sendEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnCompletedProcessSend);
 
-                    Token token = new Token(s, sendEventArgs, receiveEventArgs, _bufferSize); //创建一个用户Token
-                    token.server = this._dnserver;
-                    sendEventArgs.UserToken = token; //绑定一个用户Token
-                    receiveEventArgs.UserToken = token; //绑定一个用户Token
-                    receiveEventArgs.SetBuffer(token.ReceiveBuffer, 0, token.ReceiveBuffer.Length);
+                    Peer peer = new Peer(s, sendEventArgs, receiveEventArgs, _bufferSize); //创建一个用户Token
+                    peer.server = this._dnserver;
+                    sendEventArgs.UserToken = peer; //绑定一个用户Token
+                    receiveEventArgs.UserToken = peer; //绑定一个用户Token
+                    receiveEventArgs.SetBuffer(peer.ReceiveBuffer, 0, peer.ReceiveBuffer.Length);
 
-                    TokenManager.GetInstance().AddToken(token); //把这个用户加入TokenManager
+                    PeerManager.GetInstance().AddToken(peer); //把这个用户加入TokenManager
 
                     if (EventAccept != null) //产生认证事件
                     {
-                        EventAccept(token);
+                        EventAccept(peer);
                     }
                     PrepareReceive(s, receiveEventArgs); //开始接收
                 }
@@ -254,9 +254,9 @@ namespace DNET
                 this.StartAccept(e);
             } catch (SocketException ex) {
                 //Token token = e.UserToken as Token;
-                DxDebug.LogWarning(String.Format("SocketListener.ProcessAccept()：Socket异常,接收认证连接出现错误 {0}", ex.Message));
+                LogProxy.LogWarning(String.Format("SocketListener.ProcessAccept()：Socket异常,接收认证连接出现错误 {0}", ex.Message));
             } catch (Exception ex) {
-                DxDebug.LogWarning("SocketListener.ProcessAccept()：异常" + ex.Message);
+                LogProxy.LogWarning("SocketListener.ProcessAccept()：异常" + ex.Message);
             }
         }
 
@@ -272,8 +272,8 @@ namespace DNET
                 // 此属性提供在可接收或发送数据的异步套接字操作传输的字节数。 如果从读取操作返回零，则说明远程端已关闭了连接。
                 if (e.BytesTransferred > 0) {
                     if (e.SocketError == SocketError.Success) {
-                        Token token = e.UserToken as Token;
-                        token.SetData(e);
+                        Peer peer = e.UserToken as Peer;
+                        peer.SetData(e);
 
                         /* Socket s = token.socket;
                          if (s.Available == 0)
@@ -285,15 +285,15 @@ namespace DNET
                              e.SetBuffer(token.ReceiveBuffer, 0, token.ReceiveBuffer.Length);
                          }*/
 
-                        Socket s = token.socket; //Available的用法不太明确，但是这里有大概率是!=0的
+                        Socket s = peer.socket; //Available的用法不太明确，但是这里有大概率是!=0的
                         //if (s.Available != 0)
                         //{
                         //    DxDebug.LogWarning("SocketListener.OnCompletedProcessReceive():s.Available != 0");
                         //}
-                        e.SetBuffer(token.ReceiveBuffer, 0, token.ReceiveBuffer.Length);
+                        e.SetBuffer(peer.ReceiveBuffer, 0, peer.ReceiveBuffer.Length);
                         if (EventReceive != null) //产生接收事件，通知线程进行解包
                         {
-                            EventReceive(token);
+                            EventReceive(peer);
                         }
                         PrepareReceive(s, e); //开始下一个接收
                     }
@@ -302,13 +302,13 @@ namespace DNET
                     }
                 }
                 else {
-                    DxDebug.LogWarning("SocketListener.OnCompletedProcessReceive():BytesTransferred函数返回了零，说明远程已经关闭了连接，关闭这个用户。");
-                    Token token = e.UserToken as Token;
-                    TokenManager.GetInstance().DeleteToken(token.ID, TokenErrorType.BytesTransferredZero); //关闭Token
+                    LogProxy.LogWarning("SocketListener.OnCompletedProcessReceive():BytesTransferred函数返回了零，说明远程已经关闭了连接，关闭这个用户。");
+                    Peer peer = e.UserToken as Peer;
+                    PeerManager.GetInstance().DeleteToken(peer.ID, TokenErrorType.BytesTransferredZero); //关闭Token
                     // token.Close();
                 }
             } catch (Exception ex) {
-                DxDebug.LogWarning("SocketListener.OnCompletedProcessReceive():异常：" + ex.Message);
+                LogProxy.LogWarning("SocketListener.OnCompletedProcessReceive():异常：" + ex.Message);
             }
         }
 
@@ -321,18 +321,18 @@ namespace DNET
         {
             try {
                 if (e.SocketError == SocketError.Success) {
-                    Token token = e.UserToken as Token; //获取token
-                    token.DecrementSendingCount(); //计数递减
+                    Peer peer = e.UserToken as Peer; //获取token
+                    peer.DecrementSendingCount(); //计数递减
                     if (EventSend != null) //产生发送完成事件
                     {
-                        EventSend(token);
+                        EventSend(peer);
                     }
                 }
                 else {
                     this.ProcessError(e);
                 }
             } catch (Exception ex) {
-                DxDebug.LogWarning("SocketListener.OnCompletedProcessSend():异常：" + ex.Message);
+                LogProxy.LogWarning("SocketListener.OnCompletedProcessSend():异常：" + ex.Message);
             }
         }
 
@@ -343,18 +343,18 @@ namespace DNET
         private void ProcessError(SocketAsyncEventArgs e)
         {
             try {
-                Token token = e.UserToken as Token;
-                IPEndPoint localEp = token.socket.LocalEndPoint as IPEndPoint;
+                Peer peer = e.UserToken as Peer;
+                IPEndPoint localEp = peer.socket.LocalEndPoint as IPEndPoint;
 
-                DxDebug.LogConsole(string.Format("SocketListener.ProcessError()：SocketError:{0}  IP:{1}  上次操作:{2}.", e.SocketError, localEp, e.LastOperation));
-                TokenManager.GetInstance().DeleteToken(token.ID, e.SocketError);
+                LogProxy.LogDebug(string.Format("SocketListener.ProcessError()：SocketError:{0}  IP:{1}  上次操作:{2}.", e.SocketError, localEp, e.LastOperation));
+                PeerManager.GetInstance().DeleteToken(peer.ID, e.SocketError);
                 //  token.Close();//执行关闭
                 if (EventError != null) // 执行事件
                 {
-                    EventError(token, e.SocketError);
+                    EventError(peer, e.SocketError);
                 }
             } catch (Exception ex) {
-                DxDebug.LogWarning("SocketListener.ProcessError():异常：" + ex.Message);
+                LogProxy.LogWarning("SocketListener.ProcessError():异常：" + ex.Message);
             }
         }
 
@@ -377,13 +377,13 @@ namespace DNET
 
                 eArg.AcceptSocket = null; // 必须要先清掉Socket
 
-                DxDebug.LogConsole("SocketListener.StartAccept():服务器开始接收认证!");
+                LogProxy.LogDebug("SocketListener.StartAccept():服务器开始接收认证!");
                 //开始异步接收认证
                 if (!_listenSocket.AcceptAsync(eArg)) {
                     this.ProcessAccept(eArg);
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketListener.StartAccept():异常：" + e.Message);
+                LogProxy.LogWarning("SocketListener.StartAccept():异常：" + e.Message);
                 // throw;
             }
             //}
@@ -408,7 +408,7 @@ namespace DNET
                     _acceptEventArgs[i].AcceptSocket = null; // 必须要先清掉Socket
                 }
 
-                DxDebug.LogConsole("SocketListener.StartAccept2():服务器开始接收认证!");
+                LogProxy.LogDebug("SocketListener.StartAccept2():服务器开始接收认证!");
                 for (int i = 0; i < _acceptEventArgs.Length; i++) {
                     //开始异步接收认证
                     if (!_listenSocket.AcceptAsync(_acceptEventArgs[i])) {
@@ -416,7 +416,7 @@ namespace DNET
                     }
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketListener.StartAccept2():异常：" + e.Message);
+                LogProxy.LogWarning("SocketListener.StartAccept2():异常：" + e.Message);
                 throw;
             }
             //}
@@ -435,7 +435,7 @@ namespace DNET
                     this.OnCompletedProcessReceive(this, args);
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketListener：开始异步接收错误：" + e.Message);
+                LogProxy.LogWarning("SocketListener：开始异步接收错误：" + e.Message);
                 throw;
             }
         }
@@ -451,7 +451,7 @@ namespace DNET
 
         private void Dispose(bool disposing)
         {
-            DxDebug.LogWarning("SocketListener.Dispose()：进入了Dispose!");
+            LogProxy.LogWarning("SocketListener.Dispose()：进入了Dispose!");
             if (disposed) {
                 return;
             }
@@ -482,11 +482,11 @@ namespace DNET
                 }
 
                 _listenSocket.Close();
-                DxDebug.LogWarning("SocketListener.Dispose()：关闭了服务器Socket");
-                DxDebug.LogWarning("SocketListener.Dispose()：删除所有用户");
-                TokenManager.GetInstance().DeleteAllToken(); //关闭所有Token
+                LogProxy.LogWarning("SocketListener.Dispose()：关闭了服务器Socket");
+                LogProxy.LogWarning("SocketListener.Dispose()：删除所有用户");
+                PeerManager.GetInstance().DeleteAllToken(); //关闭所有Token
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketListener.Dispose()：异常：" + e.Message);
+                LogProxy.LogWarning("SocketListener.Dispose()：异常：" + e.Message);
             }
         }
 

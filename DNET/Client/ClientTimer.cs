@@ -74,7 +74,7 @@ namespace DNET
             _timer.Change(250, KICK_TIME);
 
             _count3S = 0;
-            DxDebug.LogConsole("ClientTimer.Init()：ClientTimer启动!");
+            LogProxy.Log("ClientTimer.Init()：ClientTimer启动!");
         }
 
         /// <summary>
@@ -98,7 +98,7 @@ namespace DNET
                 //如果15s没有收到心跳包
                 float time = (DateTime.Now.Ticks - client.LastMsgReceTickTime) / 10000;
                 if (time > Config.HeartBeatCheckTime) {
-                    DxDebug.LogWarning("ClientTimer.OnTimerTick()：长时间没有收到心跳包，判断可能已经掉线！");
+                    LogProxy.LogWarning("ClientTimer.OnTimerTick()：长时间没有收到心跳包，判断可能已经掉线！");
                     client.Disconnect(); //关闭连接
                 }
             }
@@ -108,7 +108,7 @@ namespace DNET
                 try {
                     EventOnTimer();
                 } catch (Exception e) {
-                    DxDebug.LogWarning("ClientTimer.OnTimerTick()：执行EventOnTimer事件异常：" + e.Message);
+                    LogProxy.LogWarning("ClientTimer.OnTimerTick()：执行EventOnTimer事件异常：" + e.Message);
                 }
             }
 
@@ -121,7 +121,7 @@ namespace DNET
                     try {
                         EventOnTimer3S();
                     } catch (Exception e) {
-                        DxDebug.LogWarning("ClientTimer.OnTimerTick()：执行EventOnTimer3S事件异常：" + e.Message);
+                        LogProxy.LogWarning("ClientTimer.OnTimerTick()：执行EventOnTimer3S事件异常：" + e.Message);
                         ;
                     }
                 }
@@ -136,7 +136,7 @@ namespace DNET
             DNClient client = DNClient.GetInstance();
             if (client.IsConnected) {
                 client.Send(Config.HeartBeatData); //发个心跳包
-                DxDebug.Log("ClientTimer：发送 HeartBeatData ~❤");
+                LogProxy.Log("ClientTimer：发送 HeartBeatData ~❤");
             }
             else {
                 // DxDebug.Log("ClientTimer：发送心跳包 - 但是当前还未连接");

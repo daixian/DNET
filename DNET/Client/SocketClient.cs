@@ -45,7 +45,7 @@ namespace DNET
                 _clientSocket.SendTimeout = 8 * 1000;
                 _clientSocket.ReceiveTimeout = 0;
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketClient.SocketClient():类构造函数错误: " + e.Message);
+                LogProxy.LogWarning("SocketClient.SocketClient():类构造函数错误: " + e.Message);
                 return;
             }
 
@@ -70,7 +70,7 @@ namespace DNET
             _receiveArgs.SetBuffer(_receiveBuffer, 0, _receiveBuffer.Length);
             _receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(ProcessReceive);
 #endif
-            DxDebug.Log("SocketClient.SocketClient().SocketClient类构造对象成功！");
+            LogProxy.Log("SocketClient.SocketClient().SocketClient类构造对象成功！");
         }
 
         #endregion Constructor
@@ -248,7 +248,7 @@ namespace DNET
                 _clientSocket.SendTimeout = 8 * 1000;
                 _clientSocket.ReceiveTimeout = 0;
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketClient.Bind():绑定IP地址错误: " + e.Message);
+                LogProxy.LogWarning("SocketClient.Bind():绑定IP地址错误: " + e.Message);
                 return;
             }
         }
@@ -301,7 +301,7 @@ namespace DNET
                     _clientSocket.Disconnect(false); //不允许重用套接字
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketClient.Disconnect()：异常 " + e.Message);
+                LogProxy.LogWarning("SocketClient.Disconnect()：异常 " + e.Message);
             }
         }
 
@@ -391,14 +391,14 @@ namespace DNET
                     PrepareReceive(); //自动开始一个接收
                 }
                 else {
-                    DxDebug.LogWarning("SocketClient.ProcessConnect():没能自动开始接收 IsConnected = " + IsConnected);
+                    LogProxy.LogWarning("SocketClient.ProcessConnect():没能自动开始接收 IsConnected = " + IsConnected);
                 }
                 if (EventConnect != null) //执行事件
                 {
                     EventConnect();
                 }
             } catch (Exception ex) {
-                DxDebug.LogWarning("SocketClient.ProcessConnect():异常：" + ex.Message);
+                LogProxy.LogWarning("SocketClient.ProcessConnect():异常：" + ex.Message);
             }
         }
 
@@ -425,7 +425,7 @@ namespace DNET
                 }
                 PrepareReceive(); //开始下一个接收
             } catch (Exception ex) {
-                DxDebug.LogWarning("SocketClient：ProcessReceive():" + ex.Message);
+                LogProxy.LogWarning("SocketClient：ProcessReceive():" + ex.Message);
             }
         }
 
@@ -442,7 +442,7 @@ namespace DNET
                     EventSend();
                 }
             } catch (Exception ex) {
-                DxDebug.LogWarning("SocketClient：ProcessSend()：ProcessSend可能设置信号量异常 " + ex.Message);
+                LogProxy.LogWarning("SocketClient：ProcessSend()：ProcessSend可能设置信号量异常 " + ex.Message);
             }
         }
 
@@ -456,18 +456,18 @@ namespace DNET
         /// <param name="e"></param>
         private void ProcessError(SocketAsyncEventArgs e)
         {
-            DxDebug.LogWarning("SocketClient.ProcessError():进入了ProcessError.  ErroType：" + e.SocketError); //显示下接收的信息
+            LogProxy.LogWarning("SocketClient.ProcessError():进入了ProcessError.  ErroType：" + e.SocketError); //显示下接收的信息
             Socket s = e.UserToken as Socket; //使用传递的Token
             if (s.Connected) {
                 try {
-                    DxDebug.LogConsole("SocketClient.ProcessError():调用Shutdown()关闭连接");
+                    LogProxy.LogDebug("SocketClient.ProcessError():调用Shutdown()关闭连接");
                     s.Shutdown(SocketShutdown.Both);
                 } catch (Exception ex) {
-                    DxDebug.LogWarning("SocketClient.ProcessError() ：Shutdown()异常 " + ex.Message);
+                    LogProxy.LogWarning("SocketClient.ProcessError() ：Shutdown()异常 " + ex.Message);
                 } finally {
                     if (s.Connected) {
                         s.Close();
-                        DxDebug.LogWarning("SocketClient.ProcessError() ：调用Close()关闭了连接"); //这里是否必须要关闭待定
+                        LogProxy.LogWarning("SocketClient.ProcessError() ：调用Close()关闭了连接"); //这里是否必须要关闭待定
                     }
                 }
             }
@@ -488,7 +488,7 @@ namespace DNET
                 //这个判断不严谨
                 if (!s.Connected) //如果当前没有连接上，就不发送
                 {
-                    DxDebug.LogWarning("SocketClient.PrepareSend() 当前已经断线，但仍尝试发送，已经忽略这条发送.");
+                    LogProxy.LogWarning("SocketClient.PrepareSend() 当前已经断线，但仍尝试发送，已经忽略这条发送.");
                     return;
                 }
 
@@ -497,7 +497,7 @@ namespace DNET
                     ProcessSend(this, args); //如果立即返回
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketClient.PrepareSend() 开始准备异步发送出错！！" + e.Message);
+                LogProxy.LogWarning("SocketClient.PrepareSend() 开始准备异步发送出错！！" + e.Message);
                 //这里捕获过的异常有：
                 // Thread creation failed.
             }
@@ -531,7 +531,7 @@ namespace DNET
                 }
                 _receTime.WaitStart();
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketClient.PrepareReceive() 开始异步接收错误：" + e.Message);
+                LogProxy.LogWarning("SocketClient.PrepareReceive() 开始异步接收错误：" + e.Message);
                 //这里捕获过的异常有：
                 // Thread creation failed.
             }
@@ -582,7 +582,7 @@ namespace DNET
                 //_areSendDone.Close();
                 //_areReceiveDone.Close();
             } catch (Exception e) {
-                DxDebug.LogWarning("SocketClient.Dispose() 异常：" + e.Message);
+                LogProxy.LogWarning("SocketClient.Dispose() 异常：" + e.Message);
             }
             //让类型知道自己已经被释放
             disposed = true;

@@ -45,7 +45,7 @@ namespace DNET
             ByteBuffer bbf = null;
             if (size > maxBlockSize) {
                 ByteBufferPool.countNew++;
-                DxDebug.LogConsole("ByteBufferPools.GetBuffer():申请了一块过大的内存,size=" + size);
+                LogProxy.LogDebug("ByteBufferPools.GetBuffer():申请了一块过大的内存,size=" + size);
                 //这个内存块太了，所以就不作缓存了
                 bbf = new ByteBuffer(size);
             }

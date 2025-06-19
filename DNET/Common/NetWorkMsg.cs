@@ -3,7 +3,8 @@
 namespace DNET
 {
     /// <summary>
-    /// Unity3d主模块和通信模块的工作线程之间异步工作使用的消息,
+    /// Unity3d主线程和通信模块的工作线程之间异步工作使用的消息,
+    /// 即主线程不参与解析协议等等工作.
     /// 一般不应该使用这个，而应该直接使用提供的方法.
     /// </summary>
     internal class NetWorkMsg
@@ -131,7 +132,7 @@ namespace DNET
         /// <summary>
         /// 这个字段一般被直接赋值了，应该合并这个字段和arg1字段
         /// </summary>
-        public Token token;
+        public Peer peer;
 
         /// <summary>
         /// 创建时的timeTick
@@ -143,13 +144,13 @@ namespace DNET
         /// <summary>
         /// 重置数据
         /// </summary>
-        public void Reset(Tpye type = Tpye.C_Connect, byte[] data = null, int arg1 = 0, Token token = null)
+        public void Reset(Tpye type = Tpye.C_Connect, byte[] data = null, int arg1 = 0, Peer peer = null)
         {
             this.type = type;
             this.data = data;
             this.arg1 = arg1;
             this.text1 = null;
-            this.token = null;
+            this.peer = null;
             timeTickCreat = DateTime.Now.Ticks;
         }
     }

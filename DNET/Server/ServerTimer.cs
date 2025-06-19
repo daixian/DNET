@@ -90,7 +90,7 @@ namespace DNET
                 _timer.Change(250, KICK_TIME);
                 _checkTickTime = DateTime.Now.Ticks;
 
-                DxDebug.LogConsole("ServerTimer.Init()：ServerTimer启动!");
+                LogProxy.LogDebug("ServerTimer.Init()：ServerTimer启动!");
             }
         }
 
@@ -111,12 +111,12 @@ namespace DNET
                     try {
                         EventOnTimer();
                     } catch (Exception e) {
-                        DxDebug.LogWarning("ServerTimer.OnTimerTick()：执行EventOnTimer事件异常：" + e.Message);
+                        LogProxy.LogWarning("ServerTimer.OnTimerTick()：执行EventOnTimer事件异常：" + e.Message);
                         ;
                     }
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("ServerTimer.OnTimerTick()：异常：" + e.Message);
+                LogProxy.LogWarning("ServerTimer.OnTimerTick()：异常：" + e.Message);
             }
         }
 
@@ -132,15 +132,15 @@ namespace DNET
             {
                 Interlocked.Exchange(ref _countHeartBeatCheckTime, 0); //这里要立马置零，防止后面的代码执行的过久，再次进入kick
 
-                Token[] tokens = TokenManager.GetInstance().GetAllToken();
+                Peer[] tokens = PeerManager.GetInstance().GetAllToken();
                 if (tokens != null) {
                     for (int i = 0; i < tokens.Length; i++) {
-                        Token token = tokens[i];
-                        if (token.LastMsgReceTickTime < _checkTickTime) //如果从上次的进入这里的时间之后一直都没有收到消息
+                        Peer peer = tokens[i];
+                        if (peer.LastMsgReceTickTime < _checkTickTime) //如果从上次的进入这里的时间之后一直都没有收到消息
                         {
-                            DxDebug.LogConsole("ServerTimer.CheckOffLine()：一个用户长时间没有收到心跳包，被删除!");
+                            LogProxy.LogDebug("ServerTimer.CheckOffLine()：一个用户长时间没有收到心跳包，被删除!");
 
-                            TokenManager.GetInstance().DeleteToken(token.ID, TokenErrorType.HeartBeatTimeout); //删除这个用户
+                            PeerManager.GetInstance().DeleteToken(peer.ID, TokenErrorType.HeartBeatTimeout); //删除这个用户
                         }
                     }
                 }
@@ -155,14 +155,14 @@ namespace DNET
 
                 long subTimeTick = DateTime.Now.Ticks - 10000 * Config.HeartBeatSendTime; //计算得到的门限时间
 
-                Token[] tokens = TokenManager.GetInstance().GetAllToken();
+                Peer[] tokens = PeerManager.GetInstance().GetAllToken();
                 if (tokens != null) {
                     for (int i = 0; i < tokens.Length; i++) {
-                        Token token = tokens[i];
-                        if (token.disposed == false && token.LastMsgSendTickTime < subTimeTick) //如果从上次的进入这里的时间之后一直都没有发消息
+                        Peer peer = tokens[i];
+                        if (peer.disposed == false && peer.LastMsgSendTickTime < subTimeTick) //如果从上次的进入这里的时间之后一直都没有发消息
                         {
                             //应该发送一条心跳包
-                            token.AddSendData(Config.HeartBeatData, 0, Config.HeartBeatData.Length);
+                            peer.AddSendData(Config.HeartBeatData, 0, Config.HeartBeatData.Length);
                         }
                     }
                     DNServer.GetInstance().SendAll(); //整体发送
@@ -179,7 +179,7 @@ namespace DNET
         /// </summary>
         public void Dispose()
         {
-            DxDebug.LogConsole("ServerTimer.Dispose()：ServerTimer进入了Dispose()!");
+            LogProxy.LogDebug("ServerTimer.Dispose()：ServerTimer进入了Dispose()!");
             Dispose(true);
         }
 
@@ -196,7 +196,7 @@ namespace DNET
                 if (_timer != null)
                     _timer.Dispose();
             } catch (Exception e) {
-                DxDebug.LogWarning("ServerTimer.Dispose()：异常_timer.Dispose()" + e.Message);
+                LogProxy.LogWarning("ServerTimer.Dispose()：异常_timer.Dispose()" + e.Message);
             }
             //让类型知道自己已经被释放
             disposed = true;

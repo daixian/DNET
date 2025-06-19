@@ -37,7 +37,7 @@ namespace DNET
                 return data;
             }
             else {
-                DxDebug.LogWarning("DPacket.UnPack():拆出数据失败！");
+                LogProxy.LogWarning("DPacket.UnPack():拆出数据失败！");
                 return null;
             }
         }
@@ -254,7 +254,7 @@ namespace DNET
                 DPacketNoCrc.OnceFindResult result = FindPacketOnce(sData, checkStart);
 
                 if (result.startIndex != checkStart) {
-                    DxDebug.LogWarning("DPacketNoCrc.FindPacket():丢弃了一段数据，丢弃起始" + checkStart +
+                    LogProxy.LogWarning("DPacketNoCrc.FindPacket():丢弃了一段数据，丢弃起始" + checkStart +
                                        "丢弃长度" + (result.startIndex - checkStart));
                 }
 
@@ -271,7 +271,7 @@ namespace DNET
                 else if (result.e == DPacketNoCrc.PacketError.PacketLengthTooShort) {
                     findPacketResult.reserveData = new byte[sData.Length - result.startIndex];
                     Buffer.BlockCopy(sData, result.startIndex, findPacketResult.reserveData, 0, findPacketResult.reserveData.Length);
-                    DxDebug.Log("DPacketNoCrc.FindPacket():解包：数据太短");
+                    LogProxy.Log("DPacketNoCrc.FindPacket():解包：数据太短");
                     break;
                 }
             }

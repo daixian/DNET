@@ -25,8 +25,8 @@ namespace DNET
             this.Name = "unname client";
             _packet2 = new FastPacket2();
 
-            token = new Token();
-            token.client = this;
+            Peer = new Peer();
+            Peer.client = this;
 
             IsConnecting = false;
             IsInited = false;
@@ -46,8 +46,8 @@ namespace DNET
             this.Name = clientName;
             _packet2 = new FastPacket2();
 
-            token = new Token();
-            token.client = this;
+            Peer = new Peer();
+            Peer.client = this;
 
             IsConnecting = false;
             IsInited = false;
@@ -135,7 +135,7 @@ namespace DNET
         /// <summary>
         /// 当前的信号量计数
         /// </summary>
-        private int _curSemCount = 0;
+        //private int _curSemCount = 0;
 
         /// <summary>
         /// 服务器主机名
@@ -271,7 +271,7 @@ namespace DNET
         /// <summary>
         /// 方便逻辑统一使用的token，用来记录一些用户保存的对象，传给事件，只有里面的userObj是有意义的
         /// </summary>
-        public Token token { get; set; }
+        public Peer Peer { get; set; }
 
         /// <summary>
         /// 用来记录最后一次收到这个Token发来的消息时间的Tick,创建这Token对象的时候初始化
@@ -282,16 +282,6 @@ namespace DNET
         /// 用来记录最后一次向这个Token发送的消息时间的Tick,创建这Token对象的时候初始化
         /// </summary>
         public long LastMsgSendTickTime { get; internal set; }
-
-        /// <summary>
-        /// 通信库所使用的临时文件工作目录,是绝对路径
-        /// </summary>
-        public string dirCache { get; private set; }
-
-        /// <summary>
-        /// 是否工作文件夹能够使用
-        /// </summary>
-        public bool isDirCanUse { get { return !String.IsNullOrEmpty(dirCache); } }
 
         /// <summary>
         /// 是否发送队列已经比较满,MAX_SEND_DATA_QUEUE/8=512,要注意这个指标不等于服务器已经收到消息.
@@ -348,55 +338,15 @@ namespace DNET
         #region Exposed Function
 
         /// <summary>
-        /// 设置工作目录路径，如果传入空则表示工作路径为当前程序运行路径
-        /// </summary>
-        public bool SetDirCache(string dir)
-        {
-            try {
-                DxDebug.LogConsole("DNClient.SetDirCache():尝试设置工作文件夹路径 dir = " + dir);
-                if (String.IsNullOrEmpty(dir)) {
-                    dirCache = Directory.GetCurrentDirectory();
-                    DxDebug.LogConsole("DNClient.SetDirCache():输入路径为空，所以设置文件夹为" + dirCache);
-                }
-                else {
-                    dirCache = dir; //赋值
-                }
-                if (!Directory.Exists(dirCache)) //如果这个目录不存在，那么就尝试创建一下这个目录
-                {
-                    DxDebug.LogConsole("DNClient.SetDirCache():文件夹不存在，创建文件夹...");
-                    Directory.CreateDirectory(dirCache);
-                }
-                string testfile = System.IO.Path.Combine(dirCache, "dirtestFile_");
-
-                DxDebug.LogConsole("DNClient.SetDirCache():进行文件读写测试...");
-                FileStream fs = File.Create(testfile); //创建一下试试
-                fs.WriteByte(0xff);
-                fs.Flush();
-                fs.Close();
-                fs = File.Open(testfile, FileMode.Open);
-                if (fs.ReadByte() != 0xff) {
-                    return false;
-                }
-                fs.Close();
-                File.Delete(testfile);
-                DxDebug.LogConsole("DNClient.SetDirCache():进行文件读写测试成功");
-
-                return true; //如果允许到这里都没有错误，那么说明这个目录可以正常使用
-            } catch (Exception e) {
-                DxDebug.LogError("DNClient.SetDirCache(): 设置工作文件夹失败!" + e.Message);
-            }
-            return false;
-        }
-
-        /// <summary>
         /// 连接服务器,输入IP和端口号。会强制重新初始化整个类，这样起到底层重启的作用。
         /// </summary>
         /// <param name="host">主机IP</param>
         /// <param name="port">端口号</param>
-        public void Connect(string host, int port)
+        /// <param name="isTry">是否是尝试连接</param>
+        public void Connect(string host, int port, bool isTry = false)
         {
             try {
-                DxDebug.LogConsole("DNClient.Connect():连接服务器 主机：" + host + "  端口:" + port);
+                LogProxy.LogDebug("DNClient.Connect():连接服务器 主机：" + host + "  端口:" + port);
 
                 //标记正在连接
                 IsConnecting = true;
@@ -426,14 +376,19 @@ namespace DNET
                 LastMsgSendTickTime = DateTime.Now.Ticks;
             } catch (Exception e) {
                 IsConnecting = false; //连接失败了
-                DxDebug.LogError("DNClient.Connect():异常：" + e.Message);
+                if (!isTry) {
+                    LogProxy.LogError("DNClient.Connect():异常：" + e.Message);
 
-                if (EventError != null) {
-                    try {
-                        EventError(this, EventType.ConnectError, e); //事件类型：ConnectError
-                    } catch (Exception e2) {
-                        DxDebug.LogWarning("DNClient.Connect():执行EventError事件异常：" + e2.Message);
+                    if (EventError != null) {
+                        try {
+                            EventError(this, EventType.ConnectError, e); //事件类型：ConnectError
+                        } catch (Exception e2) {
+                            LogProxy.LogWarning("DNClient.Connect():执行EventError事件异常：" + e2.Message);
+                        }
                     }
+                }
+                else {
+                    LogProxy.LogDebug("DNClient.Connect():异常：" + e.Message);
                 }
 
                 Dispose(); //释放
@@ -451,7 +406,7 @@ namespace DNET
                     _socketClient.Disconnect();
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("DNClient.DisConnect():执行DisConnect异常：" + e.Message);
+                LogProxy.LogWarning("DNClient.DisConnect():执行DisConnect异常：" + e.Message);
             }
         }
 
@@ -460,7 +415,7 @@ namespace DNET
         /// </summary>
         public void Close()
         {
-            DxDebug.LogConsole("DNClient.Close():进入了close函数！");
+            LogProxy.LogDebug("DNClient.Close():进入了close函数！");
 
             NetWorkMsg msg = _msgPool.Dequeue();
             if (msg == null) {
@@ -477,7 +432,7 @@ namespace DNET
         /// </summary>
         public void CloseImmediate()
         {
-            DxDebug.LogConsole("DNClient.CloseImmediate():进入了CloseImmediate函数！");
+            LogProxy.LogDebug("DNClient.CloseImmediate():进入了CloseImmediate函数！");
             Dispose();
         }
 
@@ -488,7 +443,7 @@ namespace DNET
         public void Send(byte[] data)
         {
             if (data == null) {
-                DxDebug.LogWarning("DNClient.Send():要发送的数据为null！");
+                LogProxy.LogWarning("DNClient.Send():要发送的数据为null！");
             }
 
             try {
@@ -503,7 +458,7 @@ namespace DNET
                 }
                 AddMessage(msg);
             } catch (Exception e) {
-                DxDebug.LogWarning("DNClient.Send():异常 " + e.Message);
+                LogProxy.LogWarning("DNClient.Send():异常 " + e.Message);
             }
         }
 
@@ -516,7 +471,7 @@ namespace DNET
         public void Send(byte[] data, int offset, int count)
         {
             if (data == null) {
-                DxDebug.LogWarning("DNClient.Send(data,offset,count):要发送的数据为null！");
+                LogProxy.LogWarning("DNClient.Send(data,offset,count):要发送的数据为null！");
             }
             try {
                 _packet2.AddSend(data, offset, count); //添加这条消息到打包器
@@ -531,7 +486,7 @@ namespace DNET
                 }
                 AddMessage(msg);
             } catch (Exception e) {
-                DxDebug.LogWarning("DNClient.Send(p1,p2,p3):异常 " + e.Message);
+                LogProxy.LogWarning("DNClient.Send(p1,p2,p3):异常 " + e.Message);
             }
         }
 
@@ -550,7 +505,7 @@ namespace DNET
                 dataBytes = Encoding.UTF8.GetBytes(text);
                 Send(dataBytes);
             } catch (Exception e) {
-                DxDebug.LogWarning($"DNClient.Send:异常 {e}");
+                LogProxy.LogWarning($"DNClient.Send:异常 {e}");
             }
         }
 
@@ -612,19 +567,20 @@ namespace DNET
         internal void AddMessage(NetWorkMsg msg)
         {
             if (_disposed) {
-                DxDebug.LogWarning("DNClient.AddMessage():DNClient对象已经被释放，不能再加入消息。msgType = " + msg.type.ToString());
+                LogProxy.LogWarning("DNClient.AddMessage():DNClient对象已经被释放，不能再加入消息。msgType = " + msg.type.ToString());
                 return;
             }
             try {
-                DxDebug.Log("DNClient.AddMessage():向消息队列中添加消息");
+                LogProxy.Log("DNClient.AddMessage():向消息队列中添加消息");
                 if (msg != null)
                     _msgQueue.Enqueue(msg); //消息进队列
 
-                if (_curSemCount < 1) //如果当前的信号量剩余不多的时候
-                {
-                    Interlocked.Increment(ref _curSemCount);
-                    _msgSemaphore.Release(); // 释放信号量
-                }
+                //if (_curSemCount < 1) //如果当前的信号量剩余不多的时候
+                //{
+                //    Interlocked.Increment(ref _curSemCount);
+                //    _msgSemaphore.Release(); // 释放信号量
+                //}
+                _msgSemaphore.Release(); // 释放信号量
 
                 //发送数据队列长度为128则认为消息已经积攒较长
                 if (_packet2.SendMsgCount > 128 && _isQueueFull == false) //MAX_SEND_DATA_QUEUE
@@ -635,11 +591,11 @@ namespace DNET
                         try {
                             EventSendQueueIsFull(this);
                         } catch (Exception e) {
-                            DxDebug.LogWarning("DNClient.AddMessage():执行事件EventMsgQueueIsFull异常：" + e.Message);
+                            LogProxy.LogWarning("DNClient.AddMessage():执行事件EventMsgQueueIsFull异常：" + e.Message);
                         }
                     }
                     if (_isDebugLog)
-                        DxDebug.LogWarning("DNClient.AddMessage():向消息队列中添加消息，发送队列长度较长：" + _packet2.SendMsgCount);
+                        LogProxy.LogWarning("DNClient.AddMessage():向消息队列中添加消息，发送队列长度较长：" + _packet2.SendMsgCount);
                 }
                 else if (_isQueueFull) //如果现在的状态是发送队列较长的状态，那么再去记录峰值长度
                 {
@@ -675,7 +631,7 @@ namespace DNET
             //    _msgPool.EnqueueMaxLimit(msg);
             //}
             catch (Exception e) {
-                DxDebug.LogError("DNClient.AddMessage():异常：" + e.Message);
+                LogProxy.LogError("DNClient.AddMessage():异常：" + e.Message);
                 //throw;//这个throw还是应该去掉
                 _msgPool.EnqueueMaxLimit(msg);
             }
@@ -688,12 +644,12 @@ namespace DNET
         private void DoWork()
         {
             try {
-                DxDebug.LogConsole("DNClient.DoWork():-----------通信线程启动！");
+                LogProxy.LogDebug("DNClient.DoWork():通信线程启动！");
                 while (true) {
                     Interlocked.Exchange(ref _isThreadWorking, 0); //标记当前线程已经停止工作
 
                     _msgSemaphore.WaitOne();
-                    Interlocked.Decrement(ref _curSemCount); //递减信号量计数
+                    //Interlocked.Decrement(ref _curSemCount); //递减信号量计数
 
                     Interlocked.Exchange(ref _isThreadWorking, 1); //标记当前线程已经正在执行工作
 
@@ -707,7 +663,7 @@ namespace DNET
                         float waitTime = (DateTime.Now.Ticks - msg.timeTickCreat) / 10000; //毫秒
                         if (waitTime > _warringWaitTime) {
                             _warringWaitTime += 500;
-                            DxDebug.LogWarning("DNClient.DoWork():NetWorkMsg等待处理时间过长！waitTime:" + waitTime);
+                            LogProxy.LogWarning("DNClient.DoWork():NetWorkMsg等待处理时间过长！waitTime:" + waitTime);
                         }
                         else if ((_warringWaitTime - waitTime) > 500) {
                             _warringWaitTime -= 500;
@@ -746,7 +702,7 @@ namespace DNET
                     }
                 }
             } catch (Exception e) {
-                DxDebug.LogError("DNClient.DoWork():异常：通信线程执行异常！ " + e.Message);
+                LogProxy.LogError("DNClient.DoWork():异常：通信线程执行异常！ " + e.Message);
             }
         }
 
@@ -765,22 +721,22 @@ namespace DNET
                     _socketClient.Disconnect();
                     _socketClient.Bind(_host, _port); //绑定新ip
                     _socketClient.Clear();
-                    DxDebug.LogConsole("DNClient.DoConnect():-----------正在连接...");
+                    LogProxy.LogDebug("DNClient.DoConnect():正在连接...");
                     _socketClient.Connect();
-                    DxDebug.LogConsole("DNClient.DoConnect():-----------连接服务器成功！" + _host + ":" + _port);
+                    LogProxy.LogDebug("DNClient.DoConnect():连接服务器成功！" + _host + ":" + _port);
                 }
                 else {
                     _socketClient = new SocketClient(_host, _port, _packet2);
                     if (_socketClient == null) {
-                        DxDebug.LogError("DNClient.DoConnect():-----------连接服务器失败！_socketClient对象未能创建成功。");
+                        LogProxy.LogError("DNClient.DoConnect():连接服务器失败！_socketClient对象未能创建成功。");
                         return;
                     }
                     _socketClient.EventReceive += OnReceive; //加入接收事件
                     _socketClient.EventSend += OnSend; //加入发送事件
                     _socketClient.EventError += OnError; //加入错误事件
-                    DxDebug.LogConsole("DNClient.DoConnect():-----------正在连接...");
+                    LogProxy.LogDebug("DNClient.DoConnect():正在连接...");
                     _socketClient.Connect();
-                    DxDebug.LogConsole("DNClient.DoConnect():-----------连接服务器成功！" + _host + ":" + _port);
+                    LogProxy.LogDebug("DNClient.DoConnect():连接服务器成功！" + _host + ":" + _port);
                 }
 
                 if (EventConnectSuccess != null) {
@@ -788,18 +744,18 @@ namespace DNET
                         EventConnectSuccess(this);
                     } //事件类型：ConnectError
                     catch (Exception e) {
-                        DxDebug.LogError("DNClient.DoConnect():执行EventError事件异常：" + e.Message);
+                        LogProxy.LogError($"DNClient.DoConnect():执行EventError事件异常：{e}");
                     }
                 }
             } catch (Exception e) {
-                DxDebug.LogError("DNClient.DoConnect():-----------连接服务器失败！: " + e.Message);
+                LogProxy.LogError($"DNClient.DoConnect():连接服务器失败！{e.Message}");
 
                 if (EventError != null) {
                     try {
                         EventError(this, EventType.ConnectError, e);
                     } //事件类型：ConnectError
                     catch (Exception e2) {
-                        DxDebug.LogError("DNClient.DoConnect():执行EventError事件异常：" + e2.Message);
+                        LogProxy.LogError("DNClient.DoConnect():执行EventError事件异常：" + e2.Message);
                     }
                 }
             }
@@ -811,7 +767,7 @@ namespace DNET
         {
             try {
                 if (IsConnected == false) {
-                    DxDebug.LogWarning("DNClient.DoSend：当前还未连接到一个主机！ ");
+                    LogProxy.LogWarning("DNClient.DoSend：当前还未连接到一个主机！ ");
                     return;
                 }
 
@@ -848,7 +804,7 @@ namespace DNET
                     _isQueueFull = false;
 
                     if (_isDebugLog)
-                        DxDebug.LogWarning("DNClient.DoSend():发送队列长度已经恢复正常，峰值长度" + _sendQueuePeakLength);
+                        LogProxy.LogWarning("DNClient.DoSend():发送队列长度已经恢复正常，峰值长度" + _sendQueuePeakLength);
                     _sendQueuePeakLength = 0; //重计峰值长度
 
                     _msgQueue.TrimExcess();
@@ -858,12 +814,12 @@ namespace DNET
                         try {
                             EventSendQueueIsAvailable(this);
                         } catch (Exception e2) {
-                            DxDebug.LogWarning("DNClient.DoSend():执行事件EventMsgQueueIsAvailable异常：" + e2.Message);
+                            LogProxy.LogWarning("DNClient.DoSend():执行事件EventMsgQueueIsAvailable异常：" + e2.Message);
                         }
                     }
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("DNClient.DoSend():异常: " + e.Message);
+                LogProxy.LogWarning("DNClient.DoSend():异常: " + e.Message);
             }
         }
 
@@ -877,13 +833,13 @@ namespace DNET
                     try {
                         EventReceData(this); //发出事件：接收到了数据
                     } catch (Exception e) {
-                        DxDebug.LogWarning("DNClient.DoReceive()：执行外部事件EventReceData 异常: " + e.Message);
+                        LogProxy.LogWarning($"DNClient.DoReceive()：执行外部事件EventReceData 异常: {e}");
                     }
                 }
 
                 //DxDebug.Log("-----------数据解包完成，数据条数：  " + findPacketResult.data.Length);
             } catch (Exception e) {
-                DxDebug.LogWarning("DNClient.DoReceive():异常: " + e.Message);
+                LogProxy.LogWarning($"DNClient.DoReceive():异常: {e}");
             }
         }
 
@@ -891,7 +847,7 @@ namespace DNET
         {
             try {
                 IsInited = false;
-                DxDebug.LogConsole("DNClient.DoClose():开始释放资源 ");
+                LogProxy.LogDebug("DNClient.DoClose():开始释放资源 ");
                 _disposed = true;
 
                 // 清理托管资源
@@ -904,7 +860,7 @@ namespace DNET
                 // 清理非托管资源
                 _msgSemaphore.Close();
                 _msgSemaphore = null;
-                Interlocked.Exchange(ref _curSemCount, 0);
+                //Interlocked.Exchange(ref _curSemCount, 0);
 
                 if (_socketClient != null) {
                     _socketClient.Dispose();
@@ -913,7 +869,7 @@ namespace DNET
 
                 IsConnecting = false;
             } catch (Exception e) {
-                DxDebug.LogWarning("DNClient.DoClose():异常: " + e.Message);
+                LogProxy.LogWarning("DNClient.DoClose():异常: " + e.Message);
             }
         }
 
@@ -939,7 +895,7 @@ namespace DNET
 
                 if (_msgSemaphore == null) {
                     _msgSemaphore = new Semaphore(0, 4);
-                    Interlocked.Exchange(ref _curSemCount, 0);
+                    //Interlocked.Exchange(ref _curSemCount, 0);
                 }
 
                 if (_workThread == null) {
@@ -953,7 +909,7 @@ namespace DNET
                 IsInited = true;
             } catch (Exception e) {
                 Dispose();
-                DxDebug.LogError("DNClient.Init():异常：" + e.Message);
+                LogProxy.LogError("DNClient.Init():异常：" + e.Message);
             }
         }
 
@@ -973,7 +929,7 @@ namespace DNET
         private void OnReceive()
         {
             if (this._isDebugLog)
-                DxDebug.LogConsole("-----------EventHandler：进入了OnReceive回调！");
+                LogProxy.LogDebug("-----------EventHandler：进入了OnReceive回调！");
 
             NetWorkMsg msg = _msgPool.Dequeue();
             if (msg == null) {
@@ -988,7 +944,7 @@ namespace DNET
         private void OnSend()
         {
             if (_isDebugLog)
-                DxDebug.LogConsole("-----------EventHandler.OnSend()：进入OnSend回调！");
+                LogProxy.LogDebug("-----------EventHandler.OnSend()：进入OnSend回调！");
 
             Interlocked.Decrement(ref _snedingCount);
             if (_packet2.SendMsgCount > 0) //如果待发送队列里有消息,不需要再判断_snedingCount < MAX_SENDING_DATA，直接开始下一次发送
@@ -1012,7 +968,7 @@ namespace DNET
                 try {
                     EventError(this, EventType.IOError, null);
                 } catch (Exception e) {
-                    DxDebug.LogWarning("DNClient.OnError()：执行EventError事件异常:" + e.Message);
+                    LogProxy.LogWarning("DNClient.OnError()：执行EventError事件异常:" + e.Message);
                 }
             }
         }
@@ -1027,7 +983,7 @@ namespace DNET
         public void Dispose()
         {
             if (_workThread != null) {
-                DxDebug.Log("DNClient.Dispose():_threadTest.IsAlive 为:" + _workThread.IsAlive);
+                LogProxy.Log("DNClient.Dispose():_threadTest.IsAlive 为:" + _workThread.IsAlive);
             }
             Dispose(true);
         }
@@ -1042,11 +998,11 @@ namespace DNET
             try {
                 //最先去把线程关了
                 if (_workThread != null && _workThread.IsAlive) {
-                    DxDebug.LogConsole("DNClient.Dispose():_workThread.Abort()线程中断！");
+                    LogProxy.LogDebug("DNClient.Dispose():_workThread.Abort()线程中断！");
                     _workThread.Abort();
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("DNClient.Dispose(): _workThread.Abort()异常" + e.Message);
+                LogProxy.LogWarning("DNClient.Dispose(): _workThread.Abort()异常" + e.Message);
             } finally {
                 _workThread = null;
             }
@@ -1069,7 +1025,7 @@ namespace DNET
                     _socketClient = null;
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("DNClient.Dispose():释放异常" + e.Message);
+                LogProxy.LogWarning("DNClient.Dispose():释放异常" + e.Message);
             }
             //让类型知道自己已经被释放
             _disposed = true;

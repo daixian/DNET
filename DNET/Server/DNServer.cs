@@ -73,12 +73,12 @@ namespace DNET
         /// <summary>
         /// 事件：某个Token发生了错误后，会自动调用关闭，这是错误及关闭事件
         /// </summary>
-        public event Action<Token, SocketError> EventTokenError;
+        public event Action<Peer, SocketError> EventTokenError;
 
         /// <summary>
         /// 事件：某个Token接收到了数据，可以将轻量任务加入这个事件，交给数据解包线程
         /// </summary>
-        public event Action<Token> EventTokenReceData;
+        public event Action<Peer> EventTokenReceData;
 
         #endregion Event
 
@@ -208,23 +208,23 @@ namespace DNET
         public bool SetDirCache(string dir)
         {
             try {
-                DxDebug.LogConsole("DNServer.SetDirCache():尝试设置工作文件夹路径 dir = " + dir);
+                LogProxy.LogDebug("DNServer.SetDirCache():尝试设置工作文件夹路径 dir = " + dir);
 
                 if (String.IsNullOrEmpty(dir)) {
                     dirCache = Directory.GetCurrentDirectory();
-                    DxDebug.LogConsole("DNServer.SetDirCache():输入路径为空，所以设置文件夹为" + dirCache);
+                    LogProxy.LogDebug("DNServer.SetDirCache():输入路径为空，所以设置文件夹为" + dirCache);
                 }
                 else {
                     dirCache = dir; //赋值
                 }
                 if (!Directory.Exists(dirCache)) //如果这个目录不存在，那么就尝试创建一下这个目录
                 {
-                    DxDebug.LogConsole("DNServer.SetDirCache():文件夹不存在，创建文件夹...");
+                    LogProxy.LogDebug("DNServer.SetDirCache():文件夹不存在，创建文件夹...");
                     Directory.CreateDirectory(dirCache);
                 }
                 string testfile = System.IO.Path.Combine(dirCache, "dirtestFile_");
 
-                DxDebug.LogConsole("DNServer.SetDirCache():进行文件读写测试...");
+                LogProxy.LogDebug("DNServer.SetDirCache():进行文件读写测试...");
                 FileStream fs = File.Create(testfile); //创建一下试试
                 fs.WriteByte(0xff);
                 fs.Flush();
@@ -236,11 +236,11 @@ namespace DNET
                 }
                 fs.Close();
                 File.Delete(testfile);
-                DxDebug.LogConsole("DNClient.SetDirCache():进行文件读写测试成功");
+                LogProxy.LogDebug("DNClient.SetDirCache():进行文件读写测试成功");
 
                 return true; //如果允许到这里都没有错误，那么说明这个目录可以正常使用
             } catch (Exception e) {
-                DxDebug.LogError("DNServer.SetDirCache():设置工作文件夹失败！ " + e.Message);
+                LogProxy.LogError("DNServer.SetDirCache():设置工作文件夹失败！ " + e.Message);
             }
 
             dirCache = null;
@@ -257,9 +257,9 @@ namespace DNET
         public void Start(int port, int threadCount = 1, string hostName = "Any")
         {
             try {
-                DxDebug.LogConsole("DNServer.Start()：服务器工作线程数 " + threadCount);
+                LogProxy.LogDebug("DNServer.Start()：服务器工作线程数 " + threadCount);
                 if (disposed) {
-                    TokenManager.GetInst().Clear();
+                    PeerManager.GetInst().Clear();
                     _msgQueue = new DQueue<NetWorkMsg>(MSG_QUEUE_CAPACITY);
                     _msgSemaphore = new Semaphore(0, MSG_QUEUE_CAPACITY);
 
@@ -281,7 +281,7 @@ namespace DNET
                 msg.text1 = hostName;
                 AddMessage(msg);
             } catch (Exception e) {
-                DxDebug.LogError("DNServer.Start()：异常 " + e.Message);
+                LogProxy.LogError("DNServer.Start()：异常 " + e.Message);
             }
         }
 
@@ -302,35 +302,34 @@ namespace DNET
         {
             //DxDebug.Log("信号量： 发送");
             NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, data, tokenID);
-            msg.token = TokenManager.GetInstance().GetToken(tokenID);
+            msg.peer = PeerManager.GetInstance().GetToken(tokenID);
             AddMessage(msg);
         }
 
         /// <summary>
         /// 向某个token发送一条数据。直接使用Token对象来发送
         /// </summary>
-        /// <param name="token"></param>
+        /// <param name="peer"></param>
         /// <param name="data"></param>
-        public void Send_(Token token, byte[] data)
+        public void Send_(Peer peer, byte[] data)
         {
-            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, data, token.ID);
-            msg.token = token;
+            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, data, peer.ID);
+            msg.peer = peer;
             AddMessage(msg);
         }
 
-        ///-------------------------------------------------------------------------------------------------
+
         /// <summary> 向某个token发送一条数据. </summary>
         ///
         /// <remarks> Dx, 2017/6/26. </remarks>
         ///
-        /// <param name="token">  </param>
+        /// <param name="peer">  </param>
         /// <param name="data">  要发送的数据. </param>
-        ///-------------------------------------------------------------------------------------------------
-        public void Send(Token token, byte[] data)
+        public void Send(Peer peer, byte[] data)
         {
-            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, null, token.ID);
-            token.AddSendData(data, 0, data.Length);
-            msg.token = token;
+            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, null, peer.ID);
+            peer.AddSendData(data, 0, data.Length);
+            msg.peer = peer;
             AddMessage(msg);
         }
 
@@ -338,20 +337,20 @@ namespace DNET
         ///
         /// <remarks> Dx, 2017/6/26. </remarks>
         ///
-        /// <param name="token">  </param>
+        /// <param name="peer">  </param>
         /// <param name="text">  要发送的数据. </param>
-        public void Send(Token token, string text)
+        public void Send(Peer peer, string text)
         {
             try {
                 byte[] dataBytes = null;
                 if (string.IsNullOrEmpty(text)) {
-                    Send(token, dataBytes);
+                    Send(peer, dataBytes);
                     return;
                 }
                 dataBytes = Encoding.UTF8.GetBytes(text);
-                Send(token, dataBytes);
+                Send(peer, dataBytes);
             } catch (Exception e) {
-                DxDebug.LogError($"DNServer.Send()：异常 {e}");
+                LogProxy.LogError($"DNServer.Send()：异常 {e}");
             }
         }
 
@@ -397,10 +396,10 @@ namespace DNET
                     default:
                         break;
                 }
-                DxDebug.LogError("DNServer.AddMessage():大于系统能力，当前最后一条：" + msgtype);
+                LogProxy.LogError("DNServer.AddMessage():大于系统能力，当前最后一条：" + msgtype);
                 throw;
             } catch (Exception e) {
-                DxDebug.LogError("DNServer.AddMessage():*****发生错误！ " + e.Message);
+                LogProxy.LogError("DNServer.AddMessage():*****发生错误！ " + e.Message);
                 throw;
             }
         }
@@ -411,7 +410,7 @@ namespace DNET
 
         private void DoWork()
         {
-            DxDebug.LogConsole("DNServer.DoWork():服务器线程启动！");
+            LogProxy.LogDebug("DNServer.DoWork():服务器线程启动！");
             while (true) {
                 _msgSemaphore.WaitOne();
                 Interlocked.Decrement(ref _curSemCount);
@@ -450,7 +449,7 @@ namespace DNET
                     float waitTime = (DateTime.Now.Ticks - msg.timeTickCreat) / 10000; //毫秒
                     if (waitTime > _warringWaitTime) {
                         _warringWaitTime += 500;
-                        DxDebug.LogWarning("DNServer.DoWork():NetWorkMsg等待处理时间过长！waitTime:" + waitTime);
+                        LogProxy.LogWarning("DNServer.DoWork():NetWorkMsg等待处理时间过长！waitTime:" + waitTime);
                     }
                     else if ((_warringWaitTime - waitTime) > 500) {
                         _warringWaitTime -= 500;
@@ -496,23 +495,23 @@ namespace DNET
         private void DoStart(NetWorkMsg msg)
         {
             try {
-                DxDebug.LogConsole("DNServer.DoStart()：工作线程开始执行DoStart()...");
+                LogProxy.LogDebug("DNServer.DoStart()：工作线程开始执行DoStart()...");
                 if (_socketListener != null) {
-                    DxDebug.Log(" DNServer.DoStart():_socketListener.Dispose();");
+                    LogProxy.Log(" DNServer.DoStart():_socketListener.Dispose();");
                     _socketListener.Dispose();
                 }
-                DxDebug.Log("DNServer.DoStart():_socketListener = new SocketListener(CONNECTIONS_BUFFER_SIZE);");
+                LogProxy.Log("DNServer.DoStart():_socketListener = new SocketListener(CONNECTIONS_BUFFER_SIZE);");
                 _socketListener = new SocketListener(this, CONNECTIONS_BUFFER_SIZE);
-                DxDebug.Log("DNServer.DoStart():_socketListener.EventAccept += OnAccept;");
+                LogProxy.Log("DNServer.DoStart():_socketListener.EventAccept += OnAccept;");
                 _socketListener.EventAccept += OnAccept;
                 _socketListener.EventReceive += OnReceive;
                 _socketListener.EventSend += OnSend;
                 _socketListener.EventError += OnTokenError;
-                DxDebug.Log("DNServer.DoStart(): _socketListener.Start(" + _port + ");");
+                LogProxy.Log("DNServer.DoStart(): _socketListener.Start(" + _port + ");");
                 _socketListener.Start(msg.text1, _port);
-                DxDebug.LogConsole("DNServer.DoStart()执行完毕！");
+                LogProxy.LogDebug("DNServer.DoStart()执行完毕！");
             } catch (Exception e) {
-                DxDebug.LogWarning("DNServer.DoStart()：异常 " + e.Message);
+                LogProxy.LogWarning("DNServer.DoStart()：异常 " + e.Message);
             }
         }
 
@@ -523,31 +522,31 @@ namespace DNET
         private void DoSend(NetWorkMsg msg)
         {
             try {
-                Token token = msg.token;
-                if (token == null) {
+                Peer peer = msg.peer;
+                if (peer == null) {
                     return;
                 }
 
                 if (msg.data != null) //添加该条数据
                 {
-                    token.AddSendData(msg.data, 0, msg.data.Length);
+                    peer.AddSendData(msg.data, 0, msg.data.Length);
                 }
                 //DxDebug.Log("DoSend : ID号 " + token.ID + "  当前的SendingCount  " + token.SendingCount);
-                if (token.SendingCount < MAX_TOKEN_SENDING_COUNT) {
-                    int msgCount = token.SendQueueCount;
-                    byte[] data = token.PackSendData(_packet); //打包发送
+                if (peer.SendingCount < MAX_TOKEN_SENDING_COUNT) {
+                    int msgCount = peer.SendQueueCount;
+                    byte[] data = peer.PackSendData(_packet); //打包发送
                     if (data != null) {
                         Interlocked.Add(ref Status.CountSend, msgCount); //状态统计发送递增
                         Interlocked.Add(ref Status.CountSendBytes, data.Length); //状态统计递增发送数据长度
 
-                        _socketListener.Send(token, data);
+                        _socketListener.Send(peer, data);
                     }
                 }
                 else //如果当前正在发送，那么这次发送完成之后，会自动的开始下一次发送：OnSend()函数
                 {
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("DNServer.DoSend()：异常 " + e.Message);
+                LogProxy.LogWarning("DNServer.DoSend()：异常 " + e.Message);
             }
         }
 
@@ -558,20 +557,20 @@ namespace DNET
         private void DoSendAll(NetWorkMsg msg)
         {
             try {
-                Token[] tokens = TokenManager.GetInstance().GetAllToken();
+                Peer[] tokens = PeerManager.GetInstance().GetAllToken();
                 if (tokens == null) {
                     return;
                 }
                 for (int i = 0; i < tokens.Length; i++) {
-                    Token token = tokens[i];
+                    Peer peer = tokens[i];
                     //DxDebug.Log("DoSend : ID号 " + token.ID + "  当前的SendingCount  " + token.SendingCount);
-                    if (token.SendingCount < MAX_TOKEN_SENDING_COUNT) {
-                        int msgCount = token.SendQueueCount;
-                        byte[] data = token.PackSendData(_packet); //打包发送
+                    if (peer.SendingCount < MAX_TOKEN_SENDING_COUNT) {
+                        int msgCount = peer.SendQueueCount;
+                        byte[] data = peer.PackSendData(_packet); //打包发送
                         if (data != null) {
                             Interlocked.Add(ref Status.CountSend, msgCount); //状态统计发送递增
                             Interlocked.Add(ref Status.CountSendBytes, data.Length); //状态统计递增发送数据长度
-                            _socketListener.Send(token, data);
+                            _socketListener.Send(peer, data);
                         }
                     }
                     else //如果当前正在发送，那么这次发送完成之后，会自动的开始下一次发送：OnSend()函数
@@ -579,7 +578,7 @@ namespace DNET
                     }
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("DNServer.DoSendAll()：异常 " + e.Message);
+                LogProxy.LogWarning("DNServer.DoSendAll()：异常 " + e.Message);
             }
         }
 
@@ -587,11 +586,11 @@ namespace DNET
         {
             string debugStr = "";
             try {
-                Token token = msg.token;
-                if (token != null) {
+                Peer peer = msg.peer;
+                if (peer != null) {
                     int length;
                     debugStr = "开始执行token.UnpackReceiveData(_packet, out length);\r\n";
-                    int msgCount = token.UnpackReceiveData(_packet, out length);
+                    int msgCount = peer.UnpackReceiveData(_packet, out length);
                     debugStr = "执行token.UnpackReceiveData(_packet, out length)完毕!\r\n";
                     if (msgCount > 0) //解包有数据
                     {
@@ -601,9 +600,9 @@ namespace DNET
                         if (EventTokenReceData != null) //发出事件：有收到客户端消息
                         {
                             try {
-                                EventTokenReceData(token);
+                                EventTokenReceData(peer);
                             } catch (Exception e) {
-                                DxDebug.LogWarning("DNServer.DoReceive()：执行外部事件EventTokenReceData 异常 " + e.Message);
+                                LogProxy.LogWarning("DNServer.DoReceive()：执行外部事件EventTokenReceData 异常 " + e.Message);
                             }
                         }
                     }
@@ -611,7 +610,7 @@ namespace DNET
                     Interlocked.Add(ref Status.CountReceiveBytes, length); //状态统计递增接收数据长度
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("DNServer.DoReceive()：异常 " + e.Message + "debugStr=" + debugStr);
+                LogProxy.LogWarning("DNServer.DoReceive()：异常 " + e.Message + "debugStr=" + debugStr);
             }
         }
 
@@ -619,7 +618,7 @@ namespace DNET
 
         #region EventHandler
 
-        private void OnAccept(Token token)
+        private void OnAccept(Peer peer)
         {
             //注意这个并没有使用
             //
@@ -627,23 +626,23 @@ namespace DNET
             //AddMessage(new Msg(Msg.Tpye.S_Accept, null));
         }
 
-        private void OnReceive(Token token)
+        private void OnReceive(Peer peer)
         {
             //DxDebug.Log("信号量： 接收");
-            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Receive, null, token.ID);
-            msg.token = token;
+            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Receive, null, peer.ID);
+            msg.peer = peer;
             AddMessage(msg); //debug:这里可以不传ID，直接传Token引用
 
             //DoReceive(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
         }
 
-        private void OnSend(Token token)
+        private void OnSend(Peer peer)
         {
-            if (token.SendQueueCount > 0) //如果待发送队列里有消息这里应该不需要这个判断了token.SendingCount < MAX_TOKEN_SENDING_COUNT &&
+            if (peer.SendQueueCount > 0) //如果待发送队列里有消息这里应该不需要这个判断了token.SendingCount < MAX_TOKEN_SENDING_COUNT &&
             {
                 //DxDebug.Log("OnSend 信号量： 发送");
-                NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, null, token.ID);
-                msg.token = token;
+                NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, null, peer.ID);
+                msg.peer = peer;
                 AddMessage(msg);
 
                 //DoSend(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
@@ -652,10 +651,10 @@ namespace DNET
             }
         }
 
-        private void OnTokenError(Token token, SocketError error)
+        private void OnTokenError(Peer peer, SocketError error)
         {
             if (EventTokenError != null) {
-                EventTokenError(token, error);
+                EventTokenError(peer, error);
             }
         }
 
@@ -668,10 +667,10 @@ namespace DNET
         /// </summary>
         public void Dispose()
         {
-            DxDebug.LogWarning("DNServer.Dispose():进入了Dispose.");
+            LogProxy.LogWarning("DNServer.Dispose():进入了Dispose.");
             if (_workThread != null) {
                 for (int i = 0; i < _workThread.Length; i++) {
-                    DxDebug.LogConsole("DNServer.Dispose():[" + _workThread[i].Name + "].IsAlive 为:" + _workThread[i].IsAlive);
+                    LogProxy.LogDebug("DNServer.Dispose():[" + _workThread[i].Name + "].IsAlive 为:" + _workThread[i].IsAlive);
                 }
             }
 
@@ -702,7 +701,7 @@ namespace DNET
                                 _workThread[i].Abort();
                             }
                         } catch (Exception e) {
-                            DxDebug.LogWarning("DNServer.Dispose():异常 _workThread[" + i + "].Abort();" + e.Message);
+                            LogProxy.LogWarning("DNServer.Dispose():异常 _workThread[" + i + "].Abort();" + e.Message);
                         }
                     }
                 }
@@ -712,7 +711,7 @@ namespace DNET
                     _socketListener = null;
                 }
             } catch (Exception e) {
-                DxDebug.LogWarning("DNServer.Dispose():异常 " + e.Message);
+                LogProxy.LogWarning("DNServer.Dispose():异常 " + e.Message);
             }
             //让类型知道自己已经被释放
             disposed = true;

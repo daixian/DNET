@@ -153,7 +153,7 @@ namespace DNET
                     //标记自己已经有了资源申请
                     _disposed = false;
                     try {
-                        DxDebug.LogConsole("WorkThread.Start():这个类对象经被释放或刚刚构造，重新初始化");
+                        LogProxy.LogDebug("WorkThread.Start():这个类对象经被释放或刚刚构造，重新初始化");
                         _msgQueue = new DQueue<IWorkMsg>(MSG_QUEUE_CAPACITY, _initMsgQueueSize);
                         _msgSemaphore = new Semaphore(0, 64); //由于AddMessage的改动，这里只需要是随便一个数既可
 
@@ -173,7 +173,7 @@ namespace DNET
                             _workThread[i].Start(); //启动线程
                         }
                     } catch (Exception e) {
-                        DxDebug.LogError("WorkThread.Start():构造失败！异常:" + e.Message);
+                        LogProxy.LogError("WorkThread.Start():构造失败！异常:" + e.Message);
                         Dispose();
                     }
                 }
@@ -182,7 +182,7 @@ namespace DNET
                     Start();
                 }
             } catch (Exception e) {
-                DxDebug.LogError("WorkThread.Start():异常：" + e.Message);
+                LogProxy.LogError("WorkThread.Start():异常：" + e.Message);
             }
         }
 
@@ -201,7 +201,7 @@ namespace DNET
                     }
                 }
                 else {
-                    DxDebug.LogWarning("WorkThread.AddMessage():大于工作线程的能力了，丢弃了一条消息！");
+                    LogProxy.LogWarning("WorkThread.AddMessage():大于工作线程的能力了，丢弃了一条消息！");
                 }
 
                 if (_msgQueuePeakLength < _msgQueue.Count) {
@@ -215,7 +215,7 @@ namespace DNET
             //    throw;
             //}
             catch (Exception e) {
-                DxDebug.LogError("WorkThread.AddMessage():异常：" + e.Message);
+                LogProxy.LogError("WorkThread.AddMessage():异常：" + e.Message);
                 throw;
             }
         }
@@ -272,7 +272,7 @@ namespace DNET
         /// </summary>
         private void DoWork()
         {
-            DxDebug.LogConsole("WorkThread.DoWork():工作线程启动！");
+            LogProxy.LogDebug("WorkThread.DoWork():工作线程启动！");
 
             while (_isRun) {
                 IWorkMsg msg = null;
@@ -295,7 +295,7 @@ namespace DNET
                                 //取一条消息进行执行
                                 msg.DoWork();
                             } catch (Exception e) {
-                                DxDebug.LogWarning("WorkThread.DoWork():执行msg异常：" + msg.Name + "异常信息：" + e.Message);
+                                LogProxy.LogWarning("WorkThread.DoWork():执行msg异常：" + msg.Name + "异常信息：" + e.Message);
                             }
                         }
                         else {
@@ -304,9 +304,9 @@ namespace DNET
                     }
                 } catch (Exception e) {
                     if (msg != null)
-                        DxDebug.LogError("WorkThread.DoWork():异常：" + msg.Name + "异常信息：" + e.Message);
+                        LogProxy.LogError("WorkThread.DoWork():异常：" + msg.Name + "异常信息：" + e.Message);
                     else
-                        DxDebug.LogError("WorkThread.DoWork():异常：目前IWorkMsg为null(可能空闲),异常信息：" + e.Message);
+                        LogProxy.LogError("WorkThread.DoWork():异常：目前IWorkMsg为null(可能空闲),异常信息：" + e.Message);
                 }
             }
         }
@@ -349,7 +349,7 @@ namespace DNET
                 return;
             }
             try {
-                DxDebug.LogConsole("WorkThread.DoWork():工作线程关闭！");
+                LogProxy.LogDebug("WorkThread.DoWork():工作线程关闭！");
                 _isRun = false;
 
                 //最先去把线程关了
@@ -359,7 +359,7 @@ namespace DNET
                         try {
                             _workThread[i].Abort();
                         } catch (Exception e) {
-                            DxDebug.LogWarning("WorkThread.Dispose():异常 _workThread[" + i + "].Abort();" + e.Message);
+                            LogProxy.LogWarning("WorkThread.Dispose():异常 _workThread[" + i + "].Abort();" + e.Message);
                         }
                     }
                 }
@@ -373,7 +373,7 @@ namespace DNET
                 if (_msgSemaphore != null)
                     _msgSemaphore.Close();
             } catch (Exception e) {
-                DxDebug.LogWarning("WorkThread.Dispose():释放异常" + e.Message);
+                LogProxy.LogWarning("WorkThread.Dispose():释放异常" + e.Message);
             }
             //让类型知道自己已经被释放
             _disposed = true;

@@ -32,9 +32,7 @@ namespace DNETUnitTest
         [TestMethod]
         public void TestMethod_AddSend()
         {
-            LogFile.GetInst().CreatLogFile();
-            DxDebug.IsLogFile = true;
-            DxDebug.isLog = false;
+            // LogFile.GetInst().CreatLogFile();
 
             Random rand = new Random();
             FastPacket2 fp2 = new FastPacket2();
@@ -86,16 +84,11 @@ namespace DNETUnitTest
             }
 
             Assert.IsTrue(sendLength == (data.Length + sizeof(int)) * msgCount * 2);
-            LogFile.GetInst().Close();
         }
 
         [TestMethod]
         public void TestMethod_AddRece()
         {
-            LogFile.GetInst().CreatLogFile();
-            DxDebug.IsLogFile = true;
-            DxDebug.isLog = false;
-
             Random rand = new Random();
             FastPacket2 fp2 = new FastPacket2();
 
@@ -163,8 +156,6 @@ namespace DNETUnitTest
             }
 
             Assert.IsTrue(receCount == msgCount);
-
-            LogFile.GetInst().Close();
         }
     }
 }

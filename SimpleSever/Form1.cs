@@ -22,7 +22,6 @@ namespace SimpleSever
             isReSend = this.checkBox1.Checked;
 
             //Config.DefaultConfigOnWindows();//在自己根目录下创建日志
-            Config.ConfigOnWindows("SimplerServer"); //在appdata文件夹下创建日志
             Config.IsAutoHeartbeat = false;
 
             DNServer.GetInstance().EventTokenReceData += OnTokenReceData;
@@ -33,9 +32,9 @@ namespace SimpleSever
 
         bool isReSend;
 
-        private void OnTokenReceData(Token token)
+        private void OnTokenReceData(Peer peer)
         {
-            byte[][] datas = token.GetReceiveData();
+            byte[][] datas = peer.GetReceiveData();
             if (datas == null) {
                 return;
             }
@@ -45,7 +44,7 @@ namespace SimpleSever
                 if (isReSend) //如果CheckBox选择了要回发
                 {
                     //直接回发
-                    DNServer.GetInstance().Send(token, data);
+                    DNServer.GetInstance().Send(peer, data);
                 }
                 //得到消息类型然后处理
                 //int pType = BitConverter.ToInt32(data, 0);

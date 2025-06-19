@@ -289,7 +289,7 @@ namespace DNET
                 DPacket.OnceFindResult result = FindPacketOnce(sData, checkStart);
 
                 if (result.startIndex != checkStart) {
-                    DxDebug.LogWarning("DPacket.FindPacket():丢弃了一段数据，丢弃起始" + checkStart +
+                    LogProxy.LogWarning("DPacket.FindPacket():丢弃了一段数据，丢弃起始" + checkStart +
                                        "丢弃长度" + (result.startIndex - checkStart));
                 }
 
@@ -301,13 +301,13 @@ namespace DNET
                 else if (result.e == DPacket.PacketError.PacketReceiveing) {
                     findPacketResult.reserveData = new byte[sData.Length - result.startIndex];
                     Buffer.BlockCopy(sData, result.startIndex, findPacketResult.reserveData, 0, findPacketResult.reserveData.Length);
-                    DxDebug.Log("DPacket.FindPacket():解包：数据可能还没有接收完");
+                    LogProxy.Log("DPacket.FindPacket():解包：数据可能还没有接收完");
                     break;
                 }
                 else if (result.e == DPacket.PacketError.PacketLengthTooShort) {
                     findPacketResult.reserveData = new byte[sData.Length - result.startIndex];
                     Buffer.BlockCopy(sData, result.startIndex, findPacketResult.reserveData, 0, findPacketResult.reserveData.Length);
-                    DxDebug.Log("DPacket.FindPacket():解包：数据太短");
+                    LogProxy.Log("DPacket.FindPacket():解包：数据太短");
                     break;
                 }
             }

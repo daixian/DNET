@@ -52,10 +52,9 @@
     <Compile Include="Common\Config.cs" />
     <Compile Include="Common\DQueue.cs" />
     <Compile Include="Common\DThreadTimeAnalyze.cs" />
-    <Compile Include="Common\DxDebug.cs" />
+    <Compile Include="Common\LogProxy.cs" />
     <Compile Include="Common\GZip.cs" />
     <Compile Include="Common\IWorkMsg.cs" />
-    <Compile Include="Common\LogFile.cs" />
     <Compile Include="Common\NetWorkMsg.cs" />
     <Compile Include="Common\WorkThread.cs" />
     <Compile Include="Data\DNetPool.cs" />
@@ -74,8 +73,8 @@
     <Compile Include="Server\DNServer.cs" />
     <Compile Include="Server\SocketAsyncEventArgsPool.cs" />
     <Compile Include="Server\SocketListener.cs" />
-    <Compile Include="Server\Token.cs" />
-    <Compile Include="Server\TokenManager.cs" />
+    <Compile Include="Server\Peer.cs" />
+    <Compile Include="Server\PeerManager.cs" />
     <Compile Include="Server\UserObj.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

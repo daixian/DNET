@@ -8,9 +8,10 @@ namespace DNET
     //delegate void ProcessData(SocketAsyncEventArgs args);
 
     /// <summary>
-    /// 用户对象 ，Token里面起码要封装一个Socket对象
+    /// 用户对象,也就是一个TCP连接的一个端点.Peer里面起码要封装一个Socket对象.
+    /// 它最主要的就是有一个ID.
     /// </summary>
-    public sealed class Token : IDisposable
+    public sealed class Peer : IDisposable
     {
         #region Constructor
 
@@ -21,7 +22,7 @@ namespace DNET
         /// <param name="sendArgs">创建出来的发送用的SocketAsyncEventArgs（将来可以放到池里）</param>
         /// <param name="receiveArgs">创建出来的接收用的SocketAsyncEventArgs（将来可以放到池里）</param>
         /// <param name="receiveBufferSize">数据接收缓存大小</param>
-        internal Token(Socket socket, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs, int receiveBufferSize)
+        internal Peer(Socket socket, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs, int receiveBufferSize)
         {
             this._tokenScket = socket;
             this.SendArgs = sendArgs;
@@ -46,7 +47,7 @@ namespace DNET
         /// <summary>
         /// 现在由于在客户端也添加了一个Token，用于在协议事件的时候方便统一逻辑，当初始化客户端的token的时候调用这个构造方法
         /// </summary>
-        internal Token()
+        internal Peer()
         {
             userObj = new UserObj();
         }
@@ -58,7 +59,7 @@ namespace DNET
         /// <summary>
         /// 事件：当这个Token被释放时产生，可以用于确保释放UserObj对象
         /// </summary>
-        public event Action<Token> EventDispose;
+        public event Action<Peer> EventDispose;
 
         #endregion Event
 
@@ -123,7 +124,7 @@ namespace DNET
         #region Property
 
         /// <summary>
-        /// Token的ID，这个ID会一直递增的被分配
+        /// 它的ID，这个ID会一直递增的被分配
         /// </summary>
         public int ID {
             get;
@@ -224,7 +225,7 @@ namespace DNET
             IPacket packet = DNServer.GetInstance().Packet;
             //进行预打包然后加入到队列
             if (!_sendQueue.EnqueueMaxLimit(packet.PrePack(data, index, length))) {
-                DxDebug.LogWarning("Token.AddSendData():要发送的数据队列 丢弃了一段数据");
+                LogProxy.LogWarning("Token.AddSendData():要发送的数据队列 丢弃了一段数据");
             }
         }
 
@@ -252,7 +253,7 @@ namespace DNET
             Buffer.BlockCopy(args.Buffer, args.Offset, receDate, 0, count);
 
             if (!_reserveQueuePacked.EnqueueMaxLimit(receDate)) {
-                DxDebug.LogWarning("Token.SetData():接收的还未解包的数据队列 丢弃了一段数据");
+                LogProxy.LogWarning("Token.SetData():接收的还未解包的数据队列 丢弃了一段数据");
             }
         }
 
@@ -288,18 +289,18 @@ namespace DNET
                         byte[] data = findPacketResult.dataArr[i];
                         if (data == null) {
                             //这里是否会频繁发生？
-                            DxDebug.LogWarning("Token.UnpackReceiveData(): 结果中的data为null！");
+                            LogProxy.LogWarning("Token.UnpackReceiveData(): 结果中的data为null！");
                             break;
                         }
                         //如果不是心跳包才加入接收消息队列
                         if (!Config.CompareHeartBeat(findPacketResult.dataArr[i])) //Config中的静态函数判断
                         {
                             if (!_receiveQueue.EnqueueMaxLimit(findPacketResult.dataArr[i])) {
-                                DxDebug.LogWarning("Token.UnpackReceiveData():接收已解包的数据队列 丢弃了一段数据");
+                                LogProxy.LogWarning("Peer.UnpackReceiveData():接收已解包的数据队列 丢弃了一段数据");
                             }
                         }
                         else {
-                            DxDebug.LogFileOnly("Token.UnpackReceiveData():接收到了心跳包 TokenID:" + this.ID);
+                            LogProxy.LogDebug("Peer.UnpackReceiveData():接收到了心跳包 TokenID:" + this.ID);
                         }
                     }
                     LastMsgReceTickTime = DateTime.Now.Ticks; //记录最近一次接收到消息的时间
@@ -308,7 +309,7 @@ namespace DNET
                     return msgCount;
                 }
                 else {
-                    DxDebug.LogWarning("Token.UnpackReceiveData():接收到数据，经过FindPacket(),但是没有找到有效消息！");
+                    LogProxy.LogWarning("Peer.UnpackReceiveData():接收到数据，经过FindPacket(),但是没有找到有效消息！");
                     return 0;
                 }
             }
@@ -377,7 +378,7 @@ namespace DNET
                     try {
                         EventDispose(this);
                     } catch (Exception e) {
-                        DxDebug.LogWarning("Token.Dispose()：执行事件EventDispose异常！" + e.Message);
+                        LogProxy.LogWarning("Peer.Dispose()：执行事件EventDispose异常！" + e.Message);
                     }
                 }
 
