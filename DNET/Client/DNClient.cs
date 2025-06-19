@@ -415,7 +415,7 @@ namespace DNET
         /// </summary>
         public void Close()
         {
-            LogProxy.LogDebug("DNClient.Close():进入了close函数！");
+            LogProxy.Log("DNClient.Close():进入了close函数！");
 
             NetWorkMsg msg = _msgPool.Dequeue();
             if (msg == null) {
@@ -432,7 +432,7 @@ namespace DNET
         /// </summary>
         public void CloseImmediate()
         {
-            LogProxy.LogDebug("DNClient.CloseImmediate():进入了CloseImmediate函数！");
+            LogProxy.Log("DNClient.CloseImmediate():进入了CloseImmediate函数！");
             Dispose();
         }
 
@@ -571,7 +571,7 @@ namespace DNET
                 return;
             }
             try {
-                LogProxy.Log("DNClient.AddMessage():向消息队列中添加消息");
+                LogProxy.LogDebug("DNClient.AddMessage():向消息队列中添加消息");
                 if (msg != null)
                     _msgQueue.Enqueue(msg); //消息进队列
 
@@ -631,7 +631,7 @@ namespace DNET
             //    _msgPool.EnqueueMaxLimit(msg);
             //}
             catch (Exception e) {
-                LogProxy.LogError("DNClient.AddMessage():异常：" + e.Message);
+                LogProxy.LogError($"DNClient.AddMessage():异常：{e}");
                 //throw;//这个throw还是应该去掉
                 _msgPool.EnqueueMaxLimit(msg);
             }
@@ -744,18 +744,18 @@ namespace DNET
                         EventConnectSuccess(this);
                     } //事件类型：ConnectError
                     catch (Exception e) {
-                        LogProxy.LogWarning($"DNClient.DoConnect():执行EventError事件异常：{e}");
+                        LogProxy.LogError($"DNClient.DoConnect():执行 EventConnectSuccess 事件异常：{e}");
                     }
                 }
             } catch (Exception e) {
-                LogProxy.LogError($"DNClient.DoConnect():连接服务器失败！{e.Message}");
+                LogProxy.LogWarning($"DNClient.DoConnect():连接服务器失败！{e.Message}");
 
                 if (EventError != null) {
                     try {
                         EventError(this, EventType.ConnectError, e);
                     } //事件类型：ConnectError
                     catch (Exception e2) {
-                        LogProxy.LogError("DNClient.DoConnect():执行EventError事件异常：" + e2.Message);
+                        LogProxy.LogError("DNClient.DoConnect():执行 EventError 事件异常：" + e2.Message);
                     }
                 }
             }
@@ -833,7 +833,7 @@ namespace DNET
                     try {
                         EventReceData(this); //发出事件：接收到了数据
                     } catch (Exception e) {
-                        LogProxy.LogWarning($"DNClient.DoReceive()：执行外部事件EventReceData 异常: {e}");
+                        LogProxy.LogWarning($"DNClient.DoReceive()：执行外部事件 EventReceData 异常: {e}");
                     }
                 }
 
@@ -968,7 +968,7 @@ namespace DNET
                 try {
                     EventError(this, EventType.IOError, null);
                 } catch (Exception e) {
-                    LogProxy.LogWarning("DNClient.OnError()：执行EventError事件异常:" + e.Message);
+                    LogProxy.LogWarning("DNClient.OnError()：执行 EventError 事件异常:" + e.Message);
                 }
             }
         }

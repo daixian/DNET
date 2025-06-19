@@ -136,7 +136,7 @@ namespace DNET
             DNClient client = DNClient.GetInstance();
             if (client.IsConnected) {
                 client.Send(Config.HeartBeatData); //发个心跳包
-                LogProxy.Log("ClientTimer：发送 HeartBeatData ~❤");
+                LogProxy.LogDebug("ClientTimer：发送 HeartBeatData ~❤");
             }
             else {
                 // DxDebug.Log("ClientTimer：发送心跳包 - 但是当前还未连接");
