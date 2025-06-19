@@ -13,8 +13,7 @@ namespace DNET
         public ByteBufferPools()
         {
             long curBlockSize = mixBlockSize;
-            while (curBlockSize <= maxBlockSize)
-            {
+            while (curBlockSize <= maxBlockSize) {
                 //统一使用4M好了
                 ByteBufferPool bfPool = new ByteBufferPool(curBlockSize, 4 * 1024 * 1024);
                 curBlockSize = 2 * curBlockSize;
@@ -44,24 +43,20 @@ namespace DNET
         public ByteBuffer GetBuffer(long size, bool autoSetValidLength = false)
         {
             ByteBuffer bbf = null;
-            if (size > maxBlockSize)
-            {
+            if (size > maxBlockSize) {
                 ByteBufferPool.countNew++;
                 DxDebug.LogConsole("ByteBufferPools.GetBuffer():申请了一块过大的内存,size=" + size);
                 //这个内存块太了，所以就不作缓存了
                 bbf = new ByteBuffer(size);
             }
-            else
-            {
+            else {
                 ByteBufferPool bbPool = ChoosePool(size);
                 bbf = bbPool.GetBuffer((int)size);
             }
-            if (autoSetValidLength)
-            {
+            if (autoSetValidLength) {
                 bbf.validLength = (int)size;
             }
-            else
-            {
+            else {
                 bbf.validLength = 0;
             }
             return bbf;
@@ -77,19 +72,17 @@ namespace DNET
         {
             //拼接需要的buffer长度
             long length = 0;
-            for (int i = 0; i < data.Length; i++)
-            {
+            for (int i = 0; i < data.Length; i++) {
                 length += data[i].validLength;
             }
             //取一个buffer
             ByteBuffer res = GetBuffer(length);
             res.validLength = 0;
             //拷贝进来data的数据
-            for (int i = 0; i < data.Length; i++)
-            {
+            for (int i = 0; i < data.Length; i++) {
                 res.CopyIn(data[i]);
                 if (isRecycle)
-                    data[i].Recycle();//这个数据已经没有用了，回收
+                    data[i].Recycle(); //这个数据已经没有用了，回收
             }
             return res;
         }
@@ -104,8 +97,7 @@ namespace DNET
         {
             //拼接需要的buffer长度
             long length = 0;
-            foreach (var item in data)
-            {
+            foreach (var item in data) {
                 length += item.validLength;
             }
 
@@ -113,11 +105,10 @@ namespace DNET
             ByteBuffer res = GetBuffer(length);
             res.validLength = 0;
             //拷贝进来data的数据
-            foreach (var item in data)
-            {
+            foreach (var item in data) {
                 res.CopyIn(item);
                 if (isRecycle)
-                    item.Recycle();//这个数据已经没有用了，回收
+                    item.Recycle(); //这个数据已经没有用了，回收
             }
             return res;
         }
@@ -157,8 +148,7 @@ namespace DNET
         {
             int curIndex = 0;
             long curBlockSize = mixBlockSize;
-            while (size > curBlockSize)
-            {
+            while (size > curBlockSize) {
                 curIndex++;
                 curBlockSize = 2 * curBlockSize;
             }

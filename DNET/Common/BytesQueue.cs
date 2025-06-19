@@ -70,20 +70,15 @@ namespace DNET
         /// <summary>
         /// 当前这个队列是否已经过大
         /// </summary>
-        public bool IsFull
-        {
-            get
-            {
-                if (_curByteSize >= maxByteSize)
-                {
+        public bool IsFull {
+            get {
+                if (_curByteSize >= maxByteSize) {
                     return true;
                 }
-                if (_queue.Count > maxCount)
-                {
+                if (_queue.Count > maxCount) {
                     return true;
                 }
-                else
-                {
+                else {
                     return false;
                 }
             }
@@ -95,16 +90,13 @@ namespace DNET
         /// <returns>一个byte数据，没有则返回null</returns>
         public byte[] Dequeue()
         {
-            lock (this._queue)
-            {
-                if (this._queue.Count > 0)
-                {
+            lock (this._queue) {
+                if (this._queue.Count > 0) {
                     byte[] data = this._queue.Dequeue();
                     _curByteSize -= data.Length;
                     return data;
                 }
-                else
-                {
+                else {
                     return null;
                 }
             }
@@ -116,12 +108,10 @@ namespace DNET
         /// <param name="item">byte数据</param>
         public void Enqueue(byte[] item)
         {
-            if (item == null)
-            {
+            if (item == null) {
                 throw new ArgumentNullException("Items null");
             }
-            lock (this._queue)
-            {
+            lock (this._queue) {
                 this._queue.Enqueue(item);
                 _curByteSize += item.Length;
             }
@@ -132,8 +122,7 @@ namespace DNET
         /// </summary>
         public void Clear()
         {
-            lock (this._queue)
-            {
+            lock (this._queue) {
                 this._queue.Clear();
                 _curByteSize = 0;
             }
@@ -144,8 +133,7 @@ namespace DNET
         /// </summary>
         public void TrimExcess()
         {
-            lock (this._queue)
-            {
+            lock (this._queue) {
                 this._queue.TrimExcess();
             }
         }
@@ -153,10 +141,7 @@ namespace DNET
         /// <summary>
         /// 队列的数据个数
         /// </summary>
-        public int Count
-        {
-            get { return _queue.Count; }
-        }
+        public int Count { get { return _queue.Count; } }
 
         /// <summary>
         /// 返回byte[][]的形式,没有则返回null
@@ -164,22 +149,18 @@ namespace DNET
         /// <returns>byte[]数据，没有则返回null</returns>
         public byte[][] GetData()
         {
-            lock (this._queue)
-            {
-                if (this._queue.Count > 0)
-                {
+            lock (this._queue) {
+                if (this._queue.Count > 0) {
                     int count = this._queue.Count;
 
                     byte[][] data = new byte[count][];
-                    for (int i = 0; i < count; i++)
-                    {
+                    for (int i = 0; i < count; i++) {
                         data[i] = _queue.Dequeue();
                         _curByteSize -= data[i].Length;
                     }
                     return data;
                 }
-                else
-                {
+                else {
                     return null;
                 }
             }
@@ -191,25 +172,21 @@ namespace DNET
         /// <returns>结果数据</returns>
         public byte[] GetDataOnce()
         {
-            if (this._queue.Count > 0)
-            {
-                lock (this._queue)
-                {
-                    if (this._queue.Count == 1)//如果队列里只有一条数据，那么不需要整合复制
+            if (this._queue.Count > 0) {
+                lock (this._queue) {
+                    if (this._queue.Count == 1) //如果队列里只有一条数据，那么不需要整合复制
                     {
                         byte[] data = this._queue.Dequeue();
-                        _curByteSize -= data.Length;//空间大小
+                        _curByteSize -= data.Length; //空间大小
                         return data;
                     }
-                    else
-                    {
+                    else {
                         byte[] alldata = new byte[_curByteSize];
                         int count = this._queue.Count;
                         int index = 0;
-                        for (int i = 0; i < count; i++)
-                        {
+                        for (int i = 0; i < count; i++) {
                             byte[] data = this._queue.Dequeue();
-                            _curByteSize -= data.Length;//空间大小
+                            _curByteSize -= data.Length; //空间大小
                             Buffer.BlockCopy(data, 0, alldata, index, data.Length);
                             index += data.Length;
                         }
@@ -218,8 +195,7 @@ namespace DNET
                     }
                 }
             }
-            else
-            {
+            else {
                 return null;
             }
         }
@@ -232,33 +208,28 @@ namespace DNET
         public byte[] GetDataOnce(byte[] frontData)
         {
             //如果参数的是null
-            if (frontData == null)
-            {
+            if (frontData == null) {
                 return GetDataOnce();
             }
 
-            if (this._queue.Count > 0)
-            {
-                lock (this._queue)
-                {
+            if (this._queue.Count > 0) {
+                lock (this._queue) {
                     byte[] alldata = new byte[_curByteSize + frontData.Length];
                     int count = this._queue.Count;
                     int index = 0;
                     //先拼上最前面的数据
                     Buffer.BlockCopy(frontData, 0, alldata, index, frontData.Length);
                     index += frontData.Length;
-                    for (int i = 0; i < count; i++)
-                    {
+                    for (int i = 0; i < count; i++) {
                         byte[] data = this._queue.Dequeue();
-                        _curByteSize -= data.Length;//空间大小
+                        _curByteSize -= data.Length; //空间大小
                         Buffer.BlockCopy(data, 0, alldata, index, data.Length);
                         index += data.Length;
                     }
                     return alldata;
                 }
             }
-            else
-            {
+            else {
                 return frontData;
             }
         }
@@ -273,36 +244,30 @@ namespace DNET
         {
             //是否有丢弃
             bool isDiscard = false;
-            if (item == null)
-            {
+            if (item == null) {
                 throw new ArgumentNullException("BytesQueue.EnqueueMaxLimit():输入参数为null"); //注意其实下面的队列支持null
             }
-            else if (item.Length >= maxByteSize)
-            {
+            else if (item.Length >= maxByteSize) {
                 throw new OutOfMemoryException("BytesQueue.EnqueueMaxLimit():加入的数组过大，超出了该队列的maxByteSize");
             }
-            lock (this._queue)
-            {
-                if (_queue.Count < maxCount)
-                {
+            lock (this._queue) {
+                if (_queue.Count < maxCount) {
                     _queue.Enqueue(item);
-                    _curByteSize += item.Length;//空间大小
+                    _curByteSize += item.Length; //空间大小
                 }
-                else
-                {
+                else {
                     //移出
                     byte[] remove = _queue.Dequeue();
-                    _curByteSize -= remove.Length;//空间大小
+                    _curByteSize -= remove.Length; //空间大小
                     _queue.Enqueue(item);
-                    _curByteSize += item.Length;//空间大小
+                    _curByteSize += item.Length; //空间大小
 
                     isDiscard = true;
                 }
                 //如果太大了也要移出
-                while (_curByteSize > maxByteSize)
-                {
+                while (_curByteSize > maxByteSize) {
                     byte[] remove = _queue.Dequeue();
-                    _curByteSize -= remove.Length;//空间大小
+                    _curByteSize -= remove.Length; //空间大小
                     isDiscard = true;
                 }
             }
@@ -316,21 +281,18 @@ namespace DNET
         /// <returns>会new一个byte[]作为返回</returns>
         public static byte[] BytesArrayToBytes(byte[][] dataArr)
         {
-            if (dataArr.Length == 1)//如果只有一条数据那么不需要拷贝
+            if (dataArr.Length == 1) //如果只有一条数据那么不需要拷贝
             {
                 return dataArr[0];
             }
-            else
-            {
+            else {
                 int length = 0;
-                for (int i = 0; i < dataArr.Length; i++)
-                {
+                for (int i = 0; i < dataArr.Length; i++) {
                     length += dataArr[i].Length;
                 }
                 byte[] alldata = new byte[length];
                 int index = 0;
-                for (int i = 0; i < dataArr.Length; i++)
-                {
+                for (int i = 0; i < dataArr.Length; i++) {
                     Buffer.BlockCopy(dataArr[i], 0, alldata, index, dataArr[i].Length);
                     index += dataArr[i].Length;
                 }

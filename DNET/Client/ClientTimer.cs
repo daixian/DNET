@@ -67,8 +67,7 @@ namespace DNET
         /// </summary>
         public void Start()
         {
-            if (disposed == false)
-            {
+            if (disposed == false) {
                 Dispose();
             }
             _timer = new Timer(new TimerCallback(OnTimerTick));
@@ -86,54 +85,44 @@ namespace DNET
         {
             DNClient client = DNClient.GetInstance();
 
-            if (Config.IsAutoHeartbeat && client.IsConnected)
-            {
+            if (Config.IsAutoHeartbeat && client.IsConnected) {
                 float time = (DateTime.Now.Ticks - client.LastMsgSendTickTime) / 10000;
-                if (time > Config.HeartBeatSendTime)//如果时间已经超过了那么就发送心跳包
+                if (time > Config.HeartBeatSendTime) //如果时间已经超过了那么就发送心跳包
                 {
                     //发送一次心跳包
                     SendHeartBeat();
                 }
             }
 
-            if (Config.IsAutoHeartbeat && client.IsConnected)
-            {
+            if (Config.IsAutoHeartbeat && client.IsConnected) {
                 //如果15s没有收到心跳包
                 float time = (DateTime.Now.Ticks - client.LastMsgReceTickTime) / 10000;
-                if (time > Config.HeartBeatCheckTime)
-                {
+                if (time > Config.HeartBeatCheckTime) {
                     DxDebug.LogWarning("ClientTimer.OnTimerTick()：长时间没有收到心跳包，判断可能已经掉线！");
-                    client.Disconnect();//关闭连接
+                    client.Disconnect(); //关闭连接
                 }
             }
 
             //执行事件
-            if (EventOnTimer != null)
-            {
-                try
-                {
+            if (EventOnTimer != null) {
+                try {
                     EventOnTimer();
-                }
-                catch (Exception e)
-                {
+                } catch (Exception e) {
                     DxDebug.LogWarning("ClientTimer.OnTimerTick()：执行EventOnTimer事件异常：" + e.Message);
                 }
             }
 
             //执行3秒事件
-            if (EventOnTimer3S != null)
-            {
+            if (EventOnTimer3S != null) {
                 _count3S += KICK_TIME;
                 if (_count3S >= 3 * 1000) //20秒
                 {
                     _count3S = 0;
-                    try
-                    {
+                    try {
                         EventOnTimer3S();
-                    }
-                    catch (Exception e)
-                    {
-                        DxDebug.LogWarning("ClientTimer.OnTimerTick()：执行EventOnTimer3S事件异常：" + e.Message); ;
+                    } catch (Exception e) {
+                        DxDebug.LogWarning("ClientTimer.OnTimerTick()：执行EventOnTimer3S事件异常：" + e.Message);
+                        ;
                     }
                 }
             }
@@ -145,13 +134,11 @@ namespace DNET
         public void SendHeartBeat()
         {
             DNClient client = DNClient.GetInstance();
-            if (client.IsConnected)
-            {
+            if (client.IsConnected) {
                 client.Send(Config.HeartBeatData); //发个心跳包
                 DxDebug.Log("ClientTimer：发送 HeartBeatData ~❤");
             }
-            else
-            {
+            else {
                 // DxDebug.Log("ClientTimer：发送心跳包 - 但是当前还未连接");
             }
         }
@@ -168,22 +155,17 @@ namespace DNET
 
         private void Dispose(bool disposing)
         {
-            if (disposed)
-            {
+            if (disposed) {
                 return;
             }
-            if (disposing)
-            {
+            if (disposing) {
                 // 清理托管资源
             }
             // 清理非托管资源
-            try
-            {
+            try {
                 if (_timer != null)
                     _timer.Dispose();
-            }
-            catch (Exception)
-            {
+            } catch (Exception) {
             }
             //让类型知道自己已经被释放
             disposed = true;

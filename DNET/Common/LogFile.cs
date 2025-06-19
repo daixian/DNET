@@ -33,8 +33,7 @@ namespace DNET
         /// <returns></returns>
         public static LogFile GetInst()
         {
-            if (_instance == null)
-            {
+            if (_instance == null) {
                 _instance = new LogFile();
             }
             return _instance;
@@ -96,12 +95,9 @@ namespace DNET
         /// <param name="state"></param>
         private void OnTimerTick(object state)
         {
-            try
-            {
+            try {
                 Flush();
-            }
-            catch (Exception)
-            {
+            } catch (Exception) {
             }
         }
 
@@ -114,32 +110,25 @@ namespace DNET
         {
             //清除日志文件夹中的日志文件
             DirectoryInfo dirifp = new DirectoryInfo(folderPath);
-            if (!dirifp.Exists)
-            {
+            if (!dirifp.Exists) {
                 return;
             }
             FileInfo[] fis = dirifp.GetFiles();
-            for (int i = 0; i < fis.Length; i++)
-            {
-                try
-                {
+            for (int i = 0; i < fis.Length; i++) {
+                try {
                     //如果文件名包含程序名，而且扩展名符合，那么就删除日志文件
-                    if (fis[i].FullName.Contains(this.programName) && fis[i].Extension == this.fileExtension)
-                    {
+                    if (fis[i].FullName.Contains(this.programName) && fis[i].Extension == this.fileExtension) {
                         TimeSpan ts = DateTime.Now - fis[i].CreationTime;
-                        if (ts.TotalDays > day)//超过3天的就删除
+                        if (ts.TotalDays > day) //超过3天的就删除
                         {
                             File.Delete(fis[i].FullName);
                         }
                     }
-                    else
-                    {
+                    else {
                         //如果不是日志文件那么也删除（不要删除了，防止误操作）
                         //File.Delete(fis[i].FullName);
                     }
-                }
-                catch (Exception)
-                {
+                } catch (Exception) {
                 }
             }
         }
@@ -152,36 +141,30 @@ namespace DNET
         /// <param name="day">清除天数</param>
         public void CreatLogFile(string folderPath, bool isClearFolder = true, float day = 3.0f)
         {
-            if (string.IsNullOrEmpty(folderPath))
-            {
+            if (string.IsNullOrEmpty(folderPath)) {
                 return;
             }
-            lock (_lockFile)
-            {
+            lock (_lockFile) {
                 //如果有资源就释放
                 Close();
 
-                try
-                {
+                try {
                     //检查路径是文件还是目录
                     FileInfo fileInfo = new FileInfo(folderPath);
-                    if (fileInfo.Exists)//如果这玩意已经是个文件
+                    if (fileInfo.Exists) //如果这玩意已经是个文件
                     {
-                        this.folderPath = fileInfo.DirectoryName;//把路径设置为该文件的所属文件夹
+                        this.folderPath = fileInfo.DirectoryName; //把路径设置为该文件的所属文件夹
                     }
-                    else
-                    {
+                    else {
                         DirectoryInfo dirInfo = new DirectoryInfo(folderPath);
-                        if (!dirInfo.Exists)
-                        {
+                        if (!dirInfo.Exists) {
                             Directory.CreateDirectory(dirInfo.FullName);
                         }
                         this.folderPath = dirInfo.FullName;
                     }
 
                     //清理日志文件夹
-                    if (isClearFolder)
-                    {
+                    if (isClearFolder) {
                         ClearLogFileInFolder(this.folderPath, day);
                     }
 
@@ -195,16 +178,14 @@ namespace DNET
                     _timer = new Timer(new TimerCallback(OnTimerTick));
                     _timer.Change(250, 5000);
 
-                    while (_tempString != null && _tempString.Count > 0)//如果已经记录有内容
+                    while (_tempString != null && _tempString.Count > 0) //如果已经记录有内容
                     {
                         string item = _tempString.Dequeue();
                         _streamWriter.WriteLine(item);
                         _streamWriter.Flush();
                     }
-                    _tempString.TrimExcess();//不再使用了
-                }
-                catch (Exception)
-                {
+                    _tempString.TrimExcess(); //不再使用了
+                } catch (Exception) {
                     Close();
                 }
             }
@@ -218,11 +199,10 @@ namespace DNET
             //尝试使用模块根目录
             string domainPath = AppDomain.CurrentDomain.BaseDirectory;
             //unity中调用这几个文件夹容易返回null
-            if (string.IsNullOrEmpty(domainPath))
-            {
+            if (string.IsNullOrEmpty(domainPath)) {
                 domainPath = System.Environment.CurrentDirectory;
             }
-            if (string.IsNullOrEmpty(domainPath))//如果还为空
+            if (string.IsNullOrEmpty(domainPath)) //如果还为空
             {
                 domainPath = "";
             }
@@ -230,8 +210,7 @@ namespace DNET
             CreatLogFile(Path.Combine(domainPath, "log"));
 
             //尝试使用AppData目录,应该在AppData/xuexue/log文件夹
-            if (_fileStream == null)
-            {
+            if (_fileStream == null) {
                 string path = "log";
                 string appdata = System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData);
                 if (!string.IsNullOrEmpty(appdata))
@@ -247,8 +226,7 @@ namespace DNET
         {
             //如果有资源就释放
             Close();
-            try
-            {
+            try {
                 _fileStream = fileStream;
                 _streamWriter = new StreamWriter(_fileStream, Encoding.UTF8, 1024);
                 _streamWriter.AutoFlush = false;
@@ -256,9 +234,7 @@ namespace DNET
                 //创建定时器
                 _timer = new Timer(new TimerCallback(OnTimerTick));
                 _timer.Change(250, 5000);
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 Close();
             }
         }
@@ -269,24 +245,18 @@ namespace DNET
         /// <param name="e"></param>
         public void Add(ref string e)
         {
-            if (_fileStream == null && _tempString != null)
-            {
+            if (_fileStream == null && _tempString != null) {
                 _tempString.EnqueueMaxLimit(e);
                 return;
             }
 
-            lock (_lockFile)
-            {
-                try
-                {
+            lock (_lockFile) {
+                try {
                     _streamWriter.Write(e);
-                    if (isImmediatelyFlush)
-                    {
+                    if (isImmediatelyFlush) {
                         Flush();
                     }
-                }
-                catch (Exception)
-                {
+                } catch (Exception) {
                 }
             }
         }
@@ -297,24 +267,18 @@ namespace DNET
         /// <param name="e"></param>
         public void AddLine(ref string e)
         {
-            if (_fileStream == null && _tempString != null)
-            {
+            if (_fileStream == null && _tempString != null) {
                 _tempString.EnqueueMaxLimit(e);
                 return;
             }
 
-            lock (_lockFile)
-            {
-                try
-                {
+            lock (_lockFile) {
+                try {
                     _streamWriter.WriteLine(e);
-                    if (isImmediatelyFlush)
-                    {
+                    if (isImmediatelyFlush) {
                         Flush();
                     }
-                }
-                catch (Exception)
-                {
+                } catch (Exception) {
                 }
             }
         }
@@ -324,23 +288,17 @@ namespace DNET
         /// </summary>
         public void Flush()
         {
-            lock (_lockFile)
-            {
-                try
-                {
-                    if (_streamWriter != null)
-                    {
+            lock (_lockFile) {
+                try {
+                    if (_streamWriter != null) {
                         _streamWriter.Flush();
-                        if (_fileStream.Length > maxLogFileSize)
-                        {
+                        if (_fileStream.Length > maxLogFileSize) {
                             _streamWriter.WriteLine("too big, new log File!");
                             _streamWriter.Flush();
                             CreatLogFile(this.folderPath);
                         }
                     }
-                }
-                catch (Exception)
-                {
+                } catch (Exception) {
                 }
             }
         }
@@ -350,31 +308,22 @@ namespace DNET
         /// </summary>
         public void Close()
         {
-            lock (_lockFile)
-            {
-                try
-                {
-                    if (_timer != null)
-                    {
+            lock (_lockFile) {
+                try {
+                    if (_timer != null) {
                         _timer.Dispose();
                     }
 
-                    if (_streamWriter != null)
-                    {
+                    if (_streamWriter != null) {
                         _streamWriter.Flush();
                         _streamWriter.Close();
                     }
-                    if (_fileStream != null)
-                    {
+                    if (_fileStream != null) {
                         _fileStream.Flush();
                         _fileStream.Close();
                     }
-                }
-                catch (Exception)
-                {
-                }
-                finally
-                {
+                } catch (Exception) {
+                } finally {
                     _fileStream = null;
                     _streamWriter = null;
                     _timer = null;

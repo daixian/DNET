@@ -58,8 +58,7 @@ namespace DNET
         /// <param name="other"></param>
         public void CopyIn(ByteBuffer other)
         {
-            if (other == null || other.validLength == 0)
-            {
+            if (other == null || other.validLength == 0) {
                 return;
             }
 
@@ -91,12 +90,10 @@ namespace DNET
         /// <param name="buffs">一组buff</param>
         public static void Recycle(ByteBuffer[] buffs)
         {
-            if (buffs == null)
-            {
+            if (buffs == null) {
                 return;
             }
-            for (int i = 0; i < buffs.Length; i++)
-            {
+            for (int i = 0; i < buffs.Length; i++) {
                 buffs[i].Recycle();
             }
         }
@@ -108,13 +105,11 @@ namespace DNET
         /// <returns></returns>
         public static int Length(ByteBuffer[] buffs)
         {
-            if (buffs == null)
-            {
+            if (buffs == null) {
                 return 0;
             }
-            int length =0;
-            for (int i = 0; i < length; i++)
-            {
+            int length = 0;
+            for (int i = 0; i < length; i++) {
                 length += buffs[i].validLength;
             }
             return length;

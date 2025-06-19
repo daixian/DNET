@@ -28,8 +28,7 @@ namespace DNET
             FileStream destinationStream = null;
             GZipStream compressedStream = null;
 
-            try
-            {
+            try {
                 // Read the bytes from the source file into a byte array
                 sourceStream = new FileStream(sourceFile, FileMode.Open, FileAccess.Read, FileShare.Read);
 
@@ -37,8 +36,7 @@ namespace DNET
                 buffer = new byte[sourceStream.Length];
                 int checkCounter = sourceStream.Read(buffer, 0, buffer.Length);
 
-                if (checkCounter != buffer.Length)
-                {
+                if (checkCounter != buffer.Length) {
                     throw new ApplicationException();
                 }
 
@@ -50,13 +48,9 @@ namespace DNET
 
                 // Now write the compressed data to the destination file
                 compressedStream.Write(buffer, 0, buffer.Length);
-            }
-            catch (ApplicationException e)
-            {
+            } catch (ApplicationException e) {
                 DxDebug.LogWarning("GZip.CompressFile():异常:" + e.Message);
-            }
-            finally
-            {
+            } finally {
                 // Make sure we allways close all streams
                 if (sourceStream != null)
                     sourceStream.Close();
@@ -86,8 +80,7 @@ namespace DNET
             GZipStream decompressedStream = null;
             byte[] quartetBuffer = null;
 
-            try
-            {
+            try {
                 // Read in the compressed source stream
                 sourceStream = new FileStream(sourceFile, FileMode.Open);
 
@@ -108,8 +101,7 @@ namespace DNET
                 int total = 0;
 
                 // Read the compressed data into the buffer
-                while (true)
-                {
+                while (true) {
                     int bytesRead = decompressedStream.Read(buffer, offset, 100);
 
                     if (bytesRead == 0)
@@ -125,13 +117,9 @@ namespace DNET
 
                 // and flush everyhting to clean out the buffer
                 destinationStream.Flush();
-            }
-            catch (ApplicationException e)
-            {
+            } catch (ApplicationException e) {
                 DxDebug.LogWarning("GZip.DecompressFile():异常:" + e.Message);
-            }
-            finally
-            {
+            } finally {
                 // Make sure we allways close all streams
                 if (sourceStream != null)
                     sourceStream.Close();
@@ -142,7 +130,6 @@ namespace DNET
                 if (destinationStream != null)
                     destinationStream.Close();
             }
-
         }
 
 
@@ -155,15 +142,13 @@ namespace DNET
         /// <returns></returns>
         public static byte[] CompressBytes(byte[] sourceData, int offset, int count)
         {
-            if (sourceData == null)
-            {
+            if (sourceData == null) {
                 return null;
             }
 
             MemoryStream destinationStream = new MemoryStream();
             GZipStream compressedStream = new GZipStream(destinationStream, CompressionMode.Compress);
-            try
-            {
+            try {
                 compressedStream.Write(sourceData, offset, count);
 
                 compressedStream.Close();
@@ -171,14 +156,9 @@ namespace DNET
                 byte[] CompressedData = destinationStream.ToArray();
                 destinationStream.Close();
                 return CompressedData;
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogWarning("GZip.CompressBytes():异常:" + e.Message);
-
-            }
-            finally
-            {
+            } finally {
                 // Make sure we allways close all streams
                 if (destinationStream != null)
                     destinationStream.Close();
@@ -205,8 +185,7 @@ namespace DNET
         /// <returns>解压缩出来的数据</returns>
         public static byte[] DecompressBytes(byte[] sourceData, int offset, int count)
         {
-            if (sourceData == null)
-            {
+            if (sourceData == null) {
                 return null;
             }
 
@@ -221,13 +200,11 @@ namespace DNET
             sourceStream.Position = 0;
             int checkLength = BitConverter.ToInt32(quartetBuffer, 0); //压缩前数据长度
 
-            byte[] buffer = new byte[checkLength];//解压数据数组
+            byte[] buffer = new byte[checkLength]; //解压数据数组
             int bytesRead = -1;
             int seek = 0;
-            while (bytesRead != 0)
-            {
-                if (seek == buffer.Length)
-                {
+            while (bytesRead != 0) {
+                if (seek == buffer.Length) {
                     break;
                 }
                 bytesRead = decompressedStream.Read(buffer, seek, buffer.Length - seek);
@@ -246,6 +223,4 @@ namespace DNET
             return DecompressBytes(sourceData, 0, sourceData.Length);
         }
     }
-
-
 }

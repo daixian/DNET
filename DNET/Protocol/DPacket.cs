@@ -36,14 +36,12 @@ namespace DNET
         /// </summary>
         private byte[] UnPack(byte[] PData, OnceFindResult result)
         {
-            if (result.e == PacketError.Succeed)
-            {
+            if (result.e == PacketError.Succeed) {
                 byte[] data = new byte[result.length - head.Length - sizeof(int) - sizeof(uint) - end.Length];
                 Buffer.BlockCopy(PData, result.startIndex + head.Length + sizeof(int), data, 0, data.Length);
                 return data;
             }
-            else
-            {
+            else {
                 return null;
             }
         }
@@ -69,10 +67,8 @@ namespace DNET
         /// </summary>
         private bool CheckHead(byte[] PacketData, int startIndex = 0)
         {
-            for (int i = 0; i < head.Length; i++)
-            {
-                if (PacketData[startIndex + i] != head[i])
-                {
+            for (int i = 0; i < head.Length; i++) {
+                if (PacketData[startIndex + i] != head[i]) {
                     return false;
                 }
             }
@@ -84,10 +80,8 @@ namespace DNET
         /// </summary>
         private bool CheckEnd(byte[] data, int startIndex, int length)
         {
-            for (int i = 0; i < end.Length; i++)
-            {
-                if (data[startIndex + length - end.Length + i] != end[i])
-                {
+            for (int i = 0; i < end.Length; i++) {
+                if (data[startIndex + length - end.Length + i] != end[i]) {
                     return false;
                 }
             }
@@ -105,36 +99,30 @@ namespace DNET
             OnceFindResult reslut = new OnceFindResult();
             reslut.startIndex = startIndex;
 
-            if ((PacketData.Length - startIndex) < (head.Length + sizeof(int) + 0 + sizeof(uint) + end.Length))
-            {
-                reslut.e = PacketError.PacketLengthTooShort;//长度就小于最小长度
+            if ((PacketData.Length - startIndex) < (head.Length + sizeof(int) + 0 + sizeof(uint) + end.Length)) {
+                reslut.e = PacketError.PacketLengthTooShort; //长度就小于最小长度
                 return reslut;
             }
             //判断包头是否正确
-            else if (!CheckHead(PacketData, startIndex))
-            {
-                reslut.e = PacketError.HeadError;//包头字节不对
+            else if (!CheckHead(PacketData, startIndex)) {
+                reslut.e = PacketError.HeadError; //包头字节不对
                 return reslut;
             }
             int length = GetLength(PacketData, startIndex);
-            if (startIndex + length > PacketData.Length)
-            {
-                reslut.e = PacketError.PacketReceiveing;//长度位数据不对，还未收完整
+            if (startIndex + length > PacketData.Length) {
+                reslut.e = PacketError.PacketReceiveing; //长度位数据不对，还未收完整
                 reslut.length = length;
                 return reslut;
             }
-            if (!CheckEnd(PacketData, startIndex, length))
-            {
-                reslut.e = PacketError.EndError;//包尾字节不对
+            if (!CheckEnd(PacketData, startIndex, length)) {
+                reslut.e = PacketError.EndError; //包尾字节不对
                 return reslut;
             }
             //如果设置进行CRC校验才进行校验，否则不校验。
-            if (isCheckCRC)
-            {
+            if (isCheckCRC) {
                 uint crc = GetCRC(PacketData, startIndex, length);
-                if (crc != Crc32.Crc(PacketData, startIndex, length - end.Length - sizeof(uint)))
-                {
-                    reslut.e = PacketError.CRCError;//CRC错误
+                if (crc != Crc32.Crc(PacketData, startIndex, length - end.Length - sizeof(uint))) {
+                    reslut.e = PacketError.CRCError; //CRC错误
                     return reslut;
                 }
             }
@@ -179,32 +167,27 @@ namespace DNET
             OnceFindResult result = new OnceFindResult();
             int startSuspect = 0;
             bool isFindSuspect = false;
-            for (int i = startIndex; i < data.Length; i++)
-            {
+            for (int i = startIndex; i < data.Length; i++) {
                 result = PacketCheck(data, i);
                 if (result.e == PacketError.Succeed) //如果当前位置判断成功，就直接传出结果
                 {
                     return result;
                 }
-                else if (result.e == PacketError.PacketReceiveing && isFindSuspect == false)
-                {
+                else if (result.e == PacketError.PacketReceiveing && isFindSuspect == false) {
                     startSuspect = i;
                     isFindSuspect = true;
                     break;
                 }
-                else if (result.e == PacketError.PacketLengthTooShort && isFindSuspect == false)
-                {
+                else if (result.e == PacketError.PacketLengthTooShort && isFindSuspect == false) {
                     startSuspect = i;
                     isFindSuspect = true;
                     break;
                 }
             }
-            if (isFindSuspect)
-            {
+            if (isFindSuspect) {
                 return PacketCheck(data, startSuspect);
             }
-            else
-            {
+            else {
                 return result;
             }
         }
@@ -250,7 +233,7 @@ namespace DNET
 
         byte[] IPacket.CompletePack(byte[] data)
         {
-            if (isCheckCRC)//如果需要CRC，才进行CRC计算
+            if (isCheckCRC) //如果需要CRC，才进行CRC计算
             {
                 int curIndex = data.Length - sizeof(uint) - end.Length;
                 uint crc = Crc32.Crc(data, 0, curIndex);
@@ -269,7 +252,7 @@ namespace DNET
             curIndex += sizeof(int);
             Buffer.BlockCopy(data, 0, PacketData, curIndex, data.Length); //数据域
             curIndex += data.Length;
-            if (isCheckCRC)//如果需要CRC，才进行CRC计算
+            if (isCheckCRC) //如果需要CRC，才进行CRC计算
             {
                 uint crc = Crc32.Crc(PacketData, 0, curIndex);
                 Buffer.BlockCopy(BitConverter.GetBytes(crc), 0, PacketData, curIndex, sizeof(uint)); //校验字节
@@ -283,14 +266,12 @@ namespace DNET
         byte[] IPacket.UnPack(byte[] sData, int startIndex)
         {
             OnceFindResult result = PacketCheck(sData, startIndex);
-            if (result.e == PacketError.Succeed)
-            {
+            if (result.e == PacketError.Succeed) {
                 byte[] data = new byte[result.length - head.Length - sizeof(int) - sizeof(uint) - end.Length];
                 Buffer.BlockCopy(sData, result.startIndex + head.Length + sizeof(int), data, 0, data.Length);
                 return data;
             }
-            else
-            {
+            else {
                 return null;
             }
         }
@@ -304,31 +285,26 @@ namespace DNET
             findPacketResult.reserveData = null;
             //从头至尾依次检查
             int checkStart = startIndex;
-            while (checkStart < sData.Length)
-            {
+            while (checkStart < sData.Length) {
                 DPacket.OnceFindResult result = FindPacketOnce(sData, checkStart);
 
-                if (result.startIndex != checkStart)
-                {
+                if (result.startIndex != checkStart) {
                     DxDebug.LogWarning("DPacket.FindPacket():丢弃了一段数据，丢弃起始" + checkStart +
-                        "丢弃长度" + (result.startIndex - checkStart));
+                                       "丢弃长度" + (result.startIndex - checkStart));
                 }
 
-                if (result.e == DPacket.PacketError.Succeed)
-                {
+                if (result.e == DPacket.PacketError.Succeed) {
                     packsList.Add(UnPack(sData, result)); //解包，添加到队列
                     // DxDebug.Log("DPacket.FindPacket():解包成功");
                     checkStart = result.startIndex + result.length; //解包成功，直接跳下一个长度位置
                 }
-                else if (result.e == DPacket.PacketError.PacketReceiveing)
-                {
+                else if (result.e == DPacket.PacketError.PacketReceiveing) {
                     findPacketResult.reserveData = new byte[sData.Length - result.startIndex];
                     Buffer.BlockCopy(sData, result.startIndex, findPacketResult.reserveData, 0, findPacketResult.reserveData.Length);
                     DxDebug.Log("DPacket.FindPacket():解包：数据可能还没有接收完");
                     break;
                 }
-                else if (result.e == DPacket.PacketError.PacketLengthTooShort)
-                {
+                else if (result.e == DPacket.PacketError.PacketLengthTooShort) {
                     findPacketResult.reserveData = new byte[sData.Length - result.startIndex];
                     Buffer.BlockCopy(sData, result.startIndex, findPacketResult.reserveData, 0, findPacketResult.reserveData.Length);
                     DxDebug.Log("DPacket.FindPacket():解包：数据太短");

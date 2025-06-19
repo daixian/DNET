@@ -8,7 +8,6 @@ namespace DNET
     /// </summary>
     public static class Config
     {
-
         /// <summary>
         /// 自动心跳包。
         /// 只有当它为true的时候，客户端才会在timer中自动发送，服务器才会在timer中检查离线。
@@ -27,20 +26,15 @@ namespace DNET
         /// <returns></returns>
         public static bool CompareHeartBeat(byte[] data)
         {
-            if (data == null)
-            {
+            if (data == null) {
                 return false;
             }
-            if (data.Length != HeartBeatData.Length)
-            {
+            if (data.Length != HeartBeatData.Length) {
                 return false;
             }
-            else
-            {
-                for (int i = 0; i < HeartBeatData.Length; i++)
-                {
-                    if (HeartBeatData[i] != data[i])
-                    {
+            else {
+                for (int i = 0; i < HeartBeatData.Length; i++) {
+                    if (HeartBeatData[i] != data[i]) {
                         return false;
                     }
                 }
@@ -56,7 +50,7 @@ namespace DNET
         /// <summary>
         /// 心跳包的检查间隔时间（ms）,目前默认是15秒
         /// </summary>
-        public static long HeartBeatCheckTime = 1000 * 15 * 1;// 1min
+        public static long HeartBeatCheckTime = 1000 * 15 * 1; // 1min
 
 
         /// <summary>
@@ -65,7 +59,6 @@ namespace DNET
         public static void CreatLogFile()
         {
             LogFile.GetInst().CreatLogFile();
-
         }
 
         /// <summary>
@@ -80,32 +73,12 @@ namespace DNET
         /// <summary>
         /// 是否写日志文件
         /// </summary>
-        public static bool IsLogFile
-        {
-            get
-            {
-                return DxDebug.IsLogFile;
-            }
-            set
-            {
-                DxDebug.IsLogFile = value;
-            }
-        }
+        public static bool IsLogFile { get { return DxDebug.IsLogFile; } set { DxDebug.IsLogFile = value; } }
 
         /// <summary>
         /// 是否输出到控制台
         /// </summary>
-        public static bool IsLogConsole
-        {
-            get
-            {
-                return DxDebug.IsConsole;
-            }
-            set
-            {
-                DxDebug.IsConsole = value;
-            }
-        }
+        public static bool IsLogConsole { get { return DxDebug.IsConsole; } set { DxDebug.IsConsole = value; } }
 
         /// <summary>
         /// 服务器和客户端一起设置一个缓存文件夹
@@ -113,12 +86,10 @@ namespace DNET
         /// <param name="path">缓存文件夹路径</param>
         public static bool SetCacheDir(string path)
         {
-            if (!DNClient.GetInstance().SetDirCache(path))
-            {
+            if (!DNClient.GetInstance().SetDirCache(path)) {
                 return false;
             }
-            if (!DNServer.GetInstance().SetDirCache(path))
-            {
+            if (!DNServer.GetInstance().SetDirCache(path)) {
                 return false;
             }
             return true;
@@ -168,7 +139,6 @@ namespace DNET
         /// <param name="onEventPrint">u3d需要的打印日志事件</param>
         public static void DefaultConfigOnIOS(string path, Action<DxDebug.LogItem> onEventPrint)
         {
-
             Config.CreatLogFile(path);
             Config.IsLogFile = true;
             Config.IsLogConsole = false;

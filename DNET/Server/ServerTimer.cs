@@ -85,8 +85,7 @@ namespace DNET
             //{
             //    Dispose();
             //}
-            if (disposed)
-            {
+            if (disposed) {
                 _timer = new Timer(new TimerCallback(OnTimerTick));
                 _timer.Change(250, KICK_TIME);
                 _checkTickTime = DateTime.Now.Ticks;
@@ -101,29 +100,22 @@ namespace DNET
         /// <param name="state"></param>
         private void OnTimerTick(object state)
         {
-            try
-            {
+            try {
                 //如果自动心跳包功能打开了
-                if (Config.IsAutoHeartbeat == true)
-                {
+                if (Config.IsAutoHeartbeat == true) {
                     CheckOffLineAndSend();
                 }
 
                 //执行事件
-                if (EventOnTimer != null)
-                {
-                    try
-                    {
+                if (EventOnTimer != null) {
+                    try {
                         EventOnTimer();
-                    }
-                    catch (Exception e)
-                    {
-                        DxDebug.LogWarning("ServerTimer.OnTimerTick()：执行EventOnTimer事件异常：" + e.Message); ;
+                    } catch (Exception e) {
+                        DxDebug.LogWarning("ServerTimer.OnTimerTick()：执行EventOnTimer事件异常：" + e.Message);
+                        ;
                     }
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogWarning("ServerTimer.OnTimerTick()：异常：" + e.Message);
             }
         }
@@ -138,19 +130,17 @@ namespace DNET
             _countHeartBeatCheckTime += KICK_TIME;
             if (_countHeartBeatCheckTime >= Config.HeartBeatCheckTime) //15秒*1
             {
-                Interlocked.Exchange(ref _countHeartBeatCheckTime, 0);//这里要立马置零，防止后面的代码执行的过久，再次进入kick
+                Interlocked.Exchange(ref _countHeartBeatCheckTime, 0); //这里要立马置零，防止后面的代码执行的过久，再次进入kick
 
                 Token[] tokens = TokenManager.GetInstance().GetAllToken();
-                if (tokens != null)
-                {
-                    for (int i = 0; i < tokens.Length; i++)
-                    {
+                if (tokens != null) {
+                    for (int i = 0; i < tokens.Length; i++) {
                         Token token = tokens[i];
                         if (token.LastMsgReceTickTime < _checkTickTime) //如果从上次的进入这里的时间之后一直都没有收到消息
                         {
                             DxDebug.LogConsole("ServerTimer.CheckOffLine()：一个用户长时间没有收到心跳包，被删除!");
 
-                            TokenManager.GetInstance().DeleteToken(token.ID, TokenErrorType.HeartBeatTimeout);//删除这个用户
+                            TokenManager.GetInstance().DeleteToken(token.ID, TokenErrorType.HeartBeatTimeout); //删除这个用户
                         }
                     }
                 }
@@ -161,15 +151,13 @@ namespace DNET
             _countHeartBeatSendTime += KICK_TIME;
             if (_countHeartBeatSendTime >= Config.HeartBeatSendTime) //5秒进一次
             {
-                Interlocked.Exchange(ref _countHeartBeatSendTime, 0);//这里要立马置零，防止后面的代码执行的过久，再次进入kick
+                Interlocked.Exchange(ref _countHeartBeatSendTime, 0); //这里要立马置零，防止后面的代码执行的过久，再次进入kick
 
-                long subTimeTick = DateTime.Now.Ticks - 10000 * Config.HeartBeatSendTime;//计算得到的门限时间
+                long subTimeTick = DateTime.Now.Ticks - 10000 * Config.HeartBeatSendTime; //计算得到的门限时间
 
                 Token[] tokens = TokenManager.GetInstance().GetAllToken();
-                if (tokens != null)
-                {
-                    for (int i = 0; i < tokens.Length; i++)
-                    {
+                if (tokens != null) {
+                    for (int i = 0; i < tokens.Length; i++) {
                         Token token = tokens[i];
                         if (token.disposed == false && token.LastMsgSendTickTime < subTimeTick) //如果从上次的进入这里的时间之后一直都没有发消息
                         {
@@ -177,7 +165,7 @@ namespace DNET
                             token.AddSendData(Config.HeartBeatData, 0, Config.HeartBeatData.Length);
                         }
                     }
-                    DNServer.GetInstance().SendAll();//整体发送
+                    DNServer.GetInstance().SendAll(); //整体发送
                 }
             }
         }
@@ -197,22 +185,17 @@ namespace DNET
 
         private void Dispose(bool disposing)
         {
-            if (disposed)
-            {
+            if (disposed) {
                 return;
             }
-            if (disposing)
-            {
+            if (disposing) {
                 // 清理托管资源
             }
             // 清理非托管资源
-            try
-            {
+            try {
                 if (_timer != null)
                     _timer.Dispose();
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogWarning("ServerTimer.Dispose()：异常_timer.Dispose()" + e.Message);
             }
             //让类型知道自己已经被释放

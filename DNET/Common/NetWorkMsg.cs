@@ -77,8 +77,7 @@ namespace DNET
                 this.data = new byte[data.Length];
                 Buffer.BlockCopy(data, 0, this.data, 0, data.Length);
             }
-            else
-            {
+            else {
                 this.data = data; //不作拷贝了
             }
 
@@ -102,8 +101,7 @@ namespace DNET
                 this.data = new byte[count];
                 Buffer.BlockCopy(data, offset, this.data, 0, count);
             }
-            else
-            {
+            else {
                 data = null;
             }
 

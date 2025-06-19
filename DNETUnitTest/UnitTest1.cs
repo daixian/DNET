@@ -39,16 +39,13 @@ namespace DNETUnitTest
             DNClient.GetInst().isDebugLog = true;
             LogFile.GetInst().isImmediatelyFlush = true;
 
-            DNServer.GetInst().EventTokenReceData += (token) =>
-            {
+            DNServer.GetInst().EventTokenReceData += (token) => {
                 byte[][] datas = token.GetReceiveData();
-                if (datas == null)
-                {
+                if (datas == null) {
                     return;
                 }
 
-                for (int i = 0; i < datas.Length; i++)
-                {
+                for (int i = 0; i < datas.Length; i++) {
                     //收到的每一条消息.
                     byte[] data = datas[i];
 
@@ -62,11 +59,9 @@ namespace DNETUnitTest
                 }
             };
 
-            DNServer.GetInst().Start(21024);//启动服务器
-            while (true)
-            {
-                if (DNServer.GetInst().IsStarted)
-                {
+            DNServer.GetInst().Start(21024); //启动服务器
+            while (true) {
+                if (DNServer.GetInst().IsStarted) {
                     DxDebug.LogConsole("TestMethod_Send():服务器启动成功");
                     break;
                 }
@@ -74,48 +69,39 @@ namespace DNETUnitTest
             Random rand = new Random();
             int sendDataLength = rand.Next(128, 256);
             byte[] sendData = new byte[sendDataLength];
-            for (int i = 0; i < sendData.Length; i++)
-            {
+            for (int i = 0; i < sendData.Length; i++) {
                 sendData[i] = (byte)rand.Next(128, 256);
             }
             DNClient.GetInst().Connect("127.0.0.1", 21024);
 
-            while (true)
-            {
-                if (DNClient.GetInst().IsConnected)
-                {
+            while (true) {
+                if (DNClient.GetInst().IsConnected) {
                     DxDebug.LogConsole("TestMethod_Send():连接成功");
                     break;
                 }
             }
 
-            int receCount = 0;//接收的消息总条数
+            int receCount = 0; //接收的消息总条数
             int sendCount = 0;
 
             //发送n次
-            for (int count = 0; count < 200; count++)
-            {
-                while (DNClient.GetInst().isSendQueueIsFull)
-                {
+            for (int count = 0; count < 200; count++) {
+                while (DNClient.GetInst().isSendQueueIsFull) {
                     Thread.Sleep(20);
                 }
                 //一次连发n条
-                for (int i = 0; i < 500; i++)
-                {
+                for (int i = 0; i < 500; i++) {
                     //发送sendDataLength字节的sendData
                     DxDebug.LogConsole("客户端发送:msgNum=" + sendCount);
                     Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
                     DNClient.GetInst().Send(sendData);
                     sendCount++;
                 }
-                while (receCount != sendCount)
-                {
+                while (receCount != sendCount) {
                     Thread.Sleep(20);
                     byte[][] datas = DNClient.GetInstance().GetReceiveData();
-                    if (datas != null)
-                    {
-                        for (int i = 0; i < datas.Length; i++)
-                        {
+                    if (datas != null) {
+                        for (int i = 0; i < datas.Length; i++) {
                             byte[] msg = datas[i];
                             //判断接收长度是否一致
                             Assert.IsTrue(msg.Length == sendDataLength);
@@ -124,8 +110,7 @@ namespace DNETUnitTest
                             DxDebug.LogConsole("客户端接收到回发:msgNum=" + msgNum);
                             Assert.IsTrue(msgNum == receCount);
 
-                            for (int j = 4; j < msg.Length; j++)
-                            {
+                            for (int j = 4; j < msg.Length; j++) {
                                 //判断每个字节是否一致
                                 Assert.IsTrue(msg[j] == sendData[j]);
                             }
@@ -154,16 +139,13 @@ namespace DNETUnitTest
             Config.IsAutoHeartbeat = false;
             DNClient.GetInst().isDebugLog = true;
             LogFile.GetInst().isImmediatelyFlush = true;
-            DNServer.GetInst().EventTokenReceData += (token) =>
-            {
+            DNServer.GetInst().EventTokenReceData += (token) => {
                 byte[][] datas = token.GetReceiveData();
-                if (datas == null)
-                {
+                if (datas == null) {
                     return;
                 }
 
-                for (int i = 0; i < datas.Length; i++)
-                {
+                for (int i = 0; i < datas.Length; i++) {
                     //收到的每一条消息.
                     byte[] data = datas[i];
 
@@ -177,11 +159,9 @@ namespace DNETUnitTest
                 }
             };
 
-            DNServer.GetInstance().Start(21024);//启动服务器
-            while (true)
-            {
-                if (DNServer.GetInstance().IsStarted)
-                {
+            DNServer.GetInstance().Start(21024); //启动服务器
+            while (true) {
+                if (DNServer.GetInstance().IsStarted) {
                     DxDebug.LogConsole("TestMethod_Send():服务器启动成功");
                     break;
                 }
@@ -189,49 +169,40 @@ namespace DNETUnitTest
             Random rand = new Random();
             int sendDataLength = rand.Next(128, 256);
             byte[] sendData = new byte[sendDataLength];
-            for (int i = 0; i < sendData.Length; i++)
-            {
+            for (int i = 0; i < sendData.Length; i++) {
                 sendData[i] = (byte)rand.Next(128, 256);
             }
             DNClient.GetInstance().Connect("127.0.0.1", 21024);
 
-            while (true)
-            {
-                if (DNClient.GetInstance().IsConnected)
-                {
+            while (true) {
+                if (DNClient.GetInstance().IsConnected) {
                     DxDebug.LogConsole("TestMethod_Send():连接成功");
                     Thread.Sleep(1000);
                     break;
                 }
             }
 
-            int receCount = 0;//接收的消息总条数
+            int receCount = 0; //接收的消息总条数
             int sendCount = 0;
 
             //发送n次
-            for (int count = 0; count < 200; count++)
-            {
-                while (DNClient.GetInstance().isSendQueueIsFull)
-                {
+            for (int count = 0; count < 200; count++) {
+                while (DNClient.GetInstance().isSendQueueIsFull) {
                     Thread.Sleep(20);
                 }
                 //一次连发n条
-                for (int i = 0; i < 500; i++)
-                {
+                for (int i = 0; i < 500; i++) {
                     //发送sendDataLength字节的sendData
                     DxDebug.LogConsole("客户端发送:msgNum=" + sendCount);
                     Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
                     DNClient.GetInstance().Send(sendData);
                     sendCount++;
                 }
-                while (receCount != sendCount)
-                {
+                while (receCount != sendCount) {
                     Thread.Sleep(1);
                     byte[][] datas = DNClient.GetInstance().GetReceiveData();
-                    if (datas != null)
-                    {
-                        for (int i = 0; i < datas.Length; i++)
-                        {
+                    if (datas != null) {
+                        for (int i = 0; i < datas.Length; i++) {
                             byte[] msg = datas[i];
                             //判断接收长度是否一致
                             Assert.IsTrue(msg.Length == sendDataLength);
@@ -240,8 +211,7 @@ namespace DNETUnitTest
                             DxDebug.LogConsole("客户端接收到回发:msgNum=" + msgNum);
                             Assert.IsTrue(msgNum == receCount);
 
-                            for (int j = 4; j < msg.Length; j++)
-                            {
+                            for (int j = 4; j < msg.Length; j++) {
                                 //判断每个字节是否一致
                                 Assert.IsTrue(msg[j] == sendData[j]);
                             }
@@ -270,16 +240,13 @@ namespace DNETUnitTest
             Config.IsAutoHeartbeat = false;
             DNClient.GetInst().isDebugLog = true;
             LogFile.GetInst().isImmediatelyFlush = true;
-            DNServer.GetInst().EventTokenReceData += (token) =>
-            {
+            DNServer.GetInst().EventTokenReceData += (token) => {
                 byte[][] datas = token.GetReceiveData();
-                if (datas == null)
-                {
+                if (datas == null) {
                     return;
                 }
 
-                for (int i = 0; i < datas.Length; i++)
-                {
+                for (int i = 0; i < datas.Length; i++) {
                     //收到的每一条消息.
                     byte[] data = datas[i];
 
@@ -293,11 +260,9 @@ namespace DNETUnitTest
                 }
             };
 
-            DNServer.GetInstance().Start(21024);//启动服务器
-            while (true)
-            {
-                if (DNServer.GetInstance().IsStarted)
-                {
+            DNServer.GetInstance().Start(21024); //启动服务器
+            while (true) {
+                if (DNServer.GetInstance().IsStarted) {
                     DxDebug.LogConsole("TestMethod_Send():服务器启动成功");
                     break;
                 }
@@ -305,50 +270,41 @@ namespace DNETUnitTest
             Random rand = new Random();
             int sendDataLength = rand.Next(128, 256);
             byte[] sendData = new byte[sendDataLength];
-            for (int i = 0; i < sendData.Length; i++)
-            {
+            for (int i = 0; i < sendData.Length; i++) {
                 sendData[i] = (byte)rand.Next(128, 256);
             }
             DNClient.GetInstance().Connect("127.0.0.1", 21024);
 
-            while (true)
-            {
-                if (DNClient.GetInstance().IsConnected)
-                {
+            while (true) {
+                if (DNClient.GetInstance().IsConnected) {
                     DxDebug.LogConsole("TestMethod_Send():连接成功");
                     Thread.Sleep(1000);
                     break;
                 }
             }
 
-            int receCount = 0;//接收的消息总条数
+            int receCount = 0; //接收的消息总条数
             int sendCount = 0;
             ByteBuffer[] dataBuffers = new ByteBuffer[128];
 
             //发送n次
-            for (int count = 0; count < 200; count++)
-            {
-                while (DNClient.GetInstance().isSendQueueIsFull)
-                {
+            for (int count = 0; count < 200; count++) {
+                while (DNClient.GetInstance().isSendQueueIsFull) {
                     Thread.Sleep(20);
                 }
                 //一次连发n条
-                for (int i = 0; i < 500; i++)
-                {
+                for (int i = 0; i < 500; i++) {
                     //发送sendDataLength字节的sendData
                     DxDebug.LogConsole("客户端发送:msgNum=" + sendCount);
                     Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
                     DNClient.GetInstance().Send(sendData);
                     sendCount++;
                 }
-                while (receCount != sendCount)
-                {
+                while (receCount != sendCount) {
                     Thread.Sleep(1);
                     int msgCount = DNClient.GetInstance().GetReceiveData(dataBuffers, 0, dataBuffers.Length);
-                    if (msgCount > 0)
-                    {
-                        for (int i = 0; i < msgCount; i++)
-                        {
+                    if (msgCount > 0) {
+                        for (int i = 0; i < msgCount; i++) {
                             ByteBuffer msg = dataBuffers[i];
                             //判断接收长度是否一致
                             Assert.IsTrue(msg.validLength == sendDataLength);
@@ -357,8 +313,7 @@ namespace DNETUnitTest
                             DxDebug.LogConsole("客户端接收到回发:msgNum=" + msgNum);
                             Assert.IsTrue(msgNum == receCount);
 
-                            for (int j = 4; j < msg.validLength; j++)
-                            {
+                            for (int j = 4; j < msg.validLength; j++) {
                                 //判断每个字节是否一致
                                 Assert.IsTrue(msg.buffer[j] == sendData[j]);
                             }
@@ -389,16 +344,13 @@ namespace DNETUnitTest
             LogFile.GetInst().isImmediatelyFlush = false;
             DxDebug.isLog = false;
 
-            DNServer.GetInstance().EventTokenReceData += (token) =>
-            {
+            DNServer.GetInstance().EventTokenReceData += (token) => {
                 byte[][] datas = token.GetReceiveData();
-                if (datas == null)
-                {
+                if (datas == null) {
                     return;
                 }
 
-                for (int i = 0; i < datas.Length; i++)
-                {
+                for (int i = 0; i < datas.Length; i++) {
                     //收到的每一条消息.
                     byte[] data = datas[i];
 
@@ -412,11 +364,9 @@ namespace DNETUnitTest
                 }
             };
 
-            DNServer.GetInstance().Start(21024);//启动服务器
-            while (true)
-            {
-                if (DNServer.GetInstance().IsStarted)
-                {
+            DNServer.GetInstance().Start(21024); //启动服务器
+            while (true) {
+                if (DNServer.GetInstance().IsStarted) {
                     DxDebug.LogConsole("TestMethod_Send():服务器启动成功");
                     break;
                 }
@@ -424,35 +374,29 @@ namespace DNETUnitTest
             Random rand = new Random();
             int sendDataLength = rand.Next(128, 256);
             byte[] sendData = new byte[sendDataLength];
-            for (int i = 0; i < sendData.Length; i++)
-            {
+            for (int i = 0; i < sendData.Length; i++) {
                 sendData[i] = (byte)rand.Next(128, 256);
             }
             DNClient.GetInstance().Connect("127.0.0.1", 21024);
 
-            while (true)
-            {
-                if (DNClient.GetInstance().IsConnected)
-                {
+            while (true) {
+                if (DNClient.GetInstance().IsConnected) {
                     DxDebug.LogConsole("TestMethod_Send():连接成功");
                     break;
                 }
             }
 
-            int receCount = 0;//接收的消息总条数
+            int receCount = 0; //接收的消息总条数
             int sendCount = 0;
 
             //发送n次
-            for (int count = 0; count < 500; count++)
-            {
+            for (int count = 0; count < 500; count++) {
                 //如果已经队列太满，那就等一下再发
-                while (DNClient.GetInstance().isSendQueueIsFull)
-                {
+                while (DNClient.GetInstance().isSendQueueIsFull) {
                     Thread.Sleep(20);
                 }
                 //一次连发n条
-                for (int i = 0; i < 1500; i++)
-                {
+                for (int i = 0; i < 1500; i++) {
                     //发送sendDataLength字节的sendData
                     DxDebug.LogConsole("客户端发送:msgNum=" + sendCount);
                     Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
@@ -462,10 +406,8 @@ namespace DNETUnitTest
                 Thread.Sleep(1);
                 //边发边收
                 byte[][] datas = DNClient.GetInstance().GetReceiveData();
-                if (datas != null)
-                {
-                    for (int i = 0; i < datas.Length; i++)
-                    {
+                if (datas != null) {
+                    for (int i = 0; i < datas.Length; i++) {
                         byte[] msg = datas[i];
                         //判断接收长度是否一致
                         Assert.IsTrue(msg.Length == sendDataLength);
@@ -474,8 +416,7 @@ namespace DNETUnitTest
                         DxDebug.LogConsole("客户端接收到回发:msgNum=" + msgNum);
                         Assert.IsTrue(msgNum == receCount);
 
-                        for (int j = 4; j < msg.Length; j++)
-                        {
+                        for (int j = 4; j < msg.Length; j++) {
                             //判断每个字节是否一致
                             Assert.IsTrue(msg[j] == sendData[j]);
                         }
@@ -486,14 +427,11 @@ namespace DNETUnitTest
             }
 
             int tryCount = 0;
-            while (receCount != sendCount)
-            {
+            while (receCount != sendCount) {
                 Thread.Sleep(20);
                 byte[][] datas = DNClient.GetInstance().GetReceiveData();
-                if (datas != null)
-                {
-                    for (int i = 0; i < datas.Length; i++)
-                    {
+                if (datas != null) {
+                    for (int i = 0; i < datas.Length; i++) {
                         byte[] msg = datas[i];
                         //判断接收长度是否一致
                         Assert.IsTrue(msg.Length == sendDataLength);
@@ -502,8 +440,7 @@ namespace DNETUnitTest
                         DxDebug.LogConsole("客户端接收到回发:msgNum=" + msgNum);
                         Assert.IsTrue(msgNum == receCount);
 
-                        for (int j = 4; j < msg.Length; j++)
-                        {
+                        for (int j = 4; j < msg.Length; j++) {
                             //判断每个字节是否一致
                             Assert.IsTrue(msg[j] == sendData[j]);
                         }
@@ -511,10 +448,8 @@ namespace DNETUnitTest
                         receCount++;
                     }
                 }
-                else
-                {
-                    if (tryCount >= 20)
-                    {
+                else {
+                    if (tryCount >= 20) {
                         DxDebug.LogConsole("重试超过次数！失败退出！");
                         break;
                     }

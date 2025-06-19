@@ -17,8 +17,7 @@ namespace DNET
         /// </summary>
         public TokenManager()
         {
-            if (_instance != null)
-            {
+            if (_instance != null) {
                 DxDebug.LogWarning("TokenManager是个单例，被多次调用构造函数");
                 //this.Dispose();
                 //_instance = null;
@@ -86,10 +85,7 @@ namespace DNET
         /// <summary>
         /// 当前用户的计数
         /// </summary>
-        public int TokensCount
-        {
-            get { return _dictToken.Count; }
-        }
+        public int TokensCount { get { return _dictToken.Count; } }
 
         #endregion Property
 
@@ -118,23 +114,19 @@ namespace DNET
         /// <param name="token"></param>
         internal Token AddToken(Token token)
         {
-            lock (this._lockDict)
-            {
+            lock (this._lockDict) {
                 token.ID = _curID;
                 _dictToken.Add(token.ID, token);
                 //递增ID计数，额，不过上面已经加锁了
                 Interlocked.Increment(ref _curID);
 
-                _isDictEqualArr = false;//标记当前字典和列表已经不一致了
+                _isDictEqualArr = false; //标记当前字典和列表已经不一致了
             }
             if (EventAddToken != null) //事件
             {
-                try
-                {
+                try {
                     EventAddToken(token.ID);
-                }
-                catch (Exception e)
-                {
+                } catch (Exception e) {
                     DxDebug.LogWarning("TokenManager.AddToken()：执行事件EventAddToken异常！" + e.Message);
                 }
             }
@@ -150,8 +142,7 @@ namespace DNET
         private void CloseToken(int id, TokenErrorType type)
         {
             Token token = GetToken(id);
-            if (token != null)
-            {
+            if (token != null) {
                 token.Dispose();
             }
         }
@@ -164,28 +155,22 @@ namespace DNET
         /// <param name="socketError">错误参数是SocketError</param>
         internal void DeleteToken(int id, SocketError socketError)
         {
-            CloseToken(id, TokenErrorType.SocketError);//先关闭
-            lock (this._lockDict)
-            {
-                if (_dictToken.ContainsKey(id))
-                {
+            CloseToken(id, TokenErrorType.SocketError); //先关闭
+            lock (this._lockDict) {
+                if (_dictToken.ContainsKey(id)) {
                     _dictToken.Remove(id);
 
-                    _isDictEqualArr = false;//标记当前字典和列表已经不一致了
+                    _isDictEqualArr = false; //标记当前字典和列表已经不一致了
                 }
-                else
-                {
+                else {
                     return;
                 }
             }
-            if (EventDeleteToken != null)//事件
+            if (EventDeleteToken != null) //事件
             {
-                try
-                {
+                try {
                     EventDeleteToken(id, TokenErrorType.SocketError);
-                }
-                catch (Exception e)
-                {
+                } catch (Exception e) {
                     DxDebug.LogWarning("TokenManager.DeleteToken()：执行事件EventDeleteToken异常！" + e.Message);
                 }
             }
@@ -203,28 +188,22 @@ namespace DNET
         /// <param name="errorType">错误参数是TokenErrorType</param>
         internal void DeleteToken(int id, TokenErrorType errorType)
         {
-            CloseToken(id, errorType);//先关闭
-            lock (this._lockDict)
-            {
-                if (_dictToken.ContainsKey(id))
-                {
+            CloseToken(id, errorType); //先关闭
+            lock (this._lockDict) {
+                if (_dictToken.ContainsKey(id)) {
                     _dictToken.Remove(id);
 
-                    _isDictEqualArr = false;//标记当前字典和数组已经不一致了
+                    _isDictEqualArr = false; //标记当前字典和数组已经不一致了
                 }
-                else
-                {
+                else {
                     return;
                 }
             }
-            if (EventDeleteToken != null)//事件
+            if (EventDeleteToken != null) //事件
             {
-                try
-                {
+                try {
                     EventDeleteToken(id, errorType);
-                }
-                catch (Exception e)
-                {
+                } catch (Exception e) {
                     DxDebug.LogWarning("TokenManager.DeleteToken()：执行事件EventDeleteToken异常！" + e.Message);
                 }
             }
@@ -242,28 +221,22 @@ namespace DNET
         /// <param name="id">根据ID删除已个Token</param>
         public void DeleteToken(int id)
         {
-            CloseToken(id, TokenErrorType.UserDelete);//先关闭
-            lock (this._lockDict)
-            {
-                if (_dictToken.ContainsKey(id))
-                {
+            CloseToken(id, TokenErrorType.UserDelete); //先关闭
+            lock (this._lockDict) {
+                if (_dictToken.ContainsKey(id)) {
                     _dictToken.Remove(id);
 
-                    _isDictEqualArr = false;//标记当前字典和数组已经不一致了
+                    _isDictEqualArr = false; //标记当前字典和数组已经不一致了
                 }
-                else
-                {
+                else {
                     return;
                 }
             }
-            if (EventDeleteToken != null)//事件
+            if (EventDeleteToken != null) //事件
             {
-                try
-                {
-                    EventDeleteToken(id, TokenErrorType.UserDelete);//这个是外部的调用删除
-                }
-                catch (Exception e)
-                {
+                try {
+                    EventDeleteToken(id, TokenErrorType.UserDelete); //这个是外部的调用删除
+                } catch (Exception e) {
                     DxDebug.LogWarning("TokenManager.DeleteToken()：执行事件EventDeleteToken异常！" + e.Message);
                 }
             }
@@ -277,20 +250,17 @@ namespace DNET
         public void DeleteAllToken()
         {
             DxDebug.LogWarning(String.Format("TokenManager.DeleteAllToken()：删除所有客户端！"));
-            while (true)
-            {
+            while (true) {
                 Token[] tokens = GetAllToken();
-                if (tokens == null)
-                {
-                    return;//确保没有token了
+                if (tokens == null) {
+                    return; //确保没有token了
                 }
-                for (int i = 0; i < tokens.Length; i++)
-                {
+                for (int i = 0; i < tokens.Length; i++) {
                     Token token = tokens[i];
                     DeleteToken(token.ID, TokenErrorType.ClearAllToken);
                 }
 
-                _isDictEqualArr = false;//标记当前字典和数组已经不一致了
+                _isDictEqualArr = false; //标记当前字典和数组已经不一致了
             }
         }
 
@@ -304,12 +274,10 @@ namespace DNET
             //debug:这里尝试去掉加锁
             //lock (this._lockDict)
             //{
-            if (_dictToken.ContainsKey(id))
-            {
+            if (_dictToken.ContainsKey(id)) {
                 return _dictToken[id];
             }
-            else
-            {
+            else {
                 return null;
             }
             //}
@@ -323,22 +291,19 @@ namespace DNET
         /// <returns>Token数组</returns>
         public Token[] GetAllToken()
         {
-            if (this._dictToken.Count == 0)
-            {
+            if (this._dictToken.Count == 0) {
                 return null;
             }
-            if (_isDictEqualArr == false)//当前字典和数组已经不一致了
+            if (_isDictEqualArr == false) //当前字典和数组已经不一致了
             {
                 List<Token> listToken = new List<Token>();
-                lock (this._lockDict)
-                {
-                    foreach (KeyValuePair<int, Token> kvp in _dictToken)
-                    {
+                lock (this._lockDict) {
+                    foreach (KeyValuePair<int, Token> kvp in _dictToken) {
                         listToken.Add(kvp.Value);
                     }
                     _arrToken = listToken.ToArray();
 
-                    _isDictEqualArr = true;////标记当前字典和数组已经一致了
+                    _isDictEqualArr = true; ////标记当前字典和数组已经一致了
                 }
             }
             return _arrToken;
@@ -353,10 +318,8 @@ namespace DNET
         /// <param name="length">数据的长度</param>
         public void SendToAllToken(byte[] data, int index, int length)
         {
-            lock (this._lockDict)
-            {
-                foreach (KeyValuePair<int, Token> kvp in _dictToken)
-                {
+            lock (this._lockDict) {
+                foreach (KeyValuePair<int, Token> kvp in _dictToken) {
                     kvp.Value.AddSendData(data, index, length);
                 }
             }
@@ -372,12 +335,9 @@ namespace DNET
         /// <param name="length">数据长度</param>
         public void SendToAllTokenExcept(int exceptTokenID, byte[] data, int index, int length)
         {
-            lock (this._lockDict)
-            {
-                foreach (KeyValuePair<int, Token> kvp in _dictToken)
-                {
-                    if (kvp.Value.ID != exceptTokenID)
-                    {
+            lock (this._lockDict) {
+                foreach (KeyValuePair<int, Token> kvp in _dictToken) {
+                    if (kvp.Value.ID != exceptTokenID) {
                         kvp.Value.AddSendData(data, index, length);
                     }
                 }
@@ -408,12 +368,10 @@ namespace DNET
         private void Dispose(bool disposing)
         {
             DxDebug.LogConsole(String.Format("TokenManager.Dispose()：进入了Dispose！"));
-            if (disposed)
-            {
+            if (disposed) {
                 return;
             }
-            if (disposing)
-            {
+            if (disposing) {
                 // 清理托管资源
                 EventAddToken = null;
                 EventDeleteToken = null;

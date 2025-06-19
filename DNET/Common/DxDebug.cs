@@ -11,10 +11,8 @@ namespace DNET
     {
         static DxDebug()
         {
-            if (!isInit)
-            {
+            if (!isInit) {
 #if UNITY_EDITOR //已经发布成dll它们不再有效
- 
 #endif
 
 #if UNITY_ANDROID
@@ -115,54 +113,49 @@ namespace DNET
         public static void Log(string e, int priority = 0)
         {
             //如果优先级很低就不作任何处理了，避免拼接字符串，这能提高很多服务器的速度
-            if (priority < MemoryPriority && priority < ConsolePriority && priority < FilePriority)
-            {
+            if (priority < MemoryPriority && priority < ConsolePriority && priority < FilePriority) {
                 return;
             }
 
-            e = string.Format(@"[{6}][{7}][{0:D2}/{1:D2}][{2:D2}:{3:D2}:{4:D2}:{5:D3}]", DateTime.Now.Month, DateTime.Now.Day, DateTime.Now.Hour, DateTime.Now.Minute, DateTime.Now.Second, DateTime.Now.Millisecond, Thread.CurrentThread.Name, Thread.CurrentThread.ManagedThreadId) + e;
+            e = string.Format(@"[{6}][{7}][{0:D2}/{1:D2}][{2:D2}:{3:D2}:{4:D2}:{5:D3}]", DateTime.Now.Month, DateTime.Now.Day, DateTime.Now.Hour, DateTime.Now.Minute, DateTime.Now.Second, DateTime.Now.Millisecond, Thread.CurrentThread.Name,
+                Thread.CurrentThread.ManagedThreadId) + e;
 
             //如果优先级达到了显示到控制台的优先级
-            if (priority >= ConsolePriority)
-            {
+            if (priority >= ConsolePriority) {
 #if UNITY_EDITOR
                     UnityEngine.Debug.Log(e);
 #else
                 //是否显示在控制台（主要是控制移动端或者没有控制台界面的情况）
                 // 其中这句话也会在unity的日志系统（日志文件）中写入一个日志。
-                if (IsConsole)
-                {
-                    try
-                    {
+                if (IsConsole) {
+                    try {
                         System.Console.WriteLine(e);
-                    }
-                    catch (Exception)
-                    {
+                    } catch (Exception) {
                     }
                 }
 #endif
             }
 
             //是否写日志文件（Android和ios平台有一个路径问题）
-            if (IsLogFile && priority >= FilePriority)
-            {
+            if (IsLogFile && priority >= FilePriority) {
                 LogFile.GetInst().AddLine(ref e);
             }
 
             LogItem log = null;
 
             //如果优先级达到了记录到内存中的优先级
-            if (priority >= MemoryPriority)
-            {
+            if (priority >= MemoryPriority) {
                 log = AddMemLog(priority, ref e);
             }
 
-            if (EventPrint != null)//如果有打印事件就执行事件
+            if (EventPrint != null) //如果有打印事件就执行事件
             {
                 if (log == null)
                     log = new LogItem() { priority = priority, message = e };
-                try { EventPrint(log); }
-                catch (Exception) { }
+                try {
+                    EventPrint(log);
+                } catch (Exception) {
+                }
             }
         }
 
@@ -170,53 +163,47 @@ namespace DNET
         public static void LogText(string text, int priority = 0)
         {
             //如果优先级很低就不作任何处理了，避免拼接字符串，这能提高很多服务器的速度
-            if (priority < MemoryPriority && priority < ConsolePriority && priority < FilePriority)
-            {
+            if (priority < MemoryPriority && priority < ConsolePriority && priority < FilePriority) {
                 return;
             }
 
 
             //如果优先级达到了显示到控制台的优先级
-            if (priority >= ConsolePriority)
-            {
+            if (priority >= ConsolePriority) {
 #if UNITY_EDITOR
                     UnityEngine.Debug.Log(e);
 #else
                 //是否显示在控制台（主要是控制移动端或者没有控制台界面的情况）
                 // 其中这句话也会在unity的日志系统（日志文件）中写入一个日志。
-                if (IsConsole)
-                {
-                    try
-                    {
+                if (IsConsole) {
+                    try {
                         System.Console.WriteLine(text);
-                    }
-                    catch (Exception)
-                    {
+                    } catch (Exception) {
                     }
                 }
 #endif
             }
 
             //是否写日志文件（Android和ios平台有一个路径问题）
-            if (IsLogFile && priority >= FilePriority)
-            {
+            if (IsLogFile && priority >= FilePriority) {
                 LogFile.GetInst().AddLine(ref text);
             }
 
             LogItem log = null;
 
             //如果优先级达到了记录到内存中的优先级
-            if (priority >= MemoryPriority)
-            {
+            if (priority >= MemoryPriority) {
                 log = AddMemLog(priority, ref text);
             }
 
-            if (EventPrint != null)//如果有打印事件就执行事件
+            if (EventPrint != null) //如果有打印事件就执行事件
             {
                 if (log == null)
                     log = new LogItem() { priority = priority, message = text };
-                try { EventPrint(log); }
-                catch (Exception) { }
+                try {
+                    EventPrint(log);
+                } catch (Exception) {
+                }
             }
         }
 
@@ -233,7 +220,7 @@ namespace DNET
             StackTrace st = new StackTrace(true);
             StackFrame[] sfs = st.GetFrames();
             int showLineNum = 30 < sfs.Length ? 30 : sfs.Length;
-            for (int i = 1; i < showLineNum; i++)//因为最上一行就是这个函数，所以从i=1开始
+            for (int i = 1; i < showLineNum; i++) //因为最上一行就是这个函数，所以从i=1开始
             {
                 if (string.IsNullOrEmpty(sfs[i].GetFileName()))
                     LogText($"{sfs[i].GetMethod()}", WarningPriority);
@@ -253,7 +240,7 @@ namespace DNET
             StackTrace st = new StackTrace(true);
             StackFrame[] sfs = st.GetFrames();
             int showLineNum = 30 < sfs.Length ? 30 : sfs.Length;
-            for (int i = 1; i < showLineNum; i++)//因为最上一行就是这个函数，所以从i=1开始
+            for (int i = 1; i < showLineNum; i++) //因为最上一行就是这个函数，所以从i=1开始
             {
                 if (string.IsNullOrEmpty(sfs[i].GetFileName()))
                     LogText($"{sfs[i].GetMethod()}", ErrorPriority);
@@ -277,23 +264,22 @@ namespace DNET
         /// <param name="e"></param>
         public static void LogConsoleOnly(string e)
         {
-            e = string.Format(@"[{6}][{7}][{0:D2}/{1:D2}][{2:D2}:{3:D2}:{4:D2}:{5:D3}]", DateTime.Now.Month, DateTime.Now.Day, DateTime.Now.Hour, DateTime.Now.Minute, DateTime.Now.Second, DateTime.Now.Millisecond, Thread.CurrentThread.Name, Thread.CurrentThread.ManagedThreadId) + e;
+            e = string.Format(@"[{6}][{7}][{0:D2}/{1:D2}][{2:D2}:{3:D2}:{4:D2}:{5:D3}]", DateTime.Now.Month, DateTime.Now.Day, DateTime.Now.Hour, DateTime.Now.Minute, DateTime.Now.Second, DateTime.Now.Millisecond, Thread.CurrentThread.Name,
+                Thread.CurrentThread.ManagedThreadId) + e;
             //是否显示在控制台（主要是控制移动端或者没有控制台界面的情况）
-            if (IsConsole)
-            {
-                try
-                {
+            if (IsConsole) {
+                try {
                     System.Console.WriteLine(e);
-                }
-                catch (Exception)
-                {
+                } catch (Exception) {
                 }
             }
 
-            if (EventPrint != null)//如果有打印事件就执行事件
+            if (EventPrint != null) //如果有打印事件就执行事件
             {
-                try { EventPrint(new LogItem() { priority = FilePriority, message = e }); }
-                catch (Exception) { }
+                try {
+                    EventPrint(new LogItem() { priority = FilePriority, message = e });
+                } catch (Exception) {
+                }
             }
         }
 
@@ -303,16 +289,18 @@ namespace DNET
         /// <param name="e"></param>
         public static void LogFileOnly(string e)
         {
-            e = string.Format(@"[{6}][{7}][{0:D2}/{1:D2}][{2:D2}:{3:D2}:{4:D2}:{5:D3}]", DateTime.Now.Month, DateTime.Now.Day, DateTime.Now.Hour, DateTime.Now.Minute, DateTime.Now.Second, DateTime.Now.Millisecond, Thread.CurrentThread.Name, Thread.CurrentThread.ManagedThreadId) + e;
-            if (IsLogFile)
-            {
+            e = string.Format(@"[{6}][{7}][{0:D2}/{1:D2}][{2:D2}:{3:D2}:{4:D2}:{5:D3}]", DateTime.Now.Month, DateTime.Now.Day, DateTime.Now.Hour, DateTime.Now.Minute, DateTime.Now.Second, DateTime.Now.Millisecond, Thread.CurrentThread.Name,
+                Thread.CurrentThread.ManagedThreadId) + e;
+            if (IsLogFile) {
                 LogFile.GetInst().AddLine(ref e);
             }
 
-            if (EventPrint != null)//如果有打印事件就执行事件
+            if (EventPrint != null) //如果有打印事件就执行事件
             {
-                try { EventPrint(new LogItem() { priority = FilePriority, message = e }); }
-                catch (Exception) { }
+                try {
+                    EventPrint(new LogItem() { priority = FilePriority, message = e });
+                } catch (Exception) {
+                }
             }
         }
 
@@ -323,8 +311,7 @@ namespace DNET
         /// </summary>
         public static void ClearMemLog()
         {
-            lock (_lockMem)
-            {
+            lock (_lockMem) {
                 _logQueue.Clear();
             }
         }
@@ -336,16 +323,13 @@ namespace DNET
         /// <param name="msg">日志内容</param>
         private static LogItem AddMemLog(int pri, ref string msg)
         {
-            lock (_lockMem)
-            {
-                if (_logQueue.Count < MAX_LENGTH)
-                {
+            lock (_lockMem) {
+                if (_logQueue.Count < MAX_LENGTH) {
                     LogItem log = new LogItem() { priority = pri, message = msg };
                     _logQueue.Enqueue(log);
                     return log;
                 }
-                else
-                {
+                else {
                     LogItem log = _logQueue.Dequeue();
                     log.priority = pri;
                     log.message = msg;
@@ -361,17 +345,14 @@ namespace DNET
         /// <returns>日志内容的拷贝</returns>
         public static LogItem[] GetAllLog()
         {
-            if (_logQueue.Count > 0)
-            {
-                lock (_lockMem)
-                {
+            if (_logQueue.Count > 0) {
+                lock (_lockMem) {
                     LogItem[] logs = _logQueue.ToArray();
                     _logQueue.Clear();
                     return logs;
                 }
             }
-            else
-            {
+            else {
                 return null;
             }
         }
@@ -382,22 +363,24 @@ namespace DNET
         public static void AllMemLogOutput()
         {
             LogItem[] logs = GetAllLog();
-            if (logs == null)
-            {
+            if (logs == null) {
                 return;
             }
-            for (int i = 0; i < logs.Length; i++)
-            {
+            for (int i = 0; i < logs.Length; i++) {
                 LogItem log = logs[i];
-                if (IsConsole)
-                {
-                    try { System.Console.WriteLine(log.message); }
-                    catch (Exception) { }
+                if (IsConsole) {
+                    try {
+                        System.Console.WriteLine(log.message);
+                    } catch (Exception) {
+                    }
                 }
 
-                if (EventPrint != null)//如果有打印事件就执行事件
+                if (EventPrint != null) //如果有打印事件就执行事件
                 {
-                    try { EventPrint(log); } catch (Exception) { }
+                    try {
+                        EventPrint(log);
+                    } catch (Exception) {
+                    }
                 }
             }
         }

@@ -30,14 +30,11 @@ namespace DNET
         /// <returns>SocketAsyncEventArgs removed from the pool.</returns>
         internal SocketAsyncEventArgs Pop()
         {
-            lock (this.pool)
-            {
-                if (this.pool.Count > 0)
-                {
+            lock (this.pool) {
+                if (this.pool.Count > 0) {
                     return this.pool.Pop();
                 }
-                else
-                {
+                else {
                     return null;
                 }
             }
@@ -49,12 +46,10 @@ namespace DNET
         /// <param name="item">SocketAsyncEventArgs instance to add to the pool.</param>
         internal void Push(SocketAsyncEventArgs item)
         {
-            if (item == null)
-            {
+            if (item == null) {
                 throw new ArgumentNullException("Items added to a SocketAsyncEventArgsPool cannot be null");
             }
-            lock (this.pool)
-            {
+            lock (this.pool) {
                 this.pool.Push(item);
             }
         }

@@ -22,17 +22,15 @@ namespace DNET
         /// <param name="initMsgQueueSize">初始队列长度. </param>
         public WorkThread(int MaxMsgQueue, int threadCount, string name = "WorkThread", int initMsgQueueSize = 32)
         {
-            if (MaxMsgQueue > 0)
-            {
+            if (MaxMsgQueue > 0) {
                 MSG_QUEUE_CAPACITY = MaxMsgQueue;
-                if (MaxMsgQueue < initMsgQueueSize)//如果输入的最大长度还小于初始长度
+                if (MaxMsgQueue < initMsgQueueSize) //如果输入的最大长度还小于初始长度
                 {
-                    _initMsgQueueSize = MaxMsgQueue;//那么就等于最大长度
+                    _initMsgQueueSize = MaxMsgQueue; //那么就等于最大长度
                 }
                 _initMsgQueueSize = initMsgQueueSize;
             }
-            if (threadCount > 0)
-            {
+            if (threadCount > 0) {
                 _threadCount = threadCount;
             }
 
@@ -133,18 +131,12 @@ namespace DNET
         /// <summary>
         /// 服务器队列的最大长度
         /// </summary>
-        public int msgQueueCapacity
-        {
-            get { return MSG_QUEUE_CAPACITY; }
-        }
+        public int msgQueueCapacity { get { return MSG_QUEUE_CAPACITY; } }
 
         /// <summary>
         /// 队列的峰值长度
         /// </summary>
-        public int msgQueuePeakLength
-        {
-            get { return _msgQueuePeakLength; }
-        }
+        public int msgQueuePeakLength { get { return _msgQueuePeakLength; } }
 
         #endregion Property
 
@@ -153,28 +145,24 @@ namespace DNET
         /// </summary>
         public void Start()
         {
-            try
-            {
+            try {
                 //标记线程可以运行
                 _isRun = true;
 
-                if (_disposed)
-                {
+                if (_disposed) {
                     //标记自己已经有了资源申请
                     _disposed = false;
-                    try
-                    {
+                    try {
                         DxDebug.LogConsole("WorkThread.Start():这个类对象经被释放或刚刚构造，重新初始化");
                         _msgQueue = new DQueue<IWorkMsg>(MSG_QUEUE_CAPACITY, _initMsgQueueSize);
-                        _msgSemaphore = new Semaphore(0, 64);//由于AddMessage的改动，这里只需要是随便一个数既可
+                        _msgSemaphore = new Semaphore(0, 64); //由于AddMessage的改动，这里只需要是随便一个数既可
 
                         _isWorking = new bool[_threadCount];
                         _lastWorkTime = new long[_threadCount];
                         _workThreadID = new int[_threadCount];
 
                         _workThread = new Thread[_threadCount];
-                        for (int i = 0; i < _threadCount; i++)
-                        {
+                        for (int i = 0; i < _threadCount; i++) {
                             _workThread[i] = new Thread(DoWork);
                             _workThread[i].IsBackground = true;
                             //工作线程的优先级(影响不大)
@@ -184,21 +172,16 @@ namespace DNET
                             _workThreadID[i] = _workThread[i].ManagedThreadId;
                             _workThread[i].Start(); //启动线程
                         }
-                    }
-                    catch (Exception e)
-                    {
+                    } catch (Exception e) {
                         DxDebug.LogError("WorkThread.Start():构造失败！异常:" + e.Message);
                         Dispose();
                     }
                 }
-                else
-                {
+                else {
                     Dispose();
                     Start();
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogError("WorkThread.Start():异常：" + e.Message);
             }
         }
@@ -209,24 +192,20 @@ namespace DNET
         /// <param name="msg"></param>
         public void AddMessage(IWorkMsg msg)
         {
-            try
-            {
-                if (_msgQueue.EnqueueMaxLimit(msg))
-                {
-                    if (_curSemCount < 1)//如果当前的信号量剩余不多的时候
+            try {
+                if (_msgQueue.EnqueueMaxLimit(msg)) {
+                    if (_curSemCount < 1) //如果当前的信号量剩余不多的时候
                     {
                         Interlocked.Increment(ref _curSemCount);
-                        _msgSemaphore.Release();// 释放信号量
+                        _msgSemaphore.Release(); // 释放信号量
                     }
                 }
-                else
-                {
+                else {
                     DxDebug.LogWarning("WorkThread.AddMessage():大于工作线程的能力了，丢弃了一条消息！");
                 }
 
-                if (_msgQueuePeakLength < _msgQueue.Count)
-                {
-                    _msgQueuePeakLength = _msgQueue.Count;//记录当前的峰值长度
+                if (_msgQueuePeakLength < _msgQueue.Count) {
+                    _msgQueuePeakLength = _msgQueue.Count; //记录当前的峰值长度
                 }
             }
             //catch (SemaphoreFullException)
@@ -235,8 +214,7 @@ namespace DNET
 
             //    throw;
             //}
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 DxDebug.LogError("WorkThread.AddMessage():异常：" + e.Message);
                 throw;
             }
@@ -250,17 +228,14 @@ namespace DNET
         /// <returns></returns>
         public bool CheckThreadWorkOverTime(int index, double time_ms)
         {
-            if (index >= _threadCount || index < 0)
-            {
+            if (index >= _threadCount || index < 0) {
                 return false;
             }
 
-            if (_isWorking[index] == true)
-            {
-                double costTime = (DateTime.Now.Ticks - _lastWorkTime[index]) / 10000;//毫秒
-                if (costTime >= time_ms)
-                {
-                    return true;//返回这个线程工作超时
+            if (_isWorking[index] == true) {
+                double costTime = (DateTime.Now.Ticks - _lastWorkTime[index]) / 10000; //毫秒
+                if (costTime >= time_ms) {
+                    return true; //返回这个线程工作超时
                 }
             }
             return false;
@@ -273,14 +248,12 @@ namespace DNET
         /// <returns>某个线程的当前工作耗时</returns>
         public double GetCostTime(int index)
         {
-            if (index >= _threadCount || index < 0)
-            {
+            if (index >= _threadCount || index < 0) {
                 return 0;
             }
 
-            if (_isWorking[index] == true)
-            {
-                double costTime = (DateTime.Now.Ticks - _lastWorkTime[index]) / 10000;//毫秒
+            if (_isWorking[index] == true) {
+                double costTime = (DateTime.Now.Ticks - _lastWorkTime[index]) / 10000; //毫秒
                 return costTime;
             }
             return 0;
@@ -301,11 +274,9 @@ namespace DNET
         {
             DxDebug.LogConsole("WorkThread.DoWork():工作线程启动！");
 
-            while (_isRun)
-            {
+            while (_isRun) {
                 IWorkMsg msg = null;
-                try
-                {
+                try {
                     //记录线程空闲
                     RecThreadStatus(Thread.CurrentThread.ManagedThreadId, false);
 
@@ -315,31 +286,23 @@ namespace DNET
                     //记录线程开始工作
                     RecThreadStatus(Thread.CurrentThread.ManagedThreadId, true);
 
-                    while (true)
-                    {
+                    while (true) {
                         msg = _msgQueue.Dequeue();
-                        if (msg != null)
-                        {
+                        if (msg != null) {
                             //递增计数
                             Interlocked.Increment(ref _procMsgCount);
-                            try
-                            {
+                            try {
                                 //取一条消息进行执行
                                 msg.DoWork();
-                            }
-                            catch (Exception e)
-                            {
+                            } catch (Exception e) {
                                 DxDebug.LogWarning("WorkThread.DoWork():执行msg异常：" + msg.Name + "异常信息：" + e.Message);
                             }
                         }
-                        else
-                        {
+                        else {
                             break;
                         }
                     }
-                }
-                catch (Exception e)
-                {
+                } catch (Exception e) {
                     if (msg != null)
                         DxDebug.LogError("WorkThread.DoWork():异常：" + msg.Name + "异常信息：" + e.Message);
                     else
@@ -356,19 +319,17 @@ namespace DNET
         private void RecThreadStatus(int managedThreadId, bool isWorking)
         {
             int index = 0;
-            for (int i = 0; i < _workThreadID.Length; i++)
-            {
-                if (managedThreadId == _workThreadID[i])//去id列表里找到index
+            for (int i = 0; i < _workThreadID.Length; i++) {
+                if (managedThreadId == _workThreadID[i]) //去id列表里找到index
                 {
                     index = i;
                     break;
                 }
             }
 
-            _isWorking[index] = isWorking;//标记工作状态
-            if (isWorking == true)
-            {
-                _lastWorkTime[index] = DateTime.Now.Ticks;//标记当前时间
+            _isWorking[index] = isWorking; //标记工作状态
+            if (isWorking == true) {
+                _lastWorkTime[index] = DateTime.Now.Ticks; //标记当前时间
             }
         }
 
@@ -384,34 +345,26 @@ namespace DNET
 
         private void Dispose(bool disposing)
         {
-            if (_disposed)
-            {
+            if (_disposed) {
                 return;
             }
-            try
-            {
+            try {
                 DxDebug.LogConsole("WorkThread.DoWork():工作线程关闭！");
                 _isRun = false;
 
                 //最先去把线程关了
-                for (int i = 0; i < _threadCount; i++)
-                {
+                for (int i = 0; i < _threadCount; i++) {
                     //把线程关了
-                    if (_workThread[i] != null && _workThread[i].IsAlive)
-                    {
-                        try
-                        {
+                    if (_workThread[i] != null && _workThread[i].IsAlive) {
+                        try {
                             _workThread[i].Abort();
-                        }
-                        catch (Exception e)
-                        {
+                        } catch (Exception e) {
                             DxDebug.LogWarning("WorkThread.Dispose():异常 _workThread[" + i + "].Abort();" + e.Message);
                         }
                     }
                 }
 
-                if (disposing)
-                {
+                if (disposing) {
                     // 清理托管资源
                     if (_msgQueue != null)
                         _msgQueue.Clear();
@@ -419,9 +372,7 @@ namespace DNET
                 // 清理非托管资源
                 if (_msgSemaphore != null)
                     _msgSemaphore.Close();
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogWarning("WorkThread.Dispose():释放异常" + e.Message);
             }
             //让类型知道自己已经被释放

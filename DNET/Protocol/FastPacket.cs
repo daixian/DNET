@@ -42,8 +42,7 @@ namespace DNET
         FindPacketResult IPacket.FindPacket(byte[] sData, int startIndex)
         {
             FindPacketResult result = new FindPacketResult();
-            if (sData.Length - startIndex < sizeof(int))
-            {
+            if (sData.Length - startIndex < sizeof(int)) {
                 result.dataArr = null;
                 result.reserveData = sData;
             }
@@ -52,24 +51,20 @@ namespace DNET
 
             List<byte[]> listData = new List<byte[]>();
 
-            while (index < sData.Length)
-            {
+            while (index < sData.Length) {
                 //得到一个长度
                 int length = BitConverter.ToInt32(sData, index);
-                if (sData.Length - index - sizeof(int) < length)//表示还没有接收完
+                if (sData.Length - index - sizeof(int) < length) //表示还没有接收完
                 {
-                    if (index == 0)
-                    {
+                    if (index == 0) {
                         result.reserveData = sData;
                     }
-                    else
-                    {
+                    else {
                         result.reserveData = new byte[sData.Length - index];
                         Buffer.BlockCopy(sData, index, result.reserveData, 0, result.reserveData.Length);
                     }
                 }
-                else
-                {
+                else {
                     byte[] data = new byte[length];
                     Buffer.BlockCopy(sData, index + sizeof(int), data, 0, data.Length);
                     listData.Add(data);

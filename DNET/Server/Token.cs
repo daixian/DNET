@@ -37,7 +37,7 @@ namespace DNET
             LastMsgSendTickTime = DateTime.Now.Ticks;
 
             //设置一下timeout
-            socket.SendTimeout = 8 * 1000;//最长发送8秒超时
+            socket.SendTimeout = 8 * 1000; //最长发送8秒超时
             socket.ReceiveTimeout = 0;
 
             userObj = new UserObj();
@@ -125,8 +125,7 @@ namespace DNET
         /// <summary>
         /// Token的ID，这个ID会一直递增的被分配
         /// </summary>
-        public int ID
-        {
+        public int ID {
             get;
             //这个ID由于是在DNET库中被分配，所以考虑应该设置为internal
             internal set;
@@ -135,47 +134,27 @@ namespace DNET
         /// <summary>
         /// 用户自定义的绑定对象，用于简单的绑定关联一个对象
         /// </summary>
-        public UserObj userObj
-        {
-            get;
-            set;
-        }
+        public UserObj userObj { get; set; }
 
         /// <summary>
         /// 拥有这个token的DNClient对象。
         /// </summary>
-        public DNClient client
-        {
-            get;
-            internal set;
-        }
+        public DNClient client { get; internal set; }
 
         /// <summary>
         /// 拥有这个token的DNServer对象。
         /// </summary>
-        public DNServer server
-        {
-            get;
-            internal set;
-        }
+        public DNServer server { get; internal set; }
 
         /// <summary>
         /// 用来记录最后一次收到这个Token发来的消息时间的Tick,创建这Token对象的时候初始化
         /// </summary>
-        public long LastMsgReceTickTime
-        {
-            get;
-            internal set;
-        }
+        public long LastMsgReceTickTime { get; internal set; }
 
         /// <summary>
         /// 用来记录最后一次向这个Token发送的消息时间的Tick,创建这Token对象的时候初始化
         /// </summary>
-        public long LastMsgSendTickTime
-        {
-            get;
-            internal set;
-        }
+        public long LastMsgSendTickTime { get; internal set; }
 
         /// <summary>
         /// 接收buffer
@@ -185,65 +164,40 @@ namespace DNET
         /// <summary>
         /// 当前异步发送计数,由SocketListener对象控制修改。如果为1，表示正在发送
         /// </summary>
-        public int SendingCount
-        {
-            get { return _snedingCount; }
-        }
+        public int SendingCount { get { return _snedingCount; } }
 
         /// <summary>
         /// 未解包的发送队列的长度
         /// </summary>
-        public int SendQueueCount
-        {
-            get { return _sendQueue.Count; }
-        }
+        public int SendQueueCount { get { return _sendQueue.Count; } }
 
         /// <summary>
         /// 接收队列的长度
         /// </summary>
-        public int ReceiveQueueCount
-        {
-            get { return _receiveQueue.Count; }
-        }
+        public int ReceiveQueueCount { get { return _receiveQueue.Count; } }
 
         /// <summary>
         /// 记录客户端连接的Socket
         /// </summary>
-        public Socket socket
-        {
-            get { return _tokenScket; }
-        }
+        public Socket socket { get { return _tokenScket; } }
 
         /// <summary>
         /// 客户端的IP
         /// </summary>
-        public string IP
-        {
-            get
-            {
-                try
-                {
+        public string IP {
+            get {
+                try {
                     IPEndPoint clientipe = (IPEndPoint)_tokenScket.RemoteEndPoint;
                     return clientipe.Address.ToString();
-                }
-                catch (Exception)
-                {
+                } catch (Exception) {
                     return "Unknow";
                 }
             }
         }
 
-        internal SocketAsyncEventArgs SendArgs
-        {
-            get { return _sendArgs; }
-            private set { _sendArgs = value; }
-        }
+        internal SocketAsyncEventArgs SendArgs { get { return _sendArgs; } private set { _sendArgs = value; } }
 
-        internal SocketAsyncEventArgs ReceiveArgs
-        {
-            get { return _receiveArgs; }
-            private set { _receiveArgs = value; }
-        }
+        internal SocketAsyncEventArgs ReceiveArgs { get { return _receiveArgs; } private set { _receiveArgs = value; } }
 
         #endregion Property
 
@@ -269,8 +223,7 @@ namespace DNET
         {
             IPacket packet = DNServer.GetInstance().Packet;
             //进行预打包然后加入到队列
-            if (!_sendQueue.EnqueueMaxLimit(packet.PrePack(data, index, length)))
-            {
+            if (!_sendQueue.EnqueueMaxLimit(packet.PrePack(data, index, length))) {
                 DxDebug.LogWarning("Token.AddSendData():要发送的数据队列 丢弃了一段数据");
             }
         }
@@ -298,8 +251,7 @@ namespace DNET
             byte[] receDate = new byte[count];
             Buffer.BlockCopy(args.Buffer, args.Offset, receDate, 0, count);
 
-            if (!_reserveQueuePacked.EnqueueMaxLimit(receDate))
-            {
+            if (!_reserveQueuePacked.EnqueueMaxLimit(receDate)) {
                 DxDebug.LogWarning("Token.SetData():接收的还未解包的数据队列 丢弃了一段数据");
             }
         }
@@ -313,45 +265,40 @@ namespace DNET
         /// <returns> 解包出来的消息条数(注意不是长度). </returns>
         internal int UnpackReceiveData(IPacket packeter, out int length)
         {
-            lock (this._lockReserveData)
-            {
+            lock (this._lockReserveData) {
                 //拼接所有的已接受数据
                 byte[] alldata = _reserveQueuePacked.GetDataOnce(_reserveData);
-                _reserveData = null;//清空已经无用的_reserveData
-                if (alldata == null)
-                {
+                _reserveData = null; //清空已经无用的_reserveData
+                if (alldata == null) {
                     length = 0; //长度为0
                     //这个情形在客户端狂发速度过快的时候容易出现，但是不影响接收，所以去掉这个日志
                     //DxDebug.LogWarning("Token.UnpackReceiveData(): alldata为null！");
                     return 0;
                 }
-                length = alldata.Length;//传出这个数据长度
-                FindPacketResult findPacketResult = packeter.FindPacket(alldata, 0);//解包
-                _reserveData = findPacketResult.reserveData;//更新reserveData
+                length = alldata.Length; //传出这个数据长度
+                FindPacketResult findPacketResult = packeter.FindPacket(alldata, 0); //解包
+                _reserveData = findPacketResult.reserveData; //更新reserveData
                 if (findPacketResult.dataArr != null) //将结果加入队列
                 {
                     //记录下一共找到的有效消息条数
                     int msgCount = findPacketResult.dataArr.Length;
 
-                    for (int i = 0; i < findPacketResult.dataArr.Length; i++)//结果是一个消息数组
+                    for (int i = 0; i < findPacketResult.dataArr.Length; i++) //结果是一个消息数组
                     {
                         byte[] data = findPacketResult.dataArr[i];
-                        if (data == null)
-                        {
+                        if (data == null) {
                             //这里是否会频繁发生？
                             DxDebug.LogWarning("Token.UnpackReceiveData(): 结果中的data为null！");
                             break;
                         }
                         //如果不是心跳包才加入接收消息队列
-                        if (!Config.CompareHeartBeat(findPacketResult.dataArr[i]))//Config中的静态函数判断
+                        if (!Config.CompareHeartBeat(findPacketResult.dataArr[i])) //Config中的静态函数判断
                         {
-                            if (!_receiveQueue.EnqueueMaxLimit(findPacketResult.dataArr[i]))
-                            {
+                            if (!_receiveQueue.EnqueueMaxLimit(findPacketResult.dataArr[i])) {
                                 DxDebug.LogWarning("Token.UnpackReceiveData():接收已解包的数据队列 丢弃了一段数据");
                             }
                         }
-                        else
-                        {
+                        else {
                             DxDebug.LogFileOnly("Token.UnpackReceiveData():接收到了心跳包 TokenID:" + this.ID);
                         }
                     }
@@ -360,8 +307,7 @@ namespace DNET
 
                     return msgCount;
                 }
-                else
-                {
+                else {
                     DxDebug.LogWarning("Token.UnpackReceiveData():接收到数据，经过FindPacket(),但是没有找到有效消息！");
                     return 0;
                 }
@@ -374,12 +320,10 @@ namespace DNET
         /// <param name="packeter"></param>
         internal byte[] PackSendData(IPacket packeter)
         {
-            byte[][] datas = _sendQueue.GetData();//这里的数据应该已经是预打包数据
-            if (datas != null)
-            {
-                for (int i = 0; i < datas.Length; i++)
-                {
-                    datas[i] = packeter.CompletePack(datas[i]);//完成数据打包
+            byte[][] datas = _sendQueue.GetData(); //这里的数据应该已经是预打包数据
+            if (datas != null) {
+                for (int i = 0; i < datas.Length; i++) {
+                    datas[i] = packeter.CompletePack(datas[i]); //完成数据打包
                 }
                 byte[] SeriesData = BytesQueue.BytesArrayToBytes(datas);
                 return SeriesData;
@@ -420,30 +364,24 @@ namespace DNET
 
         private void Dispose(bool disposing)
         {
-            if (disposed)
-            {
+            if (disposed) {
                 return;
             }
             //让类型知道自己已经被释放
             disposed = true;
 
-            try
-            {
+            try {
                 //执行Dispose事件
-                if (EventDispose != null)//事件
+                if (EventDispose != null) //事件
                 {
-                    try
-                    {
+                    try {
                         EventDispose(this);
-                    }
-                    catch (Exception e)
-                    {
+                    } catch (Exception e) {
                         DxDebug.LogWarning("Token.Dispose()：执行事件EventDispose异常！" + e.Message);
                     }
                 }
 
-                if (disposing)
-                {
+                if (disposing) {
                     // 清理托管资源
                 }
                 // 清理非托管资源
@@ -452,19 +390,12 @@ namespace DNET
                 _sendArgs.Dispose();
 
                 this._tokenScket.Shutdown(SocketShutdown.Send);
-            }
-            catch (Exception)
-            {
+            } catch (Exception) {
                 //不要的客户端，不抛出错误，直接Close()
-            }
-            finally
-            {
-                try
-                {
+            } finally {
+                try {
                     this._tokenScket.Close();
-                }
-                catch (Exception)
-                {
+                } catch (Exception) {
                 }
             }
         }

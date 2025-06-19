@@ -121,12 +121,12 @@ namespace DNET
             _lastCountReceiveBytes = CountReceiveBytes;
             _lastCountSendBytes = CountSendBytes;
 
-            CountReceive10s.EnqueueMaxLimit(cur1sReceive);//添加这一秒的结果到末尾
-            CountSend10s.EnqueueMaxLimit(cur1sSend);//添加这一秒的结果到末尾
-            CountReceiveBytes10s.EnqueueMaxLimit(cur1sReceiveBytes);//添加这一秒的结果到末尾
-            CountSendBytes10s.EnqueueMaxLimit(cur1sSendBytes);//添加这一秒的结果到末尾
+            CountReceive10s.EnqueueMaxLimit(cur1sReceive); //添加这一秒的结果到末尾
+            CountSend10s.EnqueueMaxLimit(cur1sSend); //添加这一秒的结果到末尾
+            CountReceiveBytes10s.EnqueueMaxLimit(cur1sReceiveBytes); //添加这一秒的结果到末尾
+            CountSendBytes10s.EnqueueMaxLimit(cur1sSendBytes); //添加这一秒的结果到末尾
 
-            if (isPrintCur1s && _dnServer.IsStarted)//如果设置了打印这一秒,并且服务器在工作
+            if (isPrintCur1s && _dnServer.IsStarted) //如果设置了打印这一秒,并且服务器在工作
             {
                 DxDebug.LogConsole(String.Format("ServerStatus.OnUpdate()：一秒内接收/发送:{0}/{2}条,总{4}/{5}条,消息队列长{6} ,{1:F1}/{3:F1}kB.",
                     cur1sReceive, cur1sReceiveBytes / 1000.0f, cur1sSend, cur1sSendBytes / 1000.0f, CountReceive, CountSend, _dnServer.msgQueueLength));

@@ -33,12 +33,6 @@
         /// <summary>
         /// 内存buff池
         /// </summary>
-        public ByteBufferPools ByteBuffPools
-        {
-            get
-            {
-                return byteBufPools;
-            }
-        }
+        public ByteBufferPools ByteBuffPools { get { return byteBufPools; } }
     }
 }

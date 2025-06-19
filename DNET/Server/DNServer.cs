@@ -35,9 +35,9 @@ namespace DNET
 
             ServerTimer.GetInstance().Start();
 
-            Status = new ServerStatus(this);//创建状态统计
-            Status.BindTimer(ServerTimer.GetInstance());//绑定一个计时器
-            Status.isPrintCur1s = false;//默认不打印状态统计（1s一打印）
+            Status = new ServerStatus(this); //创建状态统计
+            Status.BindTimer(ServerTimer.GetInstance()); //绑定一个计时器
+            Status.isPrintCur1s = false; //默认不打印状态统计（1s一打印）
         }
 
         private static DNServer _instance = null;
@@ -48,8 +48,7 @@ namespace DNET
         /// <returns></returns>
         public static DNServer GetInstance()
         {
-            if (_instance == null)
-            {
+            if (_instance == null) {
                 _instance = new DNServer();
             }
             return _instance;
@@ -61,8 +60,7 @@ namespace DNET
         /// <returns></returns>
         public static DNServer GetInst()
         {
-            if (_instance == null)
-            {
+            if (_instance == null) {
                 _instance = new DNServer();
             }
             return _instance;
@@ -95,7 +93,7 @@ namespace DNET
         /// 客户端数据buffer大小，当这个buffer比较小的时候也是可以接收到一个比较长的消息的。
         /// 128K则有1000个客户端的时候至少内存占用128M。1W人是1.28G
         /// </summary>
-        private int CONNECTIONS_BUFFER_SIZE = 128 * 1024;//改为8K，则1W人的时候占用80M
+        private int CONNECTIONS_BUFFER_SIZE = 128 * 1024; //改为8K，则1W人的时候占用80M
 
         /// <summary>
         /// 消息队列最大数(服务器的消息队列最大长度应该比较长才对，它基本等于狂发情况下的同时在线人数)
@@ -169,16 +167,12 @@ namespace DNET
         /// <summary>
         /// 服务器启动成功标志
         /// </summary>
-        public bool IsStarted
-        {
-            get
-            {
-                if (_socketListener != null)
-                {
+        public bool IsStarted {
+            get {
+                if (_socketListener != null) {
                     return _socketListener.IsStarted;
                 }
-                else
-                {
+                else {
                     return false;
                 }
             }
@@ -187,48 +181,22 @@ namespace DNET
         /// <summary>
         /// 打包方法
         /// </summary>
-        public IPacket Packet
-        {
-            get
-            {
-                return _packet;
-            }
-            set
-            {
-                _packet = value;
-            }
-        }
+        public IPacket Packet { get { return _packet; } set { _packet = value; } }
 
         /// <summary>
         /// 通信库所使用的临时文件工作目录,是绝对路径。这个目录是由SetDirCache()函数设置的
         /// </summary>
-        public string dirCache
-        {
-            get;
-            private set;
-        }
+        public string dirCache { get; private set; }
 
         /// <summary>
         /// 是否工作文件夹能够使用
         /// </summary>
-        public bool isDirCanUse
-        {
-            get
-            {
-                return !String.IsNullOrEmpty(dirCache);
-            }
-        }
+        public bool isDirCanUse { get { return !String.IsNullOrEmpty(dirCache); } }
 
         /// <summary>
         /// 当前的消息队列长度
         /// </summary>
-        public int msgQueueLength
-        {
-            get
-            {
-                return _msgQueue.Count;
-            }
-        }
+        public int msgQueueLength { get { return _msgQueue.Count; } }
 
         #endregion Property
 
@@ -239,18 +207,15 @@ namespace DNET
         /// </summary>
         public bool SetDirCache(string dir)
         {
-            try
-            {
+            try {
                 DxDebug.LogConsole("DNServer.SetDirCache():尝试设置工作文件夹路径 dir = " + dir);
 
-                if (String.IsNullOrEmpty(dir))
-                {
+                if (String.IsNullOrEmpty(dir)) {
                     dirCache = Directory.GetCurrentDirectory();
                     DxDebug.LogConsole("DNServer.SetDirCache():输入路径为空，所以设置文件夹为" + dirCache);
                 }
-                else
-                {
-                    dirCache = dir;//赋值
+                else {
+                    dirCache = dir; //赋值
                 }
                 if (!Directory.Exists(dirCache)) //如果这个目录不存在，那么就尝试创建一下这个目录
                 {
@@ -265,8 +230,7 @@ namespace DNET
                 fs.Flush();
                 fs.Close();
                 fs = File.Open(testfile, FileMode.Open);
-                if (fs.ReadByte() != 0xff)
-                {
+                if (fs.ReadByte() != 0xff) {
                     dirCache = null;
                     return false;
                 }
@@ -274,10 +238,8 @@ namespace DNET
                 File.Delete(testfile);
                 DxDebug.LogConsole("DNClient.SetDirCache():进行文件读写测试成功");
 
-                return true;//如果允许到这里都没有错误，那么说明这个目录可以正常使用
-            }
-            catch (Exception e)
-            {
+                return true; //如果允许到这里都没有错误，那么说明这个目录可以正常使用
+            } catch (Exception e) {
                 DxDebug.LogError("DNServer.SetDirCache():设置工作文件夹失败！ " + e.Message);
             }
 
@@ -294,18 +256,15 @@ namespace DNET
         /// <param name="hostName">服务器的主机IP,一般使用Any表示所有的可能IP</param>
         public void Start(int port, int threadCount = 1, string hostName = "Any")
         {
-            try
-            {
+            try {
                 DxDebug.LogConsole("DNServer.Start()：服务器工作线程数 " + threadCount);
-                if (disposed)
-                {
+                if (disposed) {
                     TokenManager.GetInst().Clear();
                     _msgQueue = new DQueue<NetWorkMsg>(MSG_QUEUE_CAPACITY);
                     _msgSemaphore = new Semaphore(0, MSG_QUEUE_CAPACITY);
 
                     _workThread = new Thread[threadCount];
-                    for (int i = 0; i < threadCount; i++)
-                    {
+                    for (int i = 0; i < threadCount; i++) {
                         _workThread[i] = new Thread(DoWork);
                         _workThread[i].IsBackground = true;
                         //工作线程的优先级(影响不大)
@@ -321,9 +280,7 @@ namespace DNET
                 NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Start, null);
                 msg.text1 = hostName;
                 AddMessage(msg);
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogError("DNServer.Start()：异常 " + e.Message);
             }
         }
@@ -385,19 +342,15 @@ namespace DNET
         /// <param name="text">  要发送的数据. </param>
         public void Send(Token token, string text)
         {
-            try
-            {
+            try {
                 byte[] dataBytes = null;
-                if (string.IsNullOrEmpty(text))
-                {
+                if (string.IsNullOrEmpty(text)) {
                     Send(token, dataBytes);
                     return;
                 }
                 dataBytes = Encoding.UTF8.GetBytes(text);
                 Send(token, dataBytes);
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogError($"DNServer.Send()：异常 {e}");
             }
         }
@@ -417,8 +370,7 @@ namespace DNET
         /// <param name="msg"></param>
         internal void AddMessage(NetWorkMsg msg)
         {
-            try
-            {
+            try {
                 if (msg != null)
                     _msgQueue.Enqueue(msg);
                 if (_curSemCount < 1) //信号量剩余较少的时候才去释放信号量
@@ -426,13 +378,10 @@ namespace DNET
                     Interlocked.Increment(ref _curSemCount);
                     _msgSemaphore.Release();
                 }
-            }
-            catch (SemaphoreFullException)
-            {
+            } catch (SemaphoreFullException) {
                 //当前发送数据频率要大于系统能力，可尝试增加消息队列长度
                 string msgtype = "";
-                switch (msg.type)
-                {
+                switch (msg.type) {
                     case NetWorkMsg.Tpye.S_Start:
                         msgtype = "S_Start";
                         break;
@@ -450,9 +399,7 @@ namespace DNET
                 }
                 DxDebug.LogError("DNServer.AddMessage():大于系统能力，当前最后一条：" + msgtype);
                 throw;
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogError("DNServer.AddMessage():*****发生错误！ " + e.Message);
                 throw;
             }
@@ -465,12 +412,10 @@ namespace DNET
         private void DoWork()
         {
             DxDebug.LogConsole("DNServer.DoWork():服务器线程启动！");
-            while (true)
-            {
+            while (true) {
                 _msgSemaphore.WaitOne();
                 Interlocked.Decrement(ref _curSemCount);
-                while (true)
-                {
+                while (true) {
                     _cpuTime.WorkStart(); //时间分析计时
 #if Multitask
                     NetWorkMsg msg1 = _msgQueue.Dequeue();
@@ -502,14 +447,12 @@ namespace DNET
                     {
                         break;
                     }
-                    float waitTime = (DateTime.Now.Ticks - msg.timeTickCreat) / 10000;//毫秒
-                    if (waitTime > _warringWaitTime)
-                    {
+                    float waitTime = (DateTime.Now.Ticks - msg.timeTickCreat) / 10000; //毫秒
+                    if (waitTime > _warringWaitTime) {
                         _warringWaitTime += 500;
                         DxDebug.LogWarning("DNServer.DoWork():NetWorkMsg等待处理时间过长！waitTime:" + waitTime);
                     }
-                    else if ((_warringWaitTime - waitTime) > 500)
-                    {
+                    else if ((_warringWaitTime - waitTime) > 500) {
                         _warringWaitTime -= 500;
                     }
 
@@ -522,11 +465,9 @@ namespace DNET
 
         private void ProcessMsg(NetWorkMsg msg)
         {
-            if (msg != null)
-            {
+            if (msg != null) {
                 //DxDebug.Log("取到了一条消息,当前队列长度： " + _msgQueue.Count);
-                switch (msg.type)
-                {
+                switch (msg.type) {
                     case NetWorkMsg.Tpye.S_Start:
                         DoStart(msg);
                         break;
@@ -554,11 +495,9 @@ namespace DNET
 
         private void DoStart(NetWorkMsg msg)
         {
-            try
-            {
+            try {
                 DxDebug.LogConsole("DNServer.DoStart()：工作线程开始执行DoStart()...");
-                if (_socketListener != null)
-                {
+                if (_socketListener != null) {
                     DxDebug.Log(" DNServer.DoStart():_socketListener.Dispose();");
                     _socketListener.Dispose();
                 }
@@ -572,9 +511,7 @@ namespace DNET
                 DxDebug.Log("DNServer.DoStart(): _socketListener.Start(" + _port + ");");
                 _socketListener.Start(msg.text1, _port);
                 DxDebug.LogConsole("DNServer.DoStart()执行完毕！");
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogWarning("DNServer.DoStart()：异常 " + e.Message);
             }
         }
@@ -585,11 +522,9 @@ namespace DNET
         /// <param name="msg">这个消息参数的arg1为tokenID</param>
         private void DoSend(NetWorkMsg msg)
         {
-            try
-            {
+            try {
                 Token token = msg.token;
-                if (token == null)
-                {
+                if (token == null) {
                     return;
                 }
 
@@ -598,24 +533,20 @@ namespace DNET
                     token.AddSendData(msg.data, 0, msg.data.Length);
                 }
                 //DxDebug.Log("DoSend : ID号 " + token.ID + "  当前的SendingCount  " + token.SendingCount);
-                if (token.SendingCount < MAX_TOKEN_SENDING_COUNT)
-                {
+                if (token.SendingCount < MAX_TOKEN_SENDING_COUNT) {
                     int msgCount = token.SendQueueCount;
                     byte[] data = token.PackSendData(_packet); //打包发送
-                    if (data != null)
-                    {
-                        Interlocked.Add(ref Status.CountSend, msgCount);//状态统计发送递增
-                        Interlocked.Add(ref Status.CountSendBytes, data.Length);//状态统计递增发送数据长度
+                    if (data != null) {
+                        Interlocked.Add(ref Status.CountSend, msgCount); //状态统计发送递增
+                        Interlocked.Add(ref Status.CountSendBytes, data.Length); //状态统计递增发送数据长度
 
                         _socketListener.Send(token, data);
                     }
                 }
-                else  //如果当前正在发送，那么这次发送完成之后，会自动的开始下一次发送：OnSend()函数
+                else //如果当前正在发送，那么这次发送完成之后，会自动的开始下一次发送：OnSend()函数
                 {
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogWarning("DNServer.DoSend()：异常 " + e.Message);
             }
         }
@@ -626,25 +557,20 @@ namespace DNET
         /// <param name="msg"></param>
         private void DoSendAll(NetWorkMsg msg)
         {
-            try
-            {
+            try {
                 Token[] tokens = TokenManager.GetInstance().GetAllToken();
-                if (tokens == null)
-                {
+                if (tokens == null) {
                     return;
                 }
-                for (int i = 0; i < tokens.Length; i++)
-                {
+                for (int i = 0; i < tokens.Length; i++) {
                     Token token = tokens[i];
                     //DxDebug.Log("DoSend : ID号 " + token.ID + "  当前的SendingCount  " + token.SendingCount);
-                    if (token.SendingCount < MAX_TOKEN_SENDING_COUNT)
-                    {
+                    if (token.SendingCount < MAX_TOKEN_SENDING_COUNT) {
                         int msgCount = token.SendQueueCount;
                         byte[] data = token.PackSendData(_packet); //打包发送
-                        if (data != null)
-                        {
-                            Interlocked.Add(ref Status.CountSend, msgCount);//状态统计发送递增
-                            Interlocked.Add(ref Status.CountSendBytes, data.Length);//状态统计递增发送数据长度
+                        if (data != null) {
+                            Interlocked.Add(ref Status.CountSend, msgCount); //状态统计发送递增
+                            Interlocked.Add(ref Status.CountSendBytes, data.Length); //状态统计递增发送数据长度
                             _socketListener.Send(token, data);
                         }
                     }
@@ -652,9 +578,7 @@ namespace DNET
                     {
                     }
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogWarning("DNServer.DoSendAll()：异常 " + e.Message);
             }
         }
@@ -662,11 +586,9 @@ namespace DNET
         private void DoReceive(NetWorkMsg msg)
         {
             string debugStr = "";
-            try
-            {
+            try {
                 Token token = msg.token;
-                if (token != null)
-                {
+                if (token != null) {
                     int length;
                     debugStr = "开始执行token.UnpackReceiveData(_packet, out length);\r\n";
                     int msgCount = token.UnpackReceiveData(_packet, out length);
@@ -674,26 +596,21 @@ namespace DNET
                     if (msgCount > 0) //解包有数据
                     {
                         debugStr = "开始执行状态统计递增一条记录\r\n";
-                        Interlocked.Add(ref Status.CountReceive, msgCount);//状态统计递增一条记录
+                        Interlocked.Add(ref Status.CountReceive, msgCount); //状态统计递增一条记录
 
-                        if (EventTokenReceData != null)//发出事件：有收到客户端消息
+                        if (EventTokenReceData != null) //发出事件：有收到客户端消息
                         {
-                            try
-                            {
+                            try {
                                 EventTokenReceData(token);
-                            }
-                            catch (Exception e)
-                            {
+                            } catch (Exception e) {
                                 DxDebug.LogWarning("DNServer.DoReceive()：执行外部事件EventTokenReceData 异常 " + e.Message);
                             }
                         }
                     }
                     debugStr = "开始执行状态统计递增接收数据长度\r\n";
-                    Interlocked.Add(ref Status.CountReceiveBytes, length);//状态统计递增接收数据长度
+                    Interlocked.Add(ref Status.CountReceiveBytes, length); //状态统计递增接收数据长度
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogWarning("DNServer.DoReceive()：异常 " + e.Message + "debugStr=" + debugStr);
             }
         }
@@ -715,7 +632,7 @@ namespace DNET
             //DxDebug.Log("信号量： 接收");
             NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Receive, null, token.ID);
             msg.token = token;
-            AddMessage(msg);//debug:这里可以不传ID，直接传Token引用
+            AddMessage(msg); //debug:这里可以不传ID，直接传Token引用
 
             //DoReceive(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
         }
@@ -731,15 +648,13 @@ namespace DNET
 
                 //DoSend(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
             }
-            else
-            {
+            else {
             }
         }
 
         private void OnTokenError(Token token, SocketError error)
         {
-            if (EventTokenError != null)
-            {
+            if (EventTokenError != null) {
                 EventTokenError(token, error);
             }
         }
@@ -754,10 +669,8 @@ namespace DNET
         public void Dispose()
         {
             DxDebug.LogWarning("DNServer.Dispose():进入了Dispose.");
-            if (_workThread != null)
-            {
-                for (int i = 0; i < _workThread.Length; i++)
-                {
+            if (_workThread != null) {
+                for (int i = 0; i < _workThread.Length; i++) {
                     DxDebug.LogConsole("DNServer.Dispose():[" + _workThread[i].Name + "].IsAlive 为:" + _workThread[i].IsAlive);
                 }
             }
@@ -767,51 +680,38 @@ namespace DNET
 
         private void Dispose(bool disposing)
         {
-            if (disposed)
-            {
+            if (disposed) {
                 return;
             }
-            try
-            {
-                if (disposing)
-                {
+            try {
+                if (disposing) {
                     // 清理托管资源
                     _msgQueue.Clear();
-                    Status.Clear();//清空状态统计
+                    Status.Clear(); //清空状态统计
                 }
                 // 清理非托管资源
                 EventTokenError = null;
                 EventTokenReceData = null;
 
-                _msgSemaphore.Close();//关信号量队列
-                if (_workThread != null)
-                {
-                    for (int i = 0; i < _workThread.Length; i++)
-                    {
-                        try
-                        {
+                _msgSemaphore.Close(); //关信号量队列
+                if (_workThread != null) {
+                    for (int i = 0; i < _workThread.Length; i++) {
+                        try {
                             if (_workThread[i].IsAlive) //关线程
                             {
-
                                 _workThread[i].Abort();
-
                             }
-                        }
-                        catch (Exception e)
-                        {
+                        } catch (Exception e) {
                             DxDebug.LogWarning("DNServer.Dispose():异常 _workThread[" + i + "].Abort();" + e.Message);
                         }
                     }
                 }
 
-                if (_socketListener != null)
-                {
+                if (_socketListener != null) {
                     _socketListener.Dispose();
                     _socketListener = null;
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 DxDebug.LogWarning("DNServer.Dispose():异常 " + e.Message);
             }
             //让类型知道自己已经被释放

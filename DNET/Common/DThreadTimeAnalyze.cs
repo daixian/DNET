@@ -25,7 +25,6 @@ namespace DNET
             _timeStart = sw.ElapsedTicks;
             _timeWait = sw.ElapsedTicks;
             this._updataCount = (updataCount != 0) ? updataCount : 8;
-
         }
 
         private Stopwatch sw;
@@ -51,15 +50,13 @@ namespace DNET
         /// </summary>
         public long WorkStart()
         {
-            if (!isWork)
-            {
+            if (!isWork) {
                 return 0;
             }
             _timeStart = sw.ElapsedTicks;
             long timeCost = _timeStart - _timeWait; //得出该次等待时间
             _timesWait[_curWorkCount] = timeCost;
             return timeCost;
-
         }
 
         /// <summary>
@@ -67,8 +64,7 @@ namespace DNET
         /// </summary>
         public long WaitStart()
         {
-            if (!isWork)
-            {
+            if (!isWork) {
                 return 0;
             }
 
@@ -80,8 +76,7 @@ namespace DNET
             {
                 Interlocked.Exchange(ref _curWorkCount, 0);
             }
-            else
-            {
+            else {
                 Interlocked.Increment(ref _curWorkCount); //递增
             }
 
@@ -113,16 +108,11 @@ namespace DNET
             double sum_wait = 0;
             double sum_cost = 0;
             length = (waitTime.Length < length) ? waitTime.Length : length;
-            for (int i = 0; i < length; i++)
-            {
+            for (int i = 0; i < length; i++) {
                 sum_wait += waitTime[i];
                 sum_cost += costTime[i];
             }
             return sum_cost / (sum_wait + sum_cost) * 100d;
         }
-
     }
-
-
-
 }
