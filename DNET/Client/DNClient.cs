@@ -744,7 +744,7 @@ namespace DNET
                         EventConnectSuccess(this);
                     } //事件类型：ConnectError
                     catch (Exception e) {
-                        LogProxy.LogError($"DNClient.DoConnect():执行EventError事件异常：{e}");
+                        LogProxy.LogWarning($"DNClient.DoConnect():执行EventError事件异常：{e}");
                     }
                 }
             } catch (Exception e) {
