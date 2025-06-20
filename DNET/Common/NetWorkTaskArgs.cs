@@ -7,7 +7,7 @@ namespace DNET
     /// 即主线程不参与解析协议等等工作.
     /// 一般不应该使用这个，而应该直接使用提供的方法.
     /// </summary>
-    internal class NetWorkMsg
+    internal class NetWorkTaskArgs
     {
         /// <summary>
         /// 消息类型
@@ -69,7 +69,7 @@ namespace DNET
         /// <param name="data">如果需要的话会是一个数据</param>
         /// <param name="arg1">附加参数（服务器端用于记录了TokenID） </param>
         /// <param name="isDataCopy">是否进行数据的拷贝（可控为了提高性能）</param>
-        public NetWorkMsg(Tpye type, byte[] data = null, int arg1 = int.MaxValue, bool isDataCopy = false)
+        public NetWorkTaskArgs(Tpye type, byte[] data = null, int arg1 = int.MaxValue, bool isDataCopy = false)
         {
             this.type = type;
             this.arg1 = arg1;
@@ -93,7 +93,7 @@ namespace DNET
         /// <param name="offset">数据的起始位置</param>
         /// <param name="count">数据的长度</param>
         /// <param name="arg1">附加参数（服务器端用于记录了TokenID）</param>
-        public NetWorkMsg(Tpye type, byte[] data, int offset, int count, int arg1 = int.MaxValue)
+        public NetWorkTaskArgs(Tpye type, byte[] data, int offset, int count, int arg1 = int.MaxValue)
         {
             this.type = type;
             this.arg1 = arg1;

@@ -55,7 +55,7 @@
     <Compile Include="Common\LogProxy.cs" />
     <Compile Include="Common\GZip.cs" />
     <Compile Include="Common\IWorkMsg.cs" />
-    <Compile Include="Common\NetWorkMsg.cs" />
+    <Compile Include="Common\NetWorkTaskArgs.cs" />
     <Compile Include="Common\WorkThread.cs" />
     <Compile Include="Data\DNetPool.cs" />
     <Compile Include="Data\IBufferPool.cs" />

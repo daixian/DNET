@@ -107,7 +107,7 @@ namespace DNET
         /// <summary>
         /// 和U3D主模块之间的通信的消息队列
         /// </summary>
-        private DQueue<NetWorkMsg> _msgQueue;
+        private DQueue<NetWorkTaskArgs> _taskArgsQueue;
 
         /// <summary>
         /// 当前的信号量计数
@@ -185,7 +185,7 @@ namespace DNET
         /// <summary>
         /// 当前的消息队列长度
         /// </summary>
-        public int msgQueueLength { get { return _msgQueue.Count; } }
+        public int msgQueueLength { get { return _taskArgsQueue.Count; } }
 
         #endregion Property
 
@@ -203,7 +203,7 @@ namespace DNET
                 LogProxy.LogDebug("DNServer.Start()：服务器工作线程数 " + threadCount);
                 if (disposed) {
                     PeerManager.Inst.Clear();
-                    _msgQueue = new DQueue<NetWorkMsg>(MSG_QUEUE_CAPACITY);
+                    _taskArgsQueue = new DQueue<NetWorkTaskArgs>(MSG_QUEUE_CAPACITY);
                     _msgSemaphore = new Semaphore(0, MSG_QUEUE_CAPACITY);
 
                     _workThread = new Thread[threadCount];
@@ -220,9 +220,9 @@ namespace DNET
                 }
 
                 _port = port;
-                NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Start, null);
+                NetWorkTaskArgs msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.S_Start, null);
                 msg.text1 = hostName;
-                AddMessage(msg);
+                AddTask(msg);
             } catch (Exception e) {
                 LogProxy.LogError("DNServer.Start()：异常 " + e.Message);
             }
@@ -244,9 +244,9 @@ namespace DNET
         public void Send(int tokenID, byte[] data)
         {
             //DxDebug.Log("信号量： 发送");
-            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, data, tokenID);
+            NetWorkTaskArgs msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.S_Send, data, tokenID);
             msg.peer = PeerManager.Inst.GetPeer(tokenID);
-            AddMessage(msg);
+            AddTask(msg);
         }
 
         /// <summary>
@@ -256,9 +256,9 @@ namespace DNET
         /// <param name="data"></param>
         public void Send_(Peer peer, byte[] data)
         {
-            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, data, peer.ID);
+            NetWorkTaskArgs msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.S_Send, data, peer.ID);
             msg.peer = peer;
-            AddMessage(msg);
+            AddTask(msg);
         }
 
 
@@ -270,10 +270,10 @@ namespace DNET
         /// <param name="data">  要发送的数据. </param>
         public void Send(Peer peer, byte[] data)
         {
-            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, null, peer.ID);
+            NetWorkTaskArgs msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.S_Send, null, peer.ID);
             peer.AddSendData(data, 0, data.Length);
             msg.peer = peer;
-            AddMessage(msg);
+            AddTask(msg);
         }
 
         /// <summary> 向某个token发送一条数据. </summary>
@@ -303,18 +303,18 @@ namespace DNET
         public void SendAll()
         {
             //DxDebug.Log("信号量： 发送All");
-            AddMessage(new NetWorkMsg(NetWorkMsg.Tpye.S_SendAll, null)); //无参数
+            AddTask(new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.S_SendAll, null)); //无参数
         }
 
         /// <summary>
         /// 加入一条要执行的消息，如果加入的过快而无法发送，则将产生信号量溢出异常，表明当前发送数据频率要大于系统能力
         /// </summary>
-        /// <param name="msg"></param>
-        internal void AddMessage(NetWorkMsg msg)
+        /// <param name="taskArgs"></param>
+        internal void AddTask(NetWorkTaskArgs taskArgs)
         {
             try {
-                if (msg != null)
-                    _msgQueue.Enqueue(msg);
+                if (taskArgs != null)
+                    _taskArgsQueue.Enqueue(taskArgs);
                 //if (_curSemCount < 1) //信号量剩余较少的时候才去释放信号量
                 //{
                 //    Interlocked.Increment(ref _curSemCount);
@@ -390,12 +390,12 @@ namespace DNET
                         ProcessMsg(msg2);
                     }
 #else
-                    NetWorkMsg msg = _msgQueue.Dequeue();
-                    if (msg == null) //直到消息取尽之前都不停的处理
+                    NetWorkTaskArgs taskArg = _taskArgsQueue.Dequeue();
+                    if (taskArg == null) //直到消息取尽之前都不停的处理
                     {
                         break;
                     }
-                    float waitTime = (DateTime.Now.Ticks - msg.timeTickCreat) / 10000; //毫秒
+                    float waitTime = (DateTime.Now.Ticks - taskArg.timeTickCreat) / 10000; //毫秒
                     if (waitTime > _warringWaitTime) {
                         _warringWaitTime += 500;
                         LogProxy.LogWarning("DNServer.DoWork():NetWorkMsg等待处理时间过长！waitTime:" + waitTime);
@@ -404,33 +404,33 @@ namespace DNET
                         _warringWaitTime -= 500;
                     }
 
-                    ProcessMsg(msg);
+                    ProcessTaskArgs(taskArg);
 #endif
                     _cpuTime.WaitStart(); //时间分析计时
                 }
             }
         }
 
-        private void ProcessMsg(NetWorkMsg msg)
+        private void ProcessTaskArgs(NetWorkTaskArgs msg)
         {
             if (msg != null) {
                 //DxDebug.Log("取到了一条消息,当前队列长度： " + _msgQueue.Count);
                 switch (msg.type) {
-                    case NetWorkMsg.Tpye.S_Start:
+                    case NetWorkTaskArgs.Tpye.S_Start:
                         DoStart(msg);
                         break;
 
-                    case NetWorkMsg.Tpye.S_Send:
+                    case NetWorkTaskArgs.Tpye.S_Send:
                         DoSend(msg);
                         break;
 
-                    case NetWorkMsg.Tpye.S_Receive:
+                    case NetWorkTaskArgs.Tpye.S_Receive:
                         //DxDebug.Log("DoReceive()");
                         DoReceive(msg);
                         //DxDebug.Log("DoReceive() 结束");
                         break;
 
-                    case NetWorkMsg.Tpye.S_SendAll:
+                    case NetWorkTaskArgs.Tpye.S_SendAll:
                         DoSendAll(msg);
                         break;
 
@@ -441,7 +441,7 @@ namespace DNET
             }
         }
 
-        private void DoStart(NetWorkMsg msg)
+        private void DoStart(NetWorkTaskArgs msg)
         {
             try {
                 LogProxy.LogDebug("DNServer.DoStart()：工作线程开始执行DoStart()...");
@@ -467,18 +467,18 @@ namespace DNET
         /// <summary>
         /// 线程函数：发送
         /// </summary>
-        /// <param name="msg">这个消息参数的arg1为tokenID</param>
-        private void DoSend(NetWorkMsg msg)
+        /// <param name="args">这个消息参数的arg1为tokenID</param>
+        private void DoSend(NetWorkTaskArgs args)
         {
             try {
-                Peer peer = msg.peer;
+                Peer peer = args.peer;
                 if (peer == null) {
                     return;
                 }
 
-                if (msg.data != null) //添加该条数据
+                if (args.data != null) //添加该条数据
                 {
-                    peer.AddSendData(msg.data, 0, msg.data.Length);
+                    peer.AddSendData(args.data, 0, args.data.Length);
                 }
                 //DxDebug.Log("DoSend : ID号 " + token.ID + "  当前的SendingCount  " + token.SendingCount);
                 if (peer.SendingCount < MAX_TOKEN_SENDING_COUNT) {
@@ -502,8 +502,8 @@ namespace DNET
         /// <summary>
         /// 线程函数，向所有Token发送他们的待发送数据
         /// </summary>
-        /// <param name="msg"></param>
-        private void DoSendAll(NetWorkMsg msg)
+        /// <param name="args"></param>
+        private void DoSendAll(NetWorkTaskArgs args)
         {
             try {
                 Peer[] tokens = PeerManager.Inst.GetAllPeer();
@@ -531,11 +531,11 @@ namespace DNET
             }
         }
 
-        private void DoReceive(NetWorkMsg msg)
+        private void DoReceive(NetWorkTaskArgs args)
         {
             string debugStr = "";
             try {
-                Peer peer = msg.peer;
+                Peer peer = args.peer;
                 if (peer != null) {
                     int length;
                     debugStr = "开始执行token.UnpackReceiveData(_packet, out length);\r\n";
@@ -578,9 +578,9 @@ namespace DNET
         private void OnReceive(Peer peer)
         {
             //DxDebug.Log("信号量： 接收");
-            NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Receive, null, peer.ID);
+            NetWorkTaskArgs msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.S_Receive, null, peer.ID);
             msg.peer = peer;
-            AddMessage(msg); //debug:这里可以不传ID，直接传Token引用
+            AddTask(msg); //debug:这里可以不传ID，直接传Token引用
 
             //DoReceive(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
         }
@@ -590,9 +590,9 @@ namespace DNET
             if (peer.SendQueueCount > 0) //如果待发送队列里有消息这里应该不需要这个判断了token.SendingCount < MAX_TOKEN_SENDING_COUNT &&
             {
                 //DxDebug.Log("OnSend 信号量： 发送");
-                NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, null, peer.ID);
+                NetWorkTaskArgs msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.S_Send, null, peer.ID);
                 msg.peer = peer;
-                AddMessage(msg);
+                AddTask(msg);
 
                 //DoSend(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
             }
@@ -634,7 +634,7 @@ namespace DNET
             try {
                 if (disposing) {
                     // 清理托管资源
-                    _msgQueue.Clear();
+                    _taskArgsQueue.Clear();
                     Status.Clear(); //清空状态统计
                 }
                 // 清理非托管资源

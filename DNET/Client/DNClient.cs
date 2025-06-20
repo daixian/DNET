@@ -114,12 +114,12 @@ namespace DNET
         /// <summary>
         /// 和U3D主模块之间的通信的消息队列
         /// </summary>
-        private DQueue<NetWorkMsg> _msgQueue = null;
+        private DQueue<NetWorkTaskArgs> _taskArgsQueue = null;
 
         /// <summary>
         /// 通信类使用的控制消息池
         /// </summary>
-        private DQueue<NetWorkMsg> _msgPool = null;
+        private DQueue<NetWorkTaskArgs> _taskArgsPool = null;
 
         /// <summary>
         /// 当前的信号量计数
@@ -327,7 +327,7 @@ namespace DNET
         #region Exposed Function
 
         /// <summary>
-        /// 连接服务器,输入IP和端口号。会强制重新初始化整个类，这样起到底层重启的作用。
+        /// 连接服务器,输入IP和端口号。如果没有初始化在第一次会初始化。
         /// </summary>
         /// <param name="host">主机IP</param>
         /// <param name="port">端口号</param>
@@ -337,33 +337,31 @@ namespace DNET
             try {
                 LogProxy.LogDebug("DNClient.Connect():连接服务器 主机：" + host + "  端口:" + port);
 
-                //标记正在连接
+                // 标记正在连接
                 IsConnecting = true;
 
-                //if (_disposed)
-                //{
-                //    DxDebug.LogConsole("DNClient.Connect():这个类对象是被释放状态，重新初始化");
+                // 这个初始化如果重复调用并不会重新new出成员.
                 Init();
-                //}
 
-                //进行一次连接的时候，把消息队列清空
+                // 进行一次连接的时候，把消息队列清空
                 Clear();
 
                 Interlocked.Exchange(ref this._host, host); //给类成员赋值
                 Interlocked.Exchange(ref this._port, port); //给类成员赋值
 
-                NetWorkMsg msg = _msgPool.Dequeue();
-                if (msg == null) {
-                    msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Connect);
+                NetWorkTaskArgs taskArg = _taskArgsPool.Dequeue();
+                if (taskArg == null) {
+                    taskArg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_Connect);
                 }
                 else {
-                    msg.Reset(NetWorkMsg.Tpye.C_Connect);
+                    taskArg.Reset(NetWorkTaskArgs.Tpye.C_Connect);
                 }
-                AddMessage(msg);
+                AddTask(taskArg);
 
                 LastMsgReceTickTime = DateTime.Now.Ticks;
                 LastMsgSendTickTime = DateTime.Now.Ticks;
             } catch (Exception e) {
+                // 一般来说其实不会进入这个异常.因为这个函数只是吧一个Message添加到队列中，不会发生异常. 
                 IsConnecting = false; //连接失败了
                 if (!isTry) {
                     LogProxy.LogError("DNClient.Connect():异常：" + e.Message);
@@ -406,14 +404,14 @@ namespace DNET
         {
             LogProxy.Log("DNClient.Close():进入了close函数！");
 
-            NetWorkMsg msg = _msgPool.Dequeue();
-            if (msg == null) {
-                msg = new NetWorkMsg(NetWorkMsg.Tpye.C_AsynClose);
+            NetWorkTaskArgs args = _taskArgsPool.Dequeue();
+            if (args == null) {
+                args = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_AsynClose);
             }
             else {
-                msg.Reset(NetWorkMsg.Tpye.C_AsynClose);
+                args.Reset(NetWorkTaskArgs.Tpye.C_AsynClose);
             }
-            AddMessage(msg);
+            AddTask(args);
         }
 
         /// <summary>
@@ -436,16 +434,17 @@ namespace DNET
             }
 
             try {
-                _packet2.AddSend(data, 0, data.Length); //添加这条消息到打包器
+                // 注意这里是直接添加这条消息到打包器,而没有把数据引用放到args中
+                _packet2.AddSend(data, 0, data.Length);
 
-                NetWorkMsg msg = _msgPool.Dequeue();
-                if (msg == null) {
-                    msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Send);
+                NetWorkTaskArgs args = _taskArgsPool.Dequeue();
+                if (args == null) {
+                    args = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_Send);
                 }
                 else {
-                    msg.Reset(NetWorkMsg.Tpye.C_Send);
+                    args.Reset(NetWorkTaskArgs.Tpye.C_Send);
                 }
-                AddMessage(msg);
+                AddTask(args);
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.Send():异常 " + e.Message);
             }
@@ -466,14 +465,14 @@ namespace DNET
                 _packet2.AddSend(data, offset, count); //添加这条消息到打包器
 
                 //进行数据的预打包，然后不拷贝
-                NetWorkMsg msg = _msgPool.Dequeue();
+                NetWorkTaskArgs msg = _taskArgsPool.Dequeue();
                 if (msg == null) {
-                    msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Send);
+                    msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_Send);
                 }
                 else {
-                    msg.Reset(NetWorkMsg.Tpye.C_Send);
+                    msg.Reset(NetWorkTaskArgs.Tpye.C_Send);
                 }
-                AddMessage(msg);
+                AddTask(msg);
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.Send(p1,p2,p3):异常 " + e.Message);
             }
@@ -550,19 +549,48 @@ namespace DNET
         }
 
         /// <summary>
+        /// 获取目前所有的已接收的数据，返回string[]的形式,没有则返回null.
+        /// 这是会产生GC的方式，不推荐.
+        /// </summary>
+        /// <returns>所有的string数据,没有则返回null</returns>
+        public string[] GetReceiveText()
+        {
+            if (_packet2.ReceMsgCount == 0) {
+                return null;
+            }
+
+            List<ByteBuffer> listMsg = new List<ByteBuffer>();
+            while (_packet2.ReceMsgCount != 0) {
+                ByteBuffer bf = _packet2.GetReceMsg(); // 提取一条消息
+                if (bf != null) {
+                    listMsg.Add(bf);
+                }
+                else {
+                    break;
+                }
+            }
+            string[] texts = new string[listMsg.Count];
+            for (int i = 0; i < texts.Length; i++) {
+                texts[i] = Encoding.UTF8.GetString(listMsg[i].buffer, 0, listMsg[i].validLength);
+                listMsg[i].Recycle();
+            }
+            return texts;
+        }
+
+        /// <summary>
         /// 加入一条要执行的消息，如果加入的过快而无法发送，则将产生信号量溢出异常，表明当前发送数据频率要大于系统能力
         /// </summary>
-        /// <param name="msg"></param>
-        internal void AddMessage(NetWorkMsg msg)
+        /// <param name="taskArgs"></param>
+        internal void AddTask(NetWorkTaskArgs taskArgs)
         {
             if (_disposed) {
-                LogProxy.LogWarning($"DNClient.AddMessage():DNClient对象已经被释放，不能再加入消息。msgType = {msg.type}");
+                LogProxy.LogWarning($"DNClient.AddTask():DNClient对象已经被释放，不能再加入消息。msgType = {taskArgs.type}");
                 return;
             }
             try {
-                LogProxy.LogDebug("DNClient.AddMessage():向消息队列中添加消息");
-                if (msg != null)
-                    _msgQueue.Enqueue(msg); //消息进队列
+                LogProxy.LogDebug("DNClient.AddTask():向消息队列中添加消息");
+                if (taskArgs != null)
+                    _taskArgsQueue.Enqueue(taskArgs); //消息进队列
 
                 //if (_curSemCount < 1) //如果当前的信号量剩余不多的时候
                 //{
@@ -584,11 +612,11 @@ namespace DNET
                         try {
                             EventSendQueueIsFull(this);
                         } catch (Exception e) {
-                            LogProxy.LogWarning($"DNClient.AddMessage():执行事件EventMsgQueueIsFull异常：{e}");
+                            LogProxy.LogWarning($"DNClient.AddTask():执行事件EventMsgQueueIsFull异常：{e}");
                         }
                     }
                     if (_isDebugLog)
-                        LogProxy.LogWarning("DNClient.AddMessage():向消息队列中添加消息，发送队列长度较长：" + _packet2.SendMsgCount);
+                        LogProxy.LogWarning("DNClient.AddTask():向消息队列中添加消息，发送队列长度较长：" + _packet2.SendMsgCount);
                 }
                 else if (_isQueueFull) //如果现在的状态是发送队列较长的状态，那么再去记录峰值长度
                 {
@@ -597,7 +625,7 @@ namespace DNET
                     }
                 }
             } catch (Exception e) {
-                LogProxy.LogError($"DNClient.AddMessage():异常：{e}");
+                LogProxy.LogError($"DNClient.AddTask():异常：{e}");
             }
         }
 
@@ -620,11 +648,11 @@ namespace DNET
                     //_cpuTime.WorkStart(); //时间分析计时
 
                     while (true) {
-                        NetWorkMsg msg = _msgQueue.Dequeue();
-                        if (msg == null) {
+                        NetWorkTaskArgs taskArg = _taskArgsQueue.Dequeue();
+                        if (taskArg == null) {
                             break;
                         }
-                        float waitTime = (DateTime.Now.Ticks - msg.timeTickCreat) / 10000; //毫秒
+                        float waitTime = (DateTime.Now.Ticks - taskArg.timeTickCreat) / 10000; //毫秒
                         if (waitTime > _warringWaitTime) {
                             _warringWaitTime += 500;
                             LogProxy.LogWarning("DNClient.DoWork():NetWorkMsg等待处理时间过长！waitTime:" + waitTime);
@@ -633,21 +661,21 @@ namespace DNET
                             _warringWaitTime -= 500;
                         }
 
-                        if (msg != null) {
-                            switch (msg.type) {
-                                case NetWorkMsg.Tpye.C_Connect:
+                        if (taskArg != null) {
+                            switch (taskArg.type) {
+                                case NetWorkTaskArgs.Tpye.C_Connect:
                                     DoConnect();
                                     break;
 
-                                case NetWorkMsg.Tpye.C_Send:
-                                    DoSend(msg);
+                                case NetWorkTaskArgs.Tpye.C_Send:
+                                    DoSend(taskArg);
                                     break;
 
-                                case NetWorkMsg.Tpye.C_Receive:
+                                case NetWorkTaskArgs.Tpye.C_Receive:
                                     DoReceive();
                                     break;
 
-                                case NetWorkMsg.Tpye.C_AsynClose:
+                                case NetWorkTaskArgs.Tpye.C_AsynClose:
                                     DoClose();
                                     _workThread = null; //把这个成员置为空
                                     return; //执行完就结束了整个线程函数
@@ -657,7 +685,7 @@ namespace DNET
                                     break;
                             }
                             //用过的消息放回池里
-                            _msgPool.EnqueueMaxLimit(msg);
+                            _taskArgsPool.EnqueueMaxLimit(taskArg);
                         }
                         else {
                             // _cpuTime.Calculate();//空闲的话就计算一下
@@ -727,7 +755,7 @@ namespace DNET
             IsConnecting = false;
         }
 
-        private void DoSend(NetWorkMsg msg)
+        private void DoSend(NetWorkTaskArgs args)
         {
             try {
                 if (IsConnected == false) {
@@ -735,32 +763,18 @@ namespace DNET
                     return;
                 }
 
-                //DxDebug.Log("-----------DoSend   " + "  当前的SendingCount  " + _snedingCount);
+                // DxDebug.Log("-----------DoSend   " + "  当前的SendingCount  " + _snedingCount);
                 if (_snedingCount >= MAX_SENDING_DATA) {
                     return;
                 }
-                //如果还有待发送的消息
+                // 如果还有待发送的消息,直接从打包器中获取数据发送
                 if (_packet2.SendMsgCount > 0) {
-                    if (_socketClient.SendData(_packet2)) //如果确实发送成功了
-                    {
+                    if (_socketClient.SendData(_packet2)) {
+                        //如果确实发送成功了
                         Interlocked.Increment(ref _snedingCount);
                     }
                     LastMsgSendTickTime = DateTime.Now.Ticks; //记录最后发送消息时间
                 }
-                //byte[][] datas = _sendDataQueue.GetData();
-                //if (datas != null)
-                //{
-                //    //DxDebug.Log("-----------开始将" + datas.Length + "条数据打包，加到发送队列的尾部");
-                //    for (int i = 0; i < datas.Length; i++)
-                //    {
-                //        //if (i >= 2)
-                //        //{
-                //        //    _msgSemaphore.WaitOne();//重要：这里或许应该消耗信号量
-                //        //}
-                //        datas[i] = _packet.CompletePack(datas[i]); //依次从预打包数据完成打包数据
-                //}
-
-                //DxDebug.Log("-----------数据打包，开始发送 递增_snedingCount， 当前_snedingCount : " + _snedingCount);
 
                 //发送队列已经较短了的事件
                 if (_packet2.SendMsgCount < 128 && _isQueueFull == true) // MAX_SEND_DATA_QUEUE / 4
@@ -771,8 +785,8 @@ namespace DNET
                         LogProxy.LogWarning("DNClient.DoSend():发送队列长度已经恢复正常，峰值长度" + _sendQueuePeakLength);
                     _sendQueuePeakLength = 0; //重计峰值长度
 
-                    _msgQueue.TrimExcess();
-                    _msgPool.TrimExcess();
+                    _taskArgsQueue.TrimExcess();
+                    _taskArgsPool.TrimExcess();
 
                     if (EventSendQueueIsAvailable != null) {
                         try {
@@ -815,11 +829,11 @@ namespace DNET
                 _disposed = true;
 
                 // 清理托管资源
-                _msgQueue.Clear();
-                _msgPool.Clear();
+                _taskArgsQueue.Clear();
+                _taskArgsPool.Clear();
 
-                _msgQueue = null;
-                _msgPool = null;
+                _taskArgsQueue = null;
+                _taskArgsPool = null;
 
                 // 清理非托管资源
                 _msgSemaphore.Close();
@@ -852,10 +866,10 @@ namespace DNET
                 //    DxDebug.LogConsole("DNClient.Init():释放资源");
                 //    Dispose();
                 //}
-                if (_msgQueue == null)
-                    _msgQueue = new DQueue<NetWorkMsg>(int.MaxValue, 256);
-                if (_msgPool == null)
-                    _msgPool = new DQueue<NetWorkMsg>(int.MaxValue, 256);
+                if (_taskArgsQueue == null)
+                    _taskArgsQueue = new DQueue<NetWorkTaskArgs>(int.MaxValue, 256);
+                if (_taskArgsPool == null)
+                    _taskArgsPool = new DQueue<NetWorkTaskArgs>(int.MaxValue, 256);
 
                 if (_msgSemaphore == null) {
                     _msgSemaphore = new Semaphore(0, 4);
@@ -882,7 +896,7 @@ namespace DNET
         /// </summary>
         private void Clear()
         {
-            _msgQueue.Clear();
+            _taskArgsQueue.Clear();
             _packet2.Clear();
         }
 
@@ -895,14 +909,14 @@ namespace DNET
             if (this._isDebugLog)
                 LogProxy.LogDebug("-----------EventHandler：进入了OnReceive回调！");
 
-            NetWorkMsg msg = _msgPool.Dequeue();
+            NetWorkTaskArgs msg = _taskArgsPool.Dequeue();
             if (msg == null) {
-                msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Receive);
+                msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_Receive);
             }
             else {
-                msg.Reset(NetWorkMsg.Tpye.C_Receive);
+                msg.Reset(NetWorkTaskArgs.Tpye.C_Receive);
             }
-            AddMessage(msg);
+            AddTask(msg);
         }
 
         private void OnSend()
@@ -913,14 +927,14 @@ namespace DNET
             Interlocked.Decrement(ref _snedingCount);
             if (_packet2.SendMsgCount > 0) //如果待发送队列里有消息,不需要再判断_snedingCount < MAX_SENDING_DATA，直接开始下一次发送
             {
-                NetWorkMsg msg = _msgPool.Dequeue();
+                NetWorkTaskArgs msg = _taskArgsPool.Dequeue();
                 if (msg == null) {
-                    msg = new NetWorkMsg(NetWorkMsg.Tpye.C_Send);
+                    msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_Send);
                 }
                 else {
-                    msg.Reset(NetWorkMsg.Tpye.C_Send);
+                    msg.Reset(NetWorkTaskArgs.Tpye.C_Send);
                 }
-                AddMessage(msg);
+                AddTask(msg);
             }
             else {
             }
@@ -974,11 +988,11 @@ namespace DNET
             try {
                 if (disposing) {
                     // 清理托管资源
-                    _msgQueue.Clear();
-                    _msgPool.Clear();
+                    _taskArgsQueue.Clear();
+                    _taskArgsPool.Clear();
 
-                    _msgQueue = null;
-                    _msgPool = null;
+                    _taskArgsQueue = null;
+                    _taskArgsPool = null;
                 }
                 // 清理非托管资源
                 _packet2.Clear();
