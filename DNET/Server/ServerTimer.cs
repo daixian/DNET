@@ -132,7 +132,7 @@ namespace DNET
             {
                 Interlocked.Exchange(ref _countHeartBeatCheckTime, 0); //这里要立马置零，防止后面的代码执行的过久，再次进入kick
 
-                Peer[] tokens = PeerManager.GetInstance().GetAllToken();
+                Peer[] tokens = PeerManager.Inst.GetAllPeer();
                 if (tokens != null) {
                     for (int i = 0; i < tokens.Length; i++) {
                         Peer peer = tokens[i];
@@ -140,7 +140,7 @@ namespace DNET
                         {
                             LogProxy.LogDebug("ServerTimer.CheckOffLine()：一个用户长时间没有收到心跳包，被删除!");
 
-                            PeerManager.GetInstance().DeleteToken(peer.ID, TokenErrorType.HeartBeatTimeout); //删除这个用户
+                            PeerManager.Inst.DeleteToken(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
                         }
                     }
                 }
@@ -155,7 +155,7 @@ namespace DNET
 
                 long subTimeTick = DateTime.Now.Ticks - 10000 * Config.HeartBeatSendTime; //计算得到的门限时间
 
-                Peer[] tokens = PeerManager.GetInstance().GetAllToken();
+                Peer[] tokens = PeerManager.Inst.GetAllPeer();
                 if (tokens != null) {
                     for (int i = 0; i < tokens.Length; i++) {
                         Peer peer = tokens[i];
@@ -165,7 +165,7 @@ namespace DNET
                             peer.AddSendData(Config.HeartBeatData, 0, Config.HeartBeatData.Length);
                         }
                     }
-                    DNServer.GetInstance().SendAll(); //整体发送
+                    DNServer.Inst.SendAll(); //整体发送
                 }
             }
         }

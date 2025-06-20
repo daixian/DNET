@@ -56,30 +56,19 @@ namespace DNET
 
         private static DNClient _instance;
 
-        /// <summary>
-        /// 获得实例
-        /// </summary>
-        /// <returns></returns>
-        public static DNClient GetInstance()
-        {
-            if (_instance == null) {
-                _instance = new DNClient();
-                _instance.Name = "singleton client";
-            }
-            return _instance;
-        }
 
         /// <summary>
         /// 获得实例
         /// </summary>
-        /// <returns></returns>
-        public static DNClient GetInst()
-        {
-            if (_instance == null) {
-                _instance = new DNClient();
-                _instance.Name = "singleton client";
+        public static DNClient Inst {
+            get {
+                if (_instance == null) {
+                    _instance = new DNClient();
+                    _instance.Name = "singleton client";
+                }
+                return _instance;
             }
-            return _instance;
+
         }
 
         #endregion Constructor
@@ -567,7 +556,7 @@ namespace DNET
         internal void AddMessage(NetWorkMsg msg)
         {
             if (_disposed) {
-                LogProxy.LogWarning("DNClient.AddMessage():DNClient对象已经被释放，不能再加入消息。msgType = " + msg.type.ToString());
+                LogProxy.LogWarning($"DNClient.AddMessage():DNClient对象已经被释放，不能再加入消息。msgType = {msg.type}");
                 return;
             }
             try {
@@ -580,8 +569,12 @@ namespace DNET
                 //    Interlocked.Increment(ref _curSemCount);
                 //    _msgSemaphore.Release(); // 释放信号量
                 //}
-                _msgSemaphore.Release(); // 释放信号量
+                try {
+                    // 如果加入的过快而无法发送，则将产生信号量溢出异常,但是不会影响程序的唤醒
+                    _msgSemaphore.Release(); // 无脑释放信号量,catch一下好了
+                } catch (Exception) {
 
+                }
                 //发送数据队列长度为128则认为消息已经积攒较长
                 if (_packet2.SendMsgCount > 128 && _isQueueFull == false) //MAX_SEND_DATA_QUEUE
                 {
@@ -591,7 +584,7 @@ namespace DNET
                         try {
                             EventSendQueueIsFull(this);
                         } catch (Exception e) {
-                            LogProxy.LogWarning("DNClient.AddMessage():执行事件EventMsgQueueIsFull异常：" + e.Message);
+                            LogProxy.LogWarning($"DNClient.AddMessage():执行事件EventMsgQueueIsFull异常：{e}");
                         }
                     }
                     if (_isDebugLog)
@@ -603,37 +596,8 @@ namespace DNET
                         _sendQueuePeakLength = _packet2.SendMsgCount; //记录当前的峰值长度
                     }
                 }
-            }
-            // dx: 这个现在在u3d中没有这个类型,所以干脆不用了
-            //catch (SemaphoreFullException)
-            //{
-            //    //当前发送数据频率要大于系统能力，可尝试增加消息队列长度
-            //    string msgtype = "";
-            //    switch (msg.type)
-            //    {
-            //        case NetWorkMsg.Tpye.C_Connect:
-            //            msgtype = "C_Connect";
-            //            break;
-
-            //        case NetWorkMsg.Tpye.C_Send:
-            //            msgtype = "C_Send";
-            //            break;
-
-            //        case NetWorkMsg.Tpye.C_Receive:
-            //            msgtype = "C_Receive";
-            //            break;
-
-            //        default:
-            //            break;
-            //    }
-            //    DxDebug.LogError("DNClient.AddMessage():大于系统能力，当前最后一条：" + msgtype);
-            //    //throw;//这个throw还是应该去掉
-            //    _msgPool.EnqueueMaxLimit(msg);
-            //}
-            catch (Exception e) {
+            } catch (Exception e) {
                 LogProxy.LogError($"DNClient.AddMessage():异常：{e}");
-                //throw;//这个throw还是应该去掉
-                _msgPool.EnqueueMaxLimit(msg);
             }
         }
 

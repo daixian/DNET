@@ -68,7 +68,7 @@
     <Compile Include="Protocol\IPacket.cs" />
     <Compile Include="Protocol\IPacket2.cs" />
     <Compile Include="Server\ServerStatus.cs" />
-    <Compile Include="Server\TokenErrorType.cs" />
+    <Compile Include="Server\PeerErrorType.cs" />
     <Compile Include="Server\ServerTimer.cs" />
     <Compile Include="Server\DNServer.cs" />
     <Compile Include="Server\SocketAsyncEventArgsPool.cs" />

@@ -222,7 +222,7 @@ namespace DNET
         /// <param name="length">数据长度</param>
         public void AddSendData(byte[] data, int index, int length)
         {
-            IPacket packet = DNServer.GetInstance().Packet;
+            IPacket packet = DNServer.Inst.Packet;
             //进行预打包然后加入到队列
             if (!_sendQueue.EnqueueMaxLimit(packet.PrePack(data, index, length))) {
                 LogProxy.LogWarning("Token.AddSendData():要发送的数据队列 丢弃了一段数据");

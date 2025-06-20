@@ -24,8 +24,8 @@ namespace SimpleSever
             //Config.DefaultConfigOnWindows();//在自己根目录下创建日志
             Config.IsAutoHeartbeat = false;
 
-            DNServer.GetInstance().EventTokenReceData += OnTokenReceData;
-            DNServer.GetInstance().Start(23333);
+            DNServer.Inst.EventTokenReceData += OnTokenReceData;
+            DNServer.Inst.Start(23333);
         }
 
         Random rand = new Random();
@@ -44,7 +44,7 @@ namespace SimpleSever
                 if (isReSend) //如果CheckBox选择了要回发
                 {
                     //直接回发
-                    DNServer.GetInstance().Send(peer, data);
+                    DNServer.Inst.Send(peer, data);
                 }
                 //得到消息类型然后处理
                 //int pType = BitConverter.ToInt32(data, 0);

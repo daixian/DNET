@@ -83,7 +83,7 @@ namespace DNET
         /// <param name="state"></param>
         private void OnTimerTick(object state)
         {
-            DNClient client = DNClient.GetInstance();
+            DNClient client = DNClient.Inst;
 
             if (Config.IsAutoHeartbeat && client.IsConnected) {
                 float time = (DateTime.Now.Ticks - client.LastMsgSendTickTime) / 10000;
@@ -133,7 +133,7 @@ namespace DNET
         /// </summary>
         public void SendHeartBeat()
         {
-            DNClient client = DNClient.GetInstance();
+            DNClient client = DNClient.Inst;
             if (client.IsConnected) {
                 client.Send(Config.HeartBeatData); //发个心跳包
                 LogProxy.LogDebug("ClientTimer：发送 HeartBeatData ~❤");

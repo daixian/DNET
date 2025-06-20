@@ -30,18 +30,8 @@ namespace DNET
         /// 获得实例
         /// </summary>
         /// <returns></returns>
-        public static PeerManager GetInstance()
-        {
-            return _instance;
-        }
-
-        /// <summary>
-        /// 获得实例
-        /// </summary>
-        /// <returns></returns>
-        public static PeerManager GetInst()
-        {
-            return _instance;
+        public static PeerManager Inst {
+            get { return _instance; }
         }
 
         #endregion Constructor
@@ -66,7 +56,7 @@ namespace DNET
         /// <summary>
         /// 所有用户的数组
         /// </summary>
-        private Peer[] _arrToken = null;
+        private Peer[] _arrPeer = null;
 
         /// <summary>
         /// 一个递增的ID计数，会分配给新的Token
@@ -102,7 +92,7 @@ namespace DNET
         /// 参数int: Token的id
         /// 参数TokenErrorType: 删除原因
         /// </summary>
-        public event Action<int, TokenErrorType> EventDeleteToken;
+        public event Action<int, PeerErrorType> EventDeleteToken;
 
         #endregion Event
 
@@ -139,9 +129,9 @@ namespace DNET
         /// </summary>
         /// <param name="id">Token的id</param>
         /// <param name="type">错误原因</param>
-        private void CloseToken(int id, TokenErrorType type)
+        private void CloseToken(int id, PeerErrorType type)
         {
-            Peer peer = GetToken(id);
+            Peer peer = GetPeer(id);
             if (peer != null) {
                 peer.Dispose();
             }
@@ -155,7 +145,7 @@ namespace DNET
         /// <param name="socketError">错误参数是SocketError</param>
         internal void DeleteToken(int id, SocketError socketError)
         {
-            CloseToken(id, TokenErrorType.SocketError); //先关闭
+            CloseToken(id, PeerErrorType.SocketError); //先关闭
             lock (this._lockDict) {
                 if (_dictToken.ContainsKey(id)) {
                     _dictToken.Remove(id);
@@ -169,7 +159,7 @@ namespace DNET
             if (EventDeleteToken != null) //事件
             {
                 try {
-                    EventDeleteToken(id, TokenErrorType.SocketError);
+                    EventDeleteToken(id, PeerErrorType.SocketError);
                 } catch (Exception e) {
                     LogProxy.LogWarning("PeerManager.DeleteToken()：执行事件EventDeleteToken异常！" + e.Message);
                 }
@@ -186,7 +176,7 @@ namespace DNET
         /// </summary>
         /// <param name="id"></param>
         /// <param name="errorType">错误参数是TokenErrorType</param>
-        internal void DeleteToken(int id, TokenErrorType errorType)
+        internal void DeleteToken(int id, PeerErrorType errorType)
         {
             CloseToken(id, errorType); //先关闭
             lock (this._lockDict) {
@@ -221,7 +211,7 @@ namespace DNET
         /// <param name="id">根据ID删除已个Token</param>
         public void DeleteToken(int id)
         {
-            CloseToken(id, TokenErrorType.UserDelete); //先关闭
+            CloseToken(id, PeerErrorType.UserDelete); //先关闭
             lock (this._lockDict) {
                 if (_dictToken.ContainsKey(id)) {
                     _dictToken.Remove(id);
@@ -235,13 +225,13 @@ namespace DNET
             if (EventDeleteToken != null) //事件
             {
                 try {
-                    EventDeleteToken(id, TokenErrorType.UserDelete); //这个是外部的调用删除
+                    EventDeleteToken(id, PeerErrorType.UserDelete); //这个是外部的调用删除
                 } catch (Exception e) {
                     LogProxy.LogWarning("PeerManager.DeleteToken()：执行事件EventDeleteToken异常！" + e.Message);
                 }
             }
 
-            LogProxy.LogDebug(String.Format("PeerManager．DeleteToken()：关闭了一个客户端. 还有{0}个客户端，原因{1}", _dictToken.Count, TokenErrorType.UserDelete.ToString()));
+            LogProxy.LogDebug(String.Format("PeerManager．DeleteToken()：关闭了一个客户端. 还有{0}个客户端，原因{1}", _dictToken.Count, PeerErrorType.UserDelete.ToString()));
         }
 
         /// <summary>
@@ -251,13 +241,13 @@ namespace DNET
         {
             LogProxy.LogWarning(String.Format("PeerManager.DeleteAllToken()：删除所有客户端！"));
             while (true) {
-                Peer[] tokens = GetAllToken();
+                Peer[] tokens = GetAllPeer();
                 if (tokens == null) {
                     return; //确保没有token了
                 }
                 for (int i = 0; i < tokens.Length; i++) {
                     Peer peer = tokens[i];
-                    DeleteToken(peer.ID, TokenErrorType.ClearAllToken);
+                    DeleteToken(peer.ID, PeerErrorType.ClearAllToken);
                 }
 
                 _isDictEqualArr = false; //标记当前字典和数组已经不一致了
@@ -269,7 +259,7 @@ namespace DNET
         /// </summary>
         /// <param name="id">Token的id</param>
         /// <returns>Token对象，没有则返回null</returns>
-        public Peer GetToken(int id)
+        public Peer GetPeer(int id)
         {
             //debug:这里尝试去掉加锁
             //lock (this._lockDict)
@@ -289,7 +279,7 @@ namespace DNET
         /// 加一个缓存数组.
         /// </summary>
         /// <returns>Token数组</returns>
-        public Peer[] GetAllToken()
+        public Peer[] GetAllPeer()
         {
             if (this._dictToken.Count == 0) {
                 return null;
@@ -301,12 +291,12 @@ namespace DNET
                     foreach (KeyValuePair<int, Peer> kvp in _dictToken) {
                         listToken.Add(kvp.Value);
                     }
-                    _arrToken = listToken.ToArray();
+                    _arrPeer = listToken.ToArray();
 
                     _isDictEqualArr = true; ////标记当前字典和数组已经一致了
                 }
             }
-            return _arrToken;
+            return _arrPeer;
         }
 
         /// <summary>
@@ -316,7 +306,7 @@ namespace DNET
         /// <param name="data">数据</param>
         /// <param name="index">数据的起始位置</param>
         /// <param name="length">数据的长度</param>
-        public void SendToAllToken(byte[] data, int index, int length)
+        public void SendToAllPeer(byte[] data, int index, int length)
         {
             lock (this._lockDict) {
                 foreach (KeyValuePair<int, Peer> kvp in _dictToken) {
@@ -333,7 +323,7 @@ namespace DNET
         /// <param name="data">数据</param>
         /// <param name="index">数据起始位置</param>
         /// <param name="length">数据长度</param>
-        public void SendToAllTokenExcept(int exceptTokenID, byte[] data, int index, int length)
+        public void SendToAllPeerExcept(int exceptTokenID, byte[] data, int index, int length)
         {
             lock (this._lockDict) {
                 foreach (KeyValuePair<int, Peer> kvp in _dictToken) {
@@ -350,7 +340,7 @@ namespace DNET
         internal void Clear()
         {
             _dictToken.Clear();
-            _arrToken = null;
+            _arrPeer = null;
         }
 
         #endregion Exposed Function
@@ -381,7 +371,7 @@ namespace DNET
 
                 _dictToken.Clear();
                 _dictToken = null;
-                _arrToken = null;
+                _arrPeer = null;
             }
             // 清理非托管资源
 

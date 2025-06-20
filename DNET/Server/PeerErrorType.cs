@@ -3,7 +3,7 @@
     /// <summary>
     /// 服务器删除一个Token时的删除原因
     /// </summary>
-    public enum TokenErrorType
+    public enum PeerErrorType
     {
         /// <summary>
         /// 接收字节数为0

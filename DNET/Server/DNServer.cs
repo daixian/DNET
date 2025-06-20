@@ -45,25 +45,14 @@ namespace DNET
         /// <summary>
         /// 获得实例
         /// </summary>
-        /// <returns></returns>
-        public static DNServer GetInstance()
-        {
-            if (_instance == null) {
-                _instance = new DNServer();
-            }
-            return _instance;
-        }
+        public static DNServer Inst {
+            get {
+                if (_instance == null) {
+                    _instance = new DNServer();
+                }
+                return _instance;
 
-        /// <summary>
-        /// 获得实例
-        /// </summary>
-        /// <returns></returns>
-        public static DNServer GetInst()
-        {
-            if (_instance == null) {
-                _instance = new DNServer();
             }
-            return _instance;
         }
 
         #endregion Constructor
@@ -123,7 +112,7 @@ namespace DNET
         /// <summary>
         /// 当前的信号量计数
         /// </summary>
-        private int _curSemCount = 0;
+        //private int _curSemCount = 0;
 
         /// <summary>
         /// 服务器端口号
@@ -203,52 +192,6 @@ namespace DNET
         #region Exposed Function
 
         /// <summary>
-        /// 设置工作目录路径，如果传入空则表示工作路径为当前程序运行路径.通常来说在运行之前都应该指定一个目录
-        /// </summary>
-        public bool SetDirCache(string dir)
-        {
-            try {
-                LogProxy.LogDebug("DNServer.SetDirCache():尝试设置工作文件夹路径 dir = " + dir);
-
-                if (String.IsNullOrEmpty(dir)) {
-                    dirCache = Directory.GetCurrentDirectory();
-                    LogProxy.LogDebug("DNServer.SetDirCache():输入路径为空，所以设置文件夹为" + dirCache);
-                }
-                else {
-                    dirCache = dir; //赋值
-                }
-                if (!Directory.Exists(dirCache)) //如果这个目录不存在，那么就尝试创建一下这个目录
-                {
-                    LogProxy.LogDebug("DNServer.SetDirCache():文件夹不存在，创建文件夹...");
-                    Directory.CreateDirectory(dirCache);
-                }
-                string testfile = System.IO.Path.Combine(dirCache, "dirtestFile_");
-
-                LogProxy.LogDebug("DNServer.SetDirCache():进行文件读写测试...");
-                FileStream fs = File.Create(testfile); //创建一下试试
-                fs.WriteByte(0xff);
-                fs.Flush();
-                fs.Close();
-                fs = File.Open(testfile, FileMode.Open);
-                if (fs.ReadByte() != 0xff) {
-                    dirCache = null;
-                    return false;
-                }
-                fs.Close();
-                File.Delete(testfile);
-                LogProxy.LogDebug("DNClient.SetDirCache():进行文件读写测试成功");
-
-                return true; //如果允许到这里都没有错误，那么说明这个目录可以正常使用
-            } catch (Exception e) {
-                LogProxy.LogError("DNServer.SetDirCache():设置工作文件夹失败！ " + e.Message);
-            }
-
-            dirCache = null;
-
-            return false;
-        }
-
-        /// <summary>
         /// 启动服务器，会开启工作线程然后释放一个DoStart信号量。
         /// </summary>
         /// <param name="port">端口号</param>
@@ -259,7 +202,7 @@ namespace DNET
             try {
                 LogProxy.LogDebug("DNServer.Start()：服务器工作线程数 " + threadCount);
                 if (disposed) {
-                    PeerManager.GetInst().Clear();
+                    PeerManager.Inst.Clear();
                     _msgQueue = new DQueue<NetWorkMsg>(MSG_QUEUE_CAPACITY);
                     _msgSemaphore = new Semaphore(0, MSG_QUEUE_CAPACITY);
 
@@ -302,7 +245,7 @@ namespace DNET
         {
             //DxDebug.Log("信号量： 发送");
             NetWorkMsg msg = new NetWorkMsg(NetWorkMsg.Tpye.S_Send, data, tokenID);
-            msg.peer = PeerManager.GetInstance().GetToken(tokenID);
+            msg.peer = PeerManager.Inst.GetPeer(tokenID);
             AddMessage(msg);
         }
 
@@ -372,35 +315,41 @@ namespace DNET
             try {
                 if (msg != null)
                     _msgQueue.Enqueue(msg);
-                if (_curSemCount < 1) //信号量剩余较少的时候才去释放信号量
-                {
-                    Interlocked.Increment(ref _curSemCount);
-                    _msgSemaphore.Release();
+                //if (_curSemCount < 1) //信号量剩余较少的时候才去释放信号量
+                //{
+                //    Interlocked.Increment(ref _curSemCount);
+                //    _msgSemaphore.Release();
+                //}
+
+                try {
+                    // 如果加入的过快而无法发送，则将产生信号量溢出异常,但是不会影响程序的唤醒
+                    _msgSemaphore.Release(); // 无脑释放信号量,catch一下好了
+                } catch (Exception) {
+
                 }
-            } catch (SemaphoreFullException) {
-                //当前发送数据频率要大于系统能力，可尝试增加消息队列长度
-                string msgtype = "";
-                switch (msg.type) {
-                    case NetWorkMsg.Tpye.S_Start:
-                        msgtype = "S_Start";
-                        break;
 
-                    case NetWorkMsg.Tpye.S_Send:
-                        msgtype = "S_Send";
-                        break;
+                //catch (SemaphoreFullException) {
+                //    //当前发送数据频率要大于系统能力，可尝试增加消息队列长度
+                //    string msgtype = "";
+                //    switch (msg.type) {
+                //        case NetWorkMsg.Tpye.S_Start:
+                //            msgtype = "S_Start";
+                //            break;
 
-                    case NetWorkMsg.Tpye.S_Receive:
-                        msgtype = "S_Receive";
-                        break;
+                //        case NetWorkMsg.Tpye.S_Send:
+                //            msgtype = "S_Send";
+                //            break;
 
-                    default:
-                        break;
-                }
-                LogProxy.LogError("DNServer.AddMessage():大于系统能力，当前最后一条：" + msgtype);
-                throw;
+                //        case NetWorkMsg.Tpye.S_Receive:
+                //            msgtype = "S_Receive";
+                //            break;
+
+                //        default:
+                //            break;
+                //    }
+                //    LogProxy.LogError("DNServer.AddMessage():大于系统能力，当前最后一条：" + msgtype);
             } catch (Exception e) {
-                LogProxy.LogError("DNServer.AddMessage():*****发生错误！ " + e.Message);
-                throw;
+                LogProxy.LogError($"DNServer.AddMessage():异常 {e}");
             }
         }
 
@@ -413,7 +362,7 @@ namespace DNET
             LogProxy.LogDebug("DNServer.DoWork():服务器线程启动！");
             while (true) {
                 _msgSemaphore.WaitOne();
-                Interlocked.Decrement(ref _curSemCount);
+                //Interlocked.Decrement(ref _curSemCount);
                 while (true) {
                     _cpuTime.WorkStart(); //时间分析计时
 #if Multitask
@@ -427,7 +376,7 @@ namespace DNET
                     {
                         //再消耗一条信号量
                         //_msgSemaphore.WaitOne();
-                        Interlocked.Decrement(ref _curSemCount);
+                        //Interlocked.Decrement(ref _curSemCount);
                         Parallel.Invoke(delegate () { ProcessMsg(msg1); }, delegate () { ProcessMsg(msg2); });
                     }
                     else if (msg1 != null && msg2 == null)
@@ -557,7 +506,7 @@ namespace DNET
         private void DoSendAll(NetWorkMsg msg)
         {
             try {
-                Peer[] tokens = PeerManager.GetInstance().GetAllToken();
+                Peer[] tokens = PeerManager.Inst.GetAllPeer();
                 if (tokens == null) {
                     return;
                 }

@@ -7,8 +7,6 @@ namespace DNET
 {
     internal class SocketListener : IDisposable
     {
-        #region Constructor
-
         /// <summary>
         /// 构造函数：创建一个未初始化的服务器实例。
         /// 来开始一个监听服务，
@@ -23,10 +21,6 @@ namespace DNET
 
             //这里可能无法限制最大连接数，需要在用户连接的回调中处理最大连接数
         }
-
-        #endregion Constructor
-
-        #region Fields
 
         /// <summary>
         /// 保存创建它的DNServer,用来在token中标记归属
@@ -63,16 +57,11 @@ namespace DNET
         /// </summary>
         private object _lockAccept = new object();
 
-        #endregion Fields
-
-        #region Property
-
         /// <summary>
         /// 服务器启动成功标志
         /// </summary>
         public bool IsStarted { get { return _isStarted; } }
 
-        #endregion Property
 
         #region Event
 
@@ -242,7 +231,7 @@ namespace DNET
                     receiveEventArgs.UserToken = peer; //绑定一个用户Token
                     receiveEventArgs.SetBuffer(peer.ReceiveBuffer, 0, peer.ReceiveBuffer.Length);
 
-                    PeerManager.GetInstance().AddToken(peer); //把这个用户加入TokenManager
+                    PeerManager.Inst.AddToken(peer); //把这个用户加入TokenManager
 
                     if (EventAccept != null) //产生认证事件
                     {
@@ -304,7 +293,7 @@ namespace DNET
                 else {
                     LogProxy.LogWarning("SocketListener.OnCompletedProcessReceive():BytesTransferred函数返回了零，说明远程已经关闭了连接，关闭这个用户。");
                     Peer peer = e.UserToken as Peer;
-                    PeerManager.GetInstance().DeleteToken(peer.ID, TokenErrorType.BytesTransferredZero); //关闭Token
+                    PeerManager.Inst.DeleteToken(peer.ID, PeerErrorType.BytesTransferredZero); //关闭Token
                     // token.Close();
                 }
             } catch (Exception ex) {
@@ -347,7 +336,7 @@ namespace DNET
                 IPEndPoint localEp = peer.socket.LocalEndPoint as IPEndPoint;
 
                 LogProxy.LogDebug(string.Format("SocketListener.ProcessError()：SocketError:{0}  IP:{1}  上次操作:{2}.", e.SocketError, localEp, e.LastOperation));
-                PeerManager.GetInstance().DeleteToken(peer.ID, e.SocketError);
+                PeerManager.Inst.DeleteToken(peer.ID, e.SocketError);
                 //  token.Close();//执行关闭
                 if (EventError != null) // 执行事件
                 {
@@ -484,7 +473,7 @@ namespace DNET
                 _listenSocket.Close();
                 LogProxy.LogWarning("SocketListener.Dispose()：关闭了服务器Socket");
                 LogProxy.LogWarning("SocketListener.Dispose()：删除所有用户");
-                PeerManager.GetInstance().DeleteAllToken(); //关闭所有Token
+                PeerManager.Inst.DeleteAllToken(); //关闭所有Token
             } catch (Exception e) {
                 LogProxy.LogWarning("SocketListener.Dispose()：异常：" + e.Message);
             }
