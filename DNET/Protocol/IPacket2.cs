@@ -6,7 +6,7 @@
     public interface IPacket2
     {
         /// <summary>
-        /// 用户添加一段要发送的数据进来
+        /// 用户添加一段要发送的数据进来,会做一次数据的拷贝或者打包.之后输入的参数可以释放了.
         /// </summary>
         /// <param name="data">数据</param>
         /// <param name="offset">偏移</param>
