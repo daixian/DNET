@@ -214,6 +214,15 @@ namespace DNET
         }
 
         /// <summary>
+        /// 面向逻辑层，获取目前所有的已接收的数据文本(已解包)，返回string[]的形式,没有则返回null
+        /// </summary>
+        /// <returns>已接收的string[]文本数据,没有则返回null</returns>
+        public string[] GetReceiveText()
+        {
+            return _receiveQueue.GetText();
+        }
+
+        /// <summary>
         /// 添加一条要发送的消息（未打包的数据）,不会自动发送。
         /// 这一个方法会进行数据的预打包
         /// </summary>

@@ -34,7 +34,7 @@ namespace DNETUnitTest
             Config.IsAutoHeartbeat = false;
             DNClient.Inst.isDebugLog = true;
 
-            DNServer.Inst.EventTokenReceData += (token) => {
+            DNServer.Inst.EventPeerReceData += (token) => {
                 byte[][] datas = token.GetReceiveData();
                 if (datas == null) {
                     return;
@@ -131,7 +131,7 @@ namespace DNETUnitTest
         {
             Config.IsAutoHeartbeat = false;
             DNClient.Inst.isDebugLog = true;
-            DNServer.Inst.EventTokenReceData += (token) => {
+            DNServer.Inst.EventPeerReceData += (token) => {
                 byte[][] datas = token.GetReceiveData();
                 if (datas == null) {
                     return;
@@ -229,7 +229,7 @@ namespace DNETUnitTest
         {
             Config.IsAutoHeartbeat = false;
             DNClient.Inst.isDebugLog = true;
-            DNServer.Inst.EventTokenReceData += (token) => {
+            DNServer.Inst.EventPeerReceData += (token) => {
                 byte[][] datas = token.GetReceiveData();
                 if (datas == null) {
                     return;
@@ -329,7 +329,7 @@ namespace DNETUnitTest
             Config.IsAutoHeartbeat = false;
             DNClient.Inst.isDebugLog = false;
 
-            DNServer.Inst.EventTokenReceData += (token) => {
+            DNServer.Inst.EventPeerReceData += (token) => {
                 byte[][] datas = token.GetReceiveData();
                 if (datas == null) {
                     return;

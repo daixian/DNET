@@ -60,14 +60,14 @@ namespace DNET
         #region Event
 
         /// <summary>
-        /// 事件：某个Token发生了错误后，会自动调用关闭，这是错误及关闭事件
+        /// 事件：某个Peer发生了错误后，会自动调用关闭，这是错误及关闭事件
         /// </summary>
-        public event Action<Peer, SocketError> EventTokenError;
+        public event Action<Peer, SocketError> EventPeerError;
 
         /// <summary>
-        /// 事件：某个Token接收到了数据，可以将轻量任务加入这个事件，交给数据解包线程
+        /// 事件：某个Peer接收到了数据，可以将轻量任务加入这个事件，交给数据解包线程
         /// </summary>
-        public event Action<Peer> EventTokenReceData;
+        public event Action<Peer> EventPeerReceData;
 
         #endregion Event
 
@@ -546,10 +546,10 @@ namespace DNET
                         debugStr = "开始执行状态统计递增一条记录\r\n";
                         Interlocked.Add(ref Status.CountReceive, msgCount); //状态统计递增一条记录
 
-                        if (EventTokenReceData != null) //发出事件：有收到客户端消息
+                        if (EventPeerReceData != null) //发出事件：有收到客户端消息
                         {
                             try {
-                                EventTokenReceData(peer);
+                                EventPeerReceData(peer);
                             } catch (Exception e) {
                                 LogProxy.LogWarning("DNServer.DoReceive()：执行外部事件EventTokenReceData 异常 " + e.Message);
                             }
@@ -602,8 +602,8 @@ namespace DNET
 
         private void OnTokenError(Peer peer, SocketError error)
         {
-            if (EventTokenError != null) {
-                EventTokenError(peer, error);
+            if (EventPeerError != null) {
+                EventPeerError(peer, error);
             }
         }
 
@@ -638,8 +638,8 @@ namespace DNET
                     Status.Clear(); //清空状态统计
                 }
                 // 清理非托管资源
-                EventTokenError = null;
-                EventTokenReceData = null;
+                EventPeerError = null;
+                EventPeerReceData = null;
 
                 _msgSemaphore.Close(); //关信号量队列
                 if (_workThread != null) {

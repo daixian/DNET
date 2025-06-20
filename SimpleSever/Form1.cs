@@ -24,7 +24,7 @@ namespace SimpleSever
             //Config.DefaultConfigOnWindows();//在自己根目录下创建日志
             Config.IsAutoHeartbeat = false;
 
-            DNServer.Inst.EventTokenReceData += OnTokenReceData;
+            DNServer.Inst.EventPeerReceData += OnTokenReceData;
             DNServer.Inst.Start(23333);
         }
 

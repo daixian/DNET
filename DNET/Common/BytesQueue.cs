@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace DNET
 {
@@ -159,6 +160,29 @@ namespace DNET
                         _curByteSize -= data[i].Length;
                     }
                     return data;
+                }
+                else {
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 返回 string[] 的形式的消息，没有则返回 null
+        /// </summary>
+        /// <returns>UTF8 解码后的字符串数组，没有则返回 null</returns>
+        public string[] GetText()
+        {
+            lock (this._queue) {
+                if (this._queue.Count > 0) {
+                    int count = this._queue.Count;
+                    string[] texts = new string[count];
+                    for (int i = 0; i < count; i++) {
+                        byte[] data = _queue.Dequeue();
+                        texts[i] = Encoding.UTF8.GetString(data);
+                        _curByteSize -= data.Length;
+                    }
+                    return texts;
                 }
                 else {
                     return null;
