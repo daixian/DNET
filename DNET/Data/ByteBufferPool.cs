@@ -35,10 +35,10 @@ namespace DNET
         /// <param name="blockSize"></param>
         /// <param name="capacityLimit"></param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public ByteBufferPool(int blockSize, int capacityLimit = 1000)
+        public ByteBufferPool(int blockSize, int capacityLimit = 512)
         {
             if (blockSize <= 0) throw new ArgumentOutOfRangeException(nameof(blockSize));
-            if (capacityLimit <= 0) throw new ArgumentOutOfRangeException(nameof(capacityLimit));
+            if (capacityLimit <= 0 || capacityLimit > 1024 * 64) throw new ArgumentOutOfRangeException(nameof(capacityLimit));
 
             _blockSize = blockSize;
             _capacityLimit = capacityLimit;

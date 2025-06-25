@@ -24,7 +24,7 @@ namespace DNET
                 _instance = null;
             }
             this.Name = "unname client";
-            _packet = new SimplePacket();
+
 
             Peer = new Peer();
             Peer.client = this;
@@ -45,7 +45,6 @@ namespace DNET
         public DNClient(string clientName = "unname client")
         {
             this.Name = clientName;
-            _packet = new SimplePacket();
 
             Peer = new Peer();
             Peer.client = this;
@@ -69,23 +68,11 @@ namespace DNET
                 }
                 return _instance;
             }
-
         }
 
         #endregion Constructor
 
         #region Fields
-
-        /// <summary>
-        /// 最多当前等待发送队列长度(用来提供当前待发送队列是否较长的判断的）
-        /// </summary>
-        private int MAX_SEND_DATA_QUEUE = 4096;
-
-        /// <summary>
-        /// 队列的最大字节占用，虽然理论上这个大小没有限制，但是实测如果过大则通信不正常（win上15M可工作，31M不能工作）。
-        /// 现规定这个占用为4M，留成6M
-        /// </summary>
-        private int MAX_BYTES_SIZE = 6 * 1024 * 1024;
 
         /// <summary>
         /// 最多当前正在发送数
@@ -113,9 +100,9 @@ namespace DNET
         private DQueue<NetWorkTaskArgs> _taskArgsPool = null;
 
         /// <summary>
-        /// 当前的信号量计数
+        /// 当前的信号量计数,防止出异常吧
         /// </summary>
-        //private int _curSemCount = 0;
+        private int _curSemCount = 0;
 
         /// <summary>
         /// 服务器主机名
@@ -131,11 +118,6 @@ namespace DNET
         /// 底层的通信类
         /// </summary>
         private SocketClient _socketClient = null;
-
-        /// <summary>
-        /// 打包器3代
-        /// </summary>
-        private IPacket3 _packet;
 
         /// <summary>
         /// 当前正在发送的计数
@@ -195,7 +177,7 @@ namespace DNET
         /// </summary>
         public bool SendQueueOverflow {
             get {
-                if (_socketClient.WaitSendMsgCount >= 64)
+                if (_socketClient.WaitSendMsgCount >= 256)
                     return true;
                 return false;
             }
@@ -291,7 +273,7 @@ namespace DNET
                 LastMsgReceTickTime = DateTime.Now.Ticks;
                 LastMsgSendTickTime = DateTime.Now.Ticks;
             } catch (Exception e) {
-                // 一般来说其实不会进入这个异常.因为这个函数只是吧一个Message添加到队列中，不会发生异常. 
+                // 一般来说其实不会进入这个异常.因为这个函数只是吧一个Message添加到队列中，不会发生异常.
                 IsConnecting = false; //连接失败了
                 if (!isTry) {
                     LogProxy.LogError("DNClient.Connect():异常：" + e.Message);
@@ -382,8 +364,7 @@ namespace DNET
                 LogProxy.LogWarning("DNClient.Send(data,offset,count):要发送的数据为null！");
             }
             try {
-                ByteBuffer packetedData = _packet.Pack(data, offset, count, format, txrId, eventType);
-                _socketClient.AddSendData(packetedData); //添加这条消息到打包器
+                _socketClient.AddSendData(data, offset, count, format, txrId, eventType);
 
                 //进行数据的预打包，然后不拷贝
                 NetWorkTaskArgs msg = _taskArgsPool.Dequeue();
@@ -442,18 +423,15 @@ namespace DNET
                 if (taskArgs != null)
                     _taskArgsQueue.Enqueue(taskArgs); //消息进队列
 
-                //if (_curSemCount < 1) //如果当前的信号量剩余不多的时候
-                //{
-                //    Interlocked.Increment(ref _curSemCount);
-                //    _msgSemaphore.Release(); // 释放信号量
-                //}
                 try {
+                    //如果当前的信号量剩余不多的时候
+                    if (_curSemCount < 4) {
+                        Interlocked.Increment(ref _curSemCount);
+                        _msgSemaphore.Release(); // 释放信号量
+                    }
                     // 如果加入的过快而无法发送，则将产生信号量溢出异常,但是不会影响程序的唤醒
-                    _msgSemaphore.Release(); // 无脑释放信号量,catch一下好了
                 } catch (Exception) {
-
                 }
-
             } catch (Exception e) {
                 LogProxy.LogError($"DNClient.AddTask():异常：{e}");
             }
@@ -471,11 +449,9 @@ namespace DNET
                     Interlocked.Exchange(ref _isThreadWorking, 0); //标记当前线程已经停止工作
 
                     _msgSemaphore.WaitOne();
-                    //Interlocked.Decrement(ref _curSemCount); //递减信号量计数
+                    Interlocked.Decrement(ref _curSemCount); //递减信号量计数
 
                     Interlocked.Exchange(ref _isThreadWorking, 1); //标记当前线程已经正在执行工作
-
-                    //_cpuTime.WorkStart(); //时间分析计时
 
                     while (true) {
                         NetWorkTaskArgs taskArg = _taskArgsQueue.Dequeue();
@@ -541,18 +517,15 @@ namespace DNET
                 if (_socketClient != null) {
                     //DxDebug.LogConsole("DNClient.DoConnect():断开原先连接！");
                     _socketClient.Disconnect();
-                    _socketClient.Bind(_host, _port); //绑定新ip
+                    _socketClient.BindRemote(_host, _port); //绑定新ip
                     _socketClient.Clear();
                     LogProxy.LogDebug("DNClient.DoConnect():正在连接...");
                     _socketClient.Connect();
                     LogProxy.LogDebug("DNClient.DoConnect():连接服务器成功！" + _host + ":" + _port);
                 }
                 else {
-                    _socketClient = new SocketClient(_host, _port, _packet);
-                    if (_socketClient == null) {
-                        LogProxy.LogError("DNClient.DoConnect():连接服务器失败！_socketClient对象未能创建成功。");
-                        return;
-                    }
+                    _socketClient = new SocketClient();
+                    _socketClient.BindRemote(_host, _port);
                     _socketClient.EventReceiveCompleted += OnReceiveCompleted; //加入接收事件
                     _socketClient.EventSendCompleted += OnSendCompleted; //加入发送事件
                     _socketClient.EventError += OnError; //加入错误事件
@@ -604,7 +577,6 @@ namespace DNET
 
                     LastMsgSendTickTime = DateTime.Now.Ticks; //记录最后发送消息时间
                 }
-
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.DoSend():异常: " + e.Message);
             }
@@ -706,7 +678,6 @@ namespace DNET
         private void Clear()
         {
             _taskArgsQueue.Clear();
-            _packet.Clear();
         }
 
         #endregion BuiltIn Function
@@ -734,7 +705,7 @@ namespace DNET
             if (isDebugLog)
                 LogProxy.LogDebug("-----------EventHandler.OnSend()：进入OnSend回调！");
 
-            Interlocked.Decrement(ref _snedingCount);//递减这个消息
+            Interlocked.Decrement(ref _snedingCount); //递减这个消息
 
             // 这个是.net池线程中异步的加入发送队列
             NetWorkTaskArgs msg = _taskArgsPool.Dequeue();
@@ -745,7 +716,6 @@ namespace DNET
                 msg.Reset(NetWorkTaskArgs.Tpye.C_Send);
             }
             AddTask(msg);
-
         }
 
         private void OnError()
@@ -803,7 +773,6 @@ namespace DNET
                     _taskArgsPool = null;
                 }
                 // 清理非托管资源
-                _packet.Clear();
                 _msgSemaphore.Close();
                 _msgSemaphore = null;
                 if (_socketClient != null) {

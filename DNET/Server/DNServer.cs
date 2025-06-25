@@ -36,9 +36,9 @@ namespace DNET
 
             ServerTimer.GetInstance().Start();
 
-            Status = new ServerStatus(this); //创建状态统计
-            Status.BindTimer(ServerTimer.GetInstance()); //绑定一个计时器
-            Status.isPrintCur1s = false; //默认不打印状态统计（1s一打印）
+            status = new ServerStatus(this); //创建状态统计
+            status.BindTimer(ServerTimer.GetInstance()); //绑定一个计时器
+            status.isPrintCur1s = false; //默认不打印状态统计（1s一打印）
         }
 
         private static DNServer _instance = null;
@@ -52,7 +52,6 @@ namespace DNET
                     _instance = new DNServer();
                 }
                 return _instance;
-
             }
         }
 
@@ -83,7 +82,7 @@ namespace DNET
         /// 客户端数据buffer大小，当这个buffer比较小的时候也是可以接收到一个比较长的消息的。
         /// 128K则有1000个客户端的时候至少内存占用128M。1W人是1.28G
         /// </summary>
-        private int CONNECTIONS_BUFFER_SIZE = 128 * 1024; //改为8K，则1W人的时候占用80M
+        private int CONNECTIONS_BUFFER_SIZE = 16 * 1024; //改为8K，则1W人的时候占用80M
 
         /// <summary>
         /// 消息队列最大数(服务器的消息队列最大长度应该比较长才对，它基本等于狂发情况下的同时在线人数)
@@ -113,7 +112,7 @@ namespace DNET
         /// <summary>
         /// 当前的信号量计数
         /// </summary>
-        //private int _curSemCount = 0;
+        private int _curSemCount = 0;
 
         /// <summary>
         /// 服务器端口号
@@ -148,7 +147,7 @@ namespace DNET
         /// <summary>
         /// 服务器工作状态（只是字段，外面使用自行注意安全）
         /// </summary>
-        public ServerStatus Status;
+        public ServerStatus status;
 
         #endregion Fields
 
@@ -171,7 +170,10 @@ namespace DNET
         /// <summary>
         /// 打包方法
         /// </summary>
-        public IPacket3 Packet { get { return _packet; } set { _packet = value; } }
+        public IPacket3 Packet {
+            get { return _packet; }
+            set { _packet = value; }
+        }
 
         /// <summary>
         /// 通信库所使用的临时文件工作目录,是绝对路径。这个目录是由SetDirCache()函数设置的
@@ -181,12 +183,16 @@ namespace DNET
         /// <summary>
         /// 是否工作文件夹能够使用
         /// </summary>
-        public bool isDirCanUse { get { return !String.IsNullOrEmpty(dirCache); } }
+        public bool isDirCanUse {
+            get { return !String.IsNullOrEmpty(dirCache); }
+        }
 
         /// <summary>
         /// 当前的消息队列长度
         /// </summary>
-        public int msgQueueLength { get { return _taskArgsQueue.Count; } }
+        public int msgQueueLength {
+            get { return _taskArgsQueue.Count; }
+        }
 
         #endregion Property
 
@@ -316,17 +322,16 @@ namespace DNET
             try {
                 if (taskArgs != null)
                     _taskArgsQueue.Enqueue(taskArgs);
-                //if (_curSemCount < 1) //信号量剩余较少的时候才去释放信号量
-                //{
-                //    Interlocked.Increment(ref _curSemCount);
-                //    _msgSemaphore.Release();
-                //}
+
 
                 try {
                     // 如果加入的过快而无法发送，则将产生信号量溢出异常,但是不会影响程序的唤醒
-                    _msgSemaphore.Release(); // 无脑释放信号量,catch一下好了
+                    if (_curSemCount < 4) //信号量剩余较少的时候才去释放信号量
+                    {
+                        Interlocked.Increment(ref _curSemCount);
+                        _msgSemaphore.Release(); // 无脑释放信号量,catch一下好了
+                    }
                 } catch (Exception) {
-
                 }
 
                 //catch (SemaphoreFullException) {
@@ -363,7 +368,7 @@ namespace DNET
             LogProxy.LogDebug("DNServer.DoWork():服务器线程启动！");
             while (true) {
                 _msgSemaphore.WaitOne();
-                //Interlocked.Decrement(ref _curSemCount);
+                Interlocked.Decrement(ref _curSemCount);
                 while (true) {
                     _cpuTime.WorkStart(); //时间分析计时
 #if Multitask
@@ -485,8 +490,8 @@ namespace DNET
                 if (peer.SendingCount < MAX_TOKEN_SENDING_COUNT) {
                     if (peer.WaitSendMsgCount > 0) {
                         int sendByteLen = _socketListener.Send(peer);
-                        Interlocked.Add(ref Status.CountSend, 1); //状态统计发送递增
-                        Interlocked.Add(ref Status.CountSendBytes, sendByteLen); //状态统计递增发送数据长度 
+                        Interlocked.Add(ref status.CountSend, 1); //状态统计发送递增
+                        Interlocked.Add(ref status.CountSendBytes, sendByteLen); //状态统计递增发送数据长度
                     }
                 }
                 else //如果当前正在发送，那么这次发送完成之后，会自动的开始下一次发送：OnSend()函数
@@ -514,8 +519,8 @@ namespace DNET
                     if (peer.SendingCount < MAX_TOKEN_SENDING_COUNT) {
                         if (peer.WaitSendMsgCount > 0) {
                             int sendByteLen = _socketListener.Send(peer);
-                            Interlocked.Add(ref Status.CountSend, 1); //状态统计发送递增
-                            Interlocked.Add(ref Status.CountSendBytes, sendByteLen); //状态统计递增发送数据长度 
+                            Interlocked.Add(ref status.CountSend, 1); //状态统计发送递增
+                            Interlocked.Add(ref status.CountSendBytes, sendByteLen); //状态统计递增发送数据长度
                         }
                     }
                     else //如果当前正在发送，那么这次发送完成之后，会自动的开始下一次发送：OnSend()函数
@@ -529,19 +534,17 @@ namespace DNET
 
         private void DoReceive(NetWorkTaskArgs args)
         {
-
             try {
                 Peer peer = args.peer;
                 if (peer != null) {
-
                     int bytesLen = 0;
                     int msgCount = peer.UnpackReceiveData(_packet, out bytesLen);
                     if (msgCount > 0) //解包有数据
                     {
-                        Interlocked.Add(ref Status.CountReceive, msgCount); //状态统计递增一条记录
+                        Interlocked.Add(ref status.CountReceive, msgCount); //状态统计递增一条记录
 
-                        if (EventPeerReceData != null) //发出事件：有收到客户端消息
-                        {
+                        //发出事件：有收到客户端消息
+                        if (EventPeerReceData != null) {
                             try {
                                 EventPeerReceData(peer);
                             } catch (Exception e) {
@@ -549,7 +552,7 @@ namespace DNET
                             }
                         }
                     }
-                    Interlocked.Add(ref Status.CountReceiveBytes, bytesLen); //状态统计递增接收数据长度
+                    Interlocked.Add(ref status.CountReceiveBytes, bytesLen); //状态统计递增接收数据长度
                 }
             } catch (Exception e) {
                 LogProxy.LogWarning($"DNServer.DoReceive()：异常 {e}");
@@ -628,7 +631,7 @@ namespace DNET
                 if (disposing) {
                     // 清理托管资源
                     _taskArgsQueue.Clear();
-                    Status.Clear(); //清空状态统计
+                    status.Clear(); //清空状态统计
                 }
                 // 清理非托管资源
                 EventPeerError = null;

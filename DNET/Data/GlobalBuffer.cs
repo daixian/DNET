@@ -5,25 +5,29 @@ namespace DNET
     /// <summary>
     /// 内部的buffer池
     /// </summary>
-    public class GlobalData
+    public class GlobalBuffer
     {
-        private static readonly Lazy<GlobalData> _instance = new Lazy<GlobalData>(() => new GlobalData());
+        private static readonly Lazy<GlobalBuffer> _instance = new Lazy<GlobalBuffer>(() => new GlobalBuffer());
 
         /// <summary>
         /// 单例
         /// </summary>
-        public static GlobalData Inst => _instance.Value;
+        public static GlobalBuffer Inst => _instance.Value;
 
         /// <summary>
-        /// 支持的 buffer 尺寸分档
+        /// 支持的 buffer 大小分档
         /// </summary>
-        private static readonly int[] _sizes = new int[] { 128, 256, 512, 1024, 2048, 4096, 8192 };
+        private static readonly int[] _sizes = new int[] { 256, 512, 1024, 2048, 4096, 8192, 1024 * 16 };
+
+        /// <summary>
+        /// 缓冲池组
+        /// </summary>
         private readonly ByteBufferPool[] _pools;
 
         /// <summary>
         /// 构造函数
         /// </summary>
-        private GlobalData()
+        private GlobalBuffer()
         {
             _pools = new ByteBufferPool[_sizes.Length];
             for (int i = 0; i < _sizes.Length; i++) {
@@ -34,7 +38,7 @@ namespace DNET
         /// <summary>
         /// 获取适配的 ByteBuffer（会从最接近的池中获取）
         /// </summary>
-        public ByteBuffer GetBuffer(int minSize)
+        public ByteBuffer Get(int minSize)
         {
             for (int i = 0; i < _sizes.Length; i++) {
                 if (minSize <= _sizes[i]) {
@@ -45,6 +49,5 @@ namespace DNET
             // 超过最大分档，直接创建临时 ByteBuffer
             return new ByteBuffer(minSize);
         }
-
     }
 }

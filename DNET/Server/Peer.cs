@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -163,22 +164,30 @@ namespace DNET
         /// <summary>
         /// 当前异步发送计数,由SocketListener对象控制修改。如果为1，表示正在发送
         /// </summary>
-        public int SendingCount { get { return _snedingCount; } }
+        public int SendingCount {
+            get { return _snedingCount; }
+        }
 
         /// <summary>
         /// 未解包的发送队列的长度
         /// </summary>
-        public int WaitSendMsgCount { get { return _sendQueue.Count; } }
+        public int WaitSendMsgCount {
+            get { return _sendQueue.Count; }
+        }
 
         /// <summary>
         /// 接收队列的长度
         /// </summary>
-        public int ReceiveQueueCount { get { return _receiveQueue.Count; } }
+        public int ReceiveQueueCount {
+            get { return _receiveQueue.Count; }
+        }
 
         /// <summary>
         /// 记录客户端连接的Socket
         /// </summary>
-        public Socket socket { get { return _tokenScket; } }
+        public Socket socket {
+            get { return _tokenScket; }
+        }
 
         /// <summary>
         /// 客户端的IP
@@ -194,9 +203,15 @@ namespace DNET
             }
         }
 
-        internal SocketAsyncEventArgs SendArgs { get { return _sendArgs; } private set { _sendArgs = value; } }
+        internal SocketAsyncEventArgs SendArgs {
+            get { return _sendArgs; }
+            private set { _sendArgs = value; }
+        }
 
-        internal SocketAsyncEventArgs ReceiveArgs { get { return _receiveArgs; } private set { _receiveArgs = value; } }
+        internal SocketAsyncEventArgs ReceiveArgs {
+            get { return _receiveArgs; }
+            private set { _receiveArgs = value; }
+        }
 
         /// <summary>
         /// 发送队列
@@ -239,7 +254,7 @@ namespace DNET
             _sendQueue.Enqueue(packet.Pack(data, index, length, Format.Raw, 0, 0));
 
             // TODO: 判断发送队列长度，如果超出最大限制，则进行丢弃
-            // LogProxy.LogWarning("Token.AddSendData():要发送的数据队列 丢弃了一段数据"); 
+            // LogProxy.LogWarning("Token.AddSendData():要发送的数据队列 丢弃了一段数据");
         }
 
         /// <summary>
@@ -258,13 +273,12 @@ namespace DNET
         /// 记录下从客户端的接收到的未解包数据
         /// </summary>
         /// <param name="args"></param>
-        internal void SetReceiveData(SocketAsyncEventArgs args)
+        internal void AddReceiveData(SocketAsyncEventArgs args)
         {
             int count = args.BytesTransferred;
 
-            var receDate = GlobalData.Inst.GetBuffer(args.BytesTransferred);
+            ByteBuffer receDate = GlobalBuffer.Inst.Get(args.BytesTransferred);
             receDate.Write(args.Buffer, args.Offset, args.BytesTransferred);
-            //Buffer.BlockCopy(args.Buffer, args.Offset, receDate.buffer, 0, count);
             _reserveQueuePacked.Enqueue(receDate);
             //if (!) {
             //    LogProxy.LogWarning("Token.SetData():接收的还未解包的数据队列 丢弃了一段数据");
@@ -281,12 +295,12 @@ namespace DNET
         internal int UnpackReceiveData(IPacket3 packeter, out int bytesLen)
         {
             lock (this._lockReserveData) {
-
                 // 解包所有的数据
                 bytesLen = 0;
                 int count = 0;
-                foreach (var item in _reserveQueuePacked) {
-                    bytesLen += item.Length;// 顺便记录一个接收到的数据长度
+
+                while (_reserveQueuePacked.TryDequeue(out ByteBuffer item)) {
+                    bytesLen += item.Length; // 顺便记录一个接收到的数据长度
 
                     var msgs = packeter.Unpack(item.buffer, 0, item.Length);
                     if (msgs != null && msgs.Count > 0) {
@@ -301,7 +315,9 @@ namespace DNET
                             }
                         }
                     }
+                    item.Recycle();
                 }
+
                 return count;
             }
         }

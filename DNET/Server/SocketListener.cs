@@ -62,8 +62,7 @@ namespace DNET
         /// <summary>
         /// 服务器启动成功标志
         /// </summary>
-        public bool IsStarted { get { return _isStarted; } }
-
+        public bool IsStarted => _isStarted;
 
         #region Event
 
@@ -147,7 +146,7 @@ namespace DNET
         /// <summary>
         /// 由Socket开始一个异步发送
         /// </summary>
-        /// <param name="peer"></param> 
+        /// <param name="peer"></param>
         internal int Send(Peer peer)
         {
             int errorCount = 0;
@@ -174,7 +173,7 @@ namespace DNET
 
                     // 统计总长度
                     int totalLength = buffers.Sum(x => x.Length);
-                    var sendBuffer = GlobalData.Inst.GetBuffer(totalLength);
+                    var sendBuffer = GlobalBuffer.Inst.Get(totalLength);
                     for (int i = 0; i < buffers.Count; i++) {
                         sendBuffer.Append(buffers[i]);
                         buffers[i].Recycle();
@@ -280,51 +279,42 @@ namespace DNET
         /// 执行异步接收完成处理
         /// </summary>
         /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void OnCompletedProcessReceive(object sender, SocketAsyncEventArgs e)
+        /// <param name="args"></param>
+        private void OnCompletedProcessReceive(object sender, SocketAsyncEventArgs args)
         {
             try {
                 // 如果返回0说明远程端已经关闭了连接,MSDN说明如下：
                 // 此属性提供在可接收或发送数据的异步套接字操作传输的字节数。 如果从读取操作返回零，则说明远程端已关闭了连接。
-                if (e.BytesTransferred > 0) {
-                    if (e.SocketError == SocketError.Success) {
-                        Peer peer = e.UserToken as Peer;
-                        peer.SetReceiveData(e);
-
-                        /* Socket s = token.socket;
-                         if (s.Available == 0)
-                         {
-                             if (EventReceive != null)//产生接收事件，通知线程进行解包
-                             {
-                                 EventReceive(token);
-                             }
-                             e.SetBuffer(token.ReceiveBuffer, 0, token.ReceiveBuffer.Length);
-                         }*/
+                if (args.BytesTransferred > 0) {
+                    if (args.SocketError == SocketError.Success) {
+                        Peer peer = args.UserToken as Peer;
+                        peer.AddReceiveData(args);
 
                         Socket s = peer.socket; //Available的用法不太明确，但是这里有大概率是!=0的
                         //if (s.Available != 0)
                         //{
                         //    DxDebug.LogWarning("SocketListener.OnCompletedProcessReceive():s.Available != 0");
                         //}
-                        e.SetBuffer(peer.ReceiveBuffer, 0, peer.ReceiveBuffer.Length);
-                        if (EventReceive != null) //产生接收事件，通知线程进行解包
-                        {
+                        // args.SetBuffer(peer.ReceiveBuffer, 0, peer.ReceiveBuffer.Length);
+
+                        //产生接收事件，通知线程进行解包,但是此时其实也可以直接在这里解包
+                        if (EventReceive != null) {
                             EventReceive(peer);
                         }
-                        PrepareReceive(s, e); //开始下一个接收
+                        PrepareReceive(s, args); //开始下一个接收
                     }
                     else {
-                        this.ProcessError(e);
+                        this.ProcessError(args);
                     }
                 }
                 else {
                     LogProxy.LogWarning("SocketListener.OnCompletedProcessReceive():BytesTransferred函数返回了零，说明远程已经关闭了连接，关闭这个用户。");
-                    Peer peer = e.UserToken as Peer;
+                    Peer peer = args.UserToken as Peer;
                     PeerManager.Inst.DeleteToken(peer.ID, PeerErrorType.BytesTransferredZero); //关闭Token
                     // token.Close();
                 }
-            } catch (Exception ex) {
-                LogProxy.LogWarning("SocketListener.OnCompletedProcessReceive():异常：" + ex.Message);
+            } catch (Exception e) {
+                LogProxy.LogWarning("SocketListener.OnCompletedProcessReceive():异常：" + e.Message);
             }
         }
 
@@ -346,7 +336,7 @@ namespace DNET
                     }
 
                     if (peer.WaitSendMsgCount > 0) {
-                        Send(peer);//自动启动发送下一个
+                        Send(peer); //自动启动发送下一个
                     }
                 }
                 else {

@@ -58,7 +58,7 @@
     <Compile Include="Common\IWorkMsg.cs" />
     <Compile Include="Common\NetWorkTaskArgs.cs" />
     <Compile Include="Common\WorkThread.cs" />
-    <Compile Include="Data\GlobalData.cs" />
+    <Compile Include="Data\GlobalBuffer.cs" />
     <Compile Include="Data\IBufferPool.cs" />
     <Compile Include="Data\UnsafeByteBuffer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

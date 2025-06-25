@@ -10,6 +10,9 @@ using DNET.Protocol;
 
 namespace DNET
 {
+    /// <summary>
+    /// 关联SocketAsyncEventArgs的上下文信息
+    /// </summary>
     class ConnectionContext
     {
         public Socket socket;
@@ -25,91 +28,23 @@ namespace DNET
     /// </summary>
     internal sealed class SocketClient : IDisposable
     {
-        #region Constructor
-
         /// <summary>
         /// 构造函数： 创建出一个Socket对象
         /// </summary>
-        internal SocketClient(string hostName, int port, IPacket3 packet2)
+        internal SocketClient()
         {
-            try {
-                IPHostEntry host;
-                if (Regex.IsMatch(hostName, @"\d{1,3}[.]\d{1,3}[.]\d{1,3}[.]\d{1,3}")) {
-                    byte[] ipadr = new byte[4];
-
-                    MatchCollection ms = Regex.Matches(hostName, @"\d{1,3}");
-                    for (int i = 0; i < ms.Count; i++) {
-                        ipadr[i] = Convert.ToByte(hostName.Substring(ms[i].Index, ms[i].Length));
-                    }
-
-                    IPAddress address = new IPAddress(ipadr);
-                    this._hostEndPoint = new IPEndPoint(address, port);
-                }
-                else {
-                    host = Dns.GetHostEntry(hostName);
-                    IPAddress[] addressList = host.AddressList;
-
-                    //实例化 endpoint 和 socket.
-                    this._hostEndPoint = new IPEndPoint(addressList[addressList.Length - 1], port);
-                }
-
-                this._clientSocket = new Socket(this._hostEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-                //设置这个Timeout应该是无效的(是有效的，必须设置为0，否则自动断线)
-                _clientSocket.SendTimeout = 8 * 1000;
-                _clientSocket.ReceiveTimeout = 0;
-            } catch (Exception e) {
-                LogProxy.LogWarning("SocketClient.SocketClient():类构造函数错误: " + e.Message);
-                return;
-            }
-
-            if (_areConnectDone == null)
-                _areConnectDone = new AutoResetEvent(false);
-            if (_receiveBuffer == null)
-                _receiveBuffer = new byte[RECE_BUFFER_SIZE];
-
-
-            _packet2 = packet2;
-
-#if !NEW_EVENT_AEGS
-
-            _sendArgs = new SocketAsyncEventArgs();
-            _sendArgs.UserToken = new ConnectionContext {
-                socket = this._clientSocket,
-                sendBuffer = null,
-                recvBuffer = null,
-            };
-            //_sendArgs.RemoteEndPoint = null;
-            _sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSendCompleted);
-
-            _receiveArgs = new SocketAsyncEventArgs();
-            _receiveArgs.UserToken = new ConnectionContext {
-                socket = this._clientSocket,
-                sendBuffer = null,
-                recvBuffer = _receiveBuffer
-            }; ; //利用了Token
-            _receiveArgs.SetBuffer(_receiveBuffer, 0, _receiveBuffer.Length);
-            _receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceiveCompleted);
-#endif
-            LogProxy.Log("SocketClient.SocketClient().SocketClient类构造对象成功！");
+            _packet = new SimplePacket();
+            _areConnectDone = new AutoResetEvent(false);
         }
-
-        #endregion Constructor
-
-        #region Fields
 
         /// <summary>
         /// 接收buffer大小
         /// </summary>
         private const int RECE_BUFFER_SIZE = 16 * 1024; //16k
 
-        /// <summary>
-        /// 套接字用于发送/接收消息。
-        /// </summary>
-        internal Socket _clientSocket;
 
         /// <summary>
-        /// 主机网络端点
+        /// 主机网络端点,也就是连接目标
         /// </summary>
         private EndPoint _hostEndPoint;
 
@@ -118,22 +53,14 @@ namespace DNET
         /// </summary>
         private AutoResetEvent _areConnectDone = null;
 
-#if !NEW_EVENT_AEGS
-
         private SocketAsyncEventArgs _sendArgs = null;
+
         private SocketAsyncEventArgs _receiveArgs = null;
-
-        /// <summary>
-        /// 接收的buffer缓冲区
-        /// </summary>
-        private byte[] _receiveBuffer;
-
-#endif
 
         /// <summary>
         /// 带数据管理的新打包器
         /// </summary>
-        internal IPacket3 _packet2;
+        private IPacket3 _packet;
 
         /// <summary>
         /// 待发送数据队列
@@ -153,35 +80,21 @@ namespace DNET
 
         private bool disposed = false;
 
-        #endregion Fields
-
-        #region Property
 
         /// <summary>
         /// 是否已经连接上了服务器
         /// </summary>
-        internal bool IsConnected {
-            get {
-                if (_clientSocket != null) {
-                    return _clientSocket.Connected;
-                }
-                else {
-                    return false;
-                }
-            }
-        }
+        internal bool IsConnected => socket != null && socket.Connected;
 
         /// <summary>
-        /// 得到Socket
+        /// 套接字用于发送/接收消息。
         /// </summary>
-        public Socket socket { get { return _clientSocket; } }
+        public Socket socket { get; private set; }
 
         /// <summary>
         /// 等待发送消息队列长度
         /// </summary>
         public int WaitSendMsgCount => _sendQueue.Count;
-
-        #endregion Property
 
         #region Event
 
@@ -210,12 +123,28 @@ namespace DNET
         #region Exposed Function
 
         /// <summary>
-        /// 添加一个发送数据已经对数据打包了
+        /// 使用数据打包
         /// </summary>
-        /// <param name="byteBuffer"></param>
-        internal void AddSendData(ByteBuffer byteBuffer)
+        /// <param name="data"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <param name="format"></param>
+        /// <param name="txrId"></param>
+        /// <param name="eventType"></param>
+        internal void AddSendData(byte[] data, int offset, int count,
+            Format format = Format.Raw,
+            uint txrId = 0,
+            int eventType = 0)
         {
-            _sendQueue.Enqueue(byteBuffer);
+            if (data == null) {
+                LogProxy.LogWarning("SocketClient.AddSendData(data,offset,count):要发送的数据为null！");
+            }
+            try {
+                ByteBuffer packedData = _packet.Pack(data, offset, count, format, txrId, eventType);
+                _sendQueue.Enqueue(packedData);
+            } catch (Exception e) {
+                LogProxy.LogWarning("SocketClient.AddSendData(p1,p2,p3):异常 " + e.Message);
+            }
         }
 
         /// <summary>
@@ -225,21 +154,20 @@ namespace DNET
         internal List<Message> GetReceiveMessages()
         {
             List<Message> messages = new List<Message>();
-            while (_receQueue.TryDequeue(out var msg)) {
+            while (_receQueue.TryDequeue(out Message msg)) {
                 messages.Add(msg);
             }
             return messages;
         }
 
         /// <summary>
-        /// 重新绑定一个IP地址
+        /// 重新记录一个远程地址,在Connect之前调用.
         /// </summary>
-        /// <param name="hostName"></param>
-        /// <param name="port"></param>
-        internal void Bind(string hostName, int port)
+        /// <param name="hostName">服务器主机</param>
+        /// <param name="port">服务器端口</param>
+        internal void BindRemote(string hostName, int port)
         {
             try {
-                IPHostEntry host;
                 if (Regex.IsMatch(hostName, @"\d{1,3}[.]\d{1,3}[.]\d{1,3}[.]\d{1,3}")) {
                     byte[] ipadr = new byte[4];
 
@@ -252,69 +180,61 @@ namespace DNET
                     this._hostEndPoint = new IPEndPoint(address, port);
                 }
                 else {
-                    host = Dns.GetHostEntry(hostName);
+                    IPHostEntry host = Dns.GetHostEntry(hostName);
                     IPAddress[] addressList = host.AddressList;
 
-                    //实例化 endpoint 和 socket.
+                    // 重新记录连接目标
                     this._hostEndPoint = new IPEndPoint(addressList[addressList.Length - 1], port);
                 }
 
-                //现在有一个内存缓慢增加的问题，这里如此处理之后，未能解决问题。
-                _sendArgs.Dispose();
-                _sendArgs = null;
-                _receiveArgs.Dispose();
-                _receiveArgs = null;
-
-                _clientSocket.Close();
-                this._clientSocket = new Socket(this._hostEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                socket.Close();
+                this.socket = new Socket(this._hostEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
                 //设置这个Timeout应该是无效的(是有效的，必须设置为0，否则自动断线)
-                _clientSocket.SendTimeout = 8 * 1000;
-                _clientSocket.ReceiveTimeout = 0;
+                socket.SendTimeout = 8 * 1000;
+                socket.ReceiveTimeout = 0;
             } catch (Exception e) {
-                LogProxy.LogWarning("SocketClient.Bind():绑定IP地址错误: " + e.Message);
-                return;
+                LogProxy.LogWarning("SocketClient.BindRemote():绑定远程地址地址错误: " + e.Message);
             }
         }
 
         /// <summary>
-        /// 连接到服务器,目前这个连接函数是阻塞的
+        /// 连接到服务器,目前这个连接函数是阻塞的.不过是由Client工作线程执行,所以无所谓.
         /// </summary>
         internal void Connect()
         {
             if (_sendArgs == null) {
                 _sendArgs = new SocketAsyncEventArgs();
                 _sendArgs.UserToken = new ConnectionContext {
-                    socket = this._clientSocket,
+                    socket = this.socket,
                     sendBuffer = null,
                     recvBuffer = null,
                 };
-                //_sendArgs.RemoteEndPoint = null;
-                _sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSendCompleted);
+                _sendArgs.Completed += OnSendCompleted;
             }
 
             if (_receiveArgs == null) {
                 _receiveArgs = new SocketAsyncEventArgs();
-                _receiveArgs.UserToken = new ConnectionContext {
-                    socket = this._clientSocket,
+                ConnectionContext context = new ConnectionContext {
+                    socket = this.socket,
                     sendBuffer = null,
-                    recvBuffer = _receiveBuffer,
+                    recvBuffer = new byte[RECE_BUFFER_SIZE]
                 };
-                _receiveArgs.SetBuffer(_receiveBuffer, 0, _receiveBuffer.Length);
-                _receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceiveCompleted);
+                _receiveArgs.UserToken = context;
+                _receiveArgs.SetBuffer(context.recvBuffer, 0, context.recvBuffer.Length);
+                _receiveArgs.Completed += OnReceiveCompleted;
             }
 
             SocketAsyncEventArgs connectArgs = new SocketAsyncEventArgs(); //创建一个SocketAsyncEventArgs类型
-
             connectArgs.UserToken = new ConnectionContext {
-                socket = this._clientSocket,
+                socket = this.socket,
                 sendBuffer = null,
                 recvBuffer = null,
             };
             connectArgs.RemoteEndPoint = this._hostEndPoint;
-            connectArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnConnectCompleted); //加一个OnConnect来通知这个线程已经完成了
+            connectArgs.Completed += OnConnectCompleted; //加一个OnConnect来通知这个线程已经完成了
 
-            if (!_clientSocket.ConnectAsync(connectArgs)) {
+            if (!socket.ConnectAsync(connectArgs)) {
                 OnConnectCompleted(this, connectArgs);
             }
 
@@ -333,8 +253,16 @@ namespace DNET
         {
             try {
                 if (IsConnected) {
-                    _clientSocket.Shutdown(SocketShutdown.Both);
-                    _clientSocket.Disconnect(false); //不允许重用套接字
+                    socket.Shutdown(SocketShutdown.Both);
+                    socket.Disconnect(false); //不允许重用套接字
+
+                    // 这个在Connect的时候重新new
+                    _sendArgs.Dispose();
+                    _sendArgs.UserToken = null;
+                    _sendArgs = null;
+                    _receiveArgs.Dispose();
+                    _receiveArgs.UserToken = null;
+                    _receiveArgs = null;
                 }
             } catch (Exception e) {
                 LogProxy.LogWarning("SocketClient.Disconnect()：异常 " + e.Message);
@@ -365,7 +293,6 @@ namespace DNET
         internal bool SendData()
         {
             if (IsConnected) {
-#if !NEW_EVENT_AEGS
                 // 尝试获取要发送的,这里应该对所有的数据进行整合然后一次性发送
                 if (_sendQueue.Count == 0) {
                     return false;
@@ -376,37 +303,34 @@ namespace DNET
                     return false;
                 }
 
-
                 // 注意这里一定要全部整合一次性发送.
+                int totalLength = 0;
                 List<ByteBuffer> buffers = new List<ByteBuffer>();
                 while (_sendQueue.TryDequeue(out var sendBuff)) {
                     buffers.Add(sendBuff);
+
+                    // 统计总长度
+                    totalLength += sendBuff.Length;
+                    if (totalLength > 12 * 1024) {
+                        // 最大的buffer是16K,这里差不多12K就停下来算了
+                        break;
+                    }
                 }
                 if (buffers.Count == 0) {
                     return false;
                 }
 
-                // 统计总长度
-                int totalLength = buffers.Sum(x => x.Length);
-                var sendBuffer = GlobalData.Inst.GetBuffer(totalLength);
+                var sendBuffer = GlobalBuffer.Inst.Get(totalLength);
                 for (int i = 0; i < buffers.Count; i++) {
                     sendBuffer.Append(buffers[i]);
                     buffers[i].Recycle();
                 }
 
-
                 ConnectionContext context = _sendArgs.UserToken as ConnectionContext;
                 context.sendBuffer = sendBuffer;
                 _sendArgs.SetBuffer(context.sendBuffer.buffer, 0, context.sendBuffer.Length);
 
-#else
-                SocketAsyncEventArgs sendArgs = new SocketAsyncEventArgs();
-                sendArgs.UserToken = this.clientSocket;
-                sendArgs.RemoteEndPoint = this.hostEndPoint;
-                sendArgs.SetBuffer(data, 0, data.Length);
-                sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
-#endif
-                PrepareSend(_clientSocket, _sendArgs);
+                PrepareSend(socket, _sendArgs);
 
                 return true;
             }
@@ -420,7 +344,14 @@ namespace DNET
         /// </summary>
         internal void Clear()
         {
-            // _dataQueue.Clear();
+            while (_sendQueue.TryDequeue(out var buff)) {
+                buff.Recycle();
+            }
+            while (_receQueue.TryDequeue(out var msg)) {
+            }
+            _packet.Clear();
+
+            EndSend();
         }
 
         #endregion Exposed Function
@@ -430,44 +361,44 @@ namespace DNET
         private void OnConnectCompleted(object sender, SocketAsyncEventArgs args)
         {
             try {
-                // 这种回调是新开了一个线程执行的
-                _areConnectDone.Set();
+                _areConnectDone.Set(); // 通知等待线程连接已完成
 
-                if (IsConnected) {
-                    PrepareReceive(); // 自动开始一个接收
+                if (args.SocketError == SocketError.Success) {
+                    if (IsConnected) {
+                        PrepareReceive(); // 启动接收
+                    }
+                    else {
+                        LogProxy.LogWarning("OnConnectCompleted: IsConnected=false, 但 SocketError.Success");
+                    }
+
+                    EventConnectCompleted?.Invoke();
                 }
                 else {
-                    LogProxy.LogWarning("SocketClient.ProcessConnect():没能自动开始接收 IsConnected = " + IsConnected);
+                    LogProxy.LogWarning($"连接失败: SocketError={args.SocketError}");
+                    // 你可以触发一个连接失败的事件或重试逻辑
                 }
-                if (EventConnectCompleted != null) // 执行事件
-                {
-                    EventConnectCompleted();
-                }
-                args.UserToken = null;// 成功了. 可以不用了.
+
+                args.UserToken = null; // 清理资源
             } catch (Exception e) {
-                LogProxy.LogWarning($"SocketClient.ProcessConnect():异常 {e}");
+                LogProxy.LogWarning($"OnConnectCompleted: 异常 {e}");
             }
         }
 
         private void OnReceiveCompleted(object sender, SocketAsyncEventArgs args)
         {
             try {
-
                 if (args.SocketError != SocketError.Success) {
                     this.ProcessError(args);
                 }
                 if (args.BytesTransferred > 0) //有可能会出现接收到的数据长度为0的情形，如当服务器关闭连接的时候
                 {
                     //写入当前接收的数据
-                    var msgs = _packet2.Unpack(args.Buffer, args.Offset, args.BytesTransferred);
+                    var msgs = _packet.Unpack(args.Buffer, args.Offset, args.BytesTransferred);
                     if (msgs != null) {
-                        msgs.ForEach(msg => {
-                            _receQueue.Enqueue(msg);
-                        });
+                        msgs.ForEach(msg => { _receQueue.Enqueue(msg); });
                     }
                     int msgCount = msgs == null ? 0 : msgs.Count;
 
-                    //int msgCount = _packet2.AddRece(args.Buffer, args.Offset, args.BytesTransferred);
                     //如果确实收到了一条消息.执行事件
                     if (msgCount > 0 && EventReceiveCompleted != null) {
                         EventReceiveCompleted();
@@ -495,7 +426,6 @@ namespace DNET
                 ConnectionContext context = args.UserToken as ConnectionContext;
                 context?.sendBuffer?.Recycle();
 
-
                 //执行事件,这是.net池的线程,这个事件中如果再执行SendData()
                 if (EventSendCompleted != null) {
                     EventSendCompleted();
@@ -504,7 +434,6 @@ namespace DNET
                 // 继续发送下一条数据
                 if (_sendQueue.Count > 0)
                     SendData();
-
             } catch (Exception e) {
                 LogProxy.LogWarning($"SocketClient.OnSendCompleted(): {e}");
             }
@@ -573,26 +502,17 @@ namespace DNET
         {
             try {
                 //这里是需要的，否则在断线之后仍然可能不停的接收
-                if (!_clientSocket.Connected) //如果当前没有连接上，就不接收了
+                if (!socket.Connected) //如果当前没有连接上，就不接收了
                 {
                     return;
                 }
 
-#if !NEW_EVENT_AEGS
-                _receiveArgs.SetBuffer(_receiveBuffer, 0, _receiveBuffer.Length);
-#else
-            SocketAsyncEventArgs receiveArgs = new SocketAsyncEventArgs();
-            receiveArgs.UserToken = this.clientSocket;
-            receiveArgs.RemoteEndPoint = this.hostEndPoint;
-            byte[] receiveBuffer = new byte[2048]; //接收buffer大小为2048;
-            receiveArgs.SetBuffer(receiveBuffer, 0, receiveBuffer.Length);
-            receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceive);
-#endif
-                if (!_clientSocket.ReceiveAsync(_receiveArgs)) //开始接收
-                {
+                // _receiveArgs.SetBuffer(_receiveBuffer, 0, _receiveBuffer.Length);
+
+                //开始接收
+                if (!socket.ReceiveAsync(_receiveArgs)) {
                     OnReceiveCompleted(this, _receiveArgs);
                 }
-
             } catch (Exception e) {
                 LogProxy.LogWarning("SocketClient.PrepareReceive() 开始异步接收错误：" + e.Message);
                 //这里捕获过的异常有：
@@ -633,14 +553,15 @@ namespace DNET
                 if (this._sendArgs != null) {
                     _sendArgs.UserToken = null;
                     _sendArgs.Dispose();
-
+                    _sendArgs = null;
                 }
                 if (this._receiveArgs != null) {
                     _sendArgs.UserToken = null;
                     _receiveArgs.Dispose();
+                    _receiveArgs = null;
                 }
-                if (this._clientSocket != null) {
-                    this._clientSocket.Close();
+                if (this.socket != null) {
+                    this.socket.Close();
                 }
 
                 _areConnectDone.Close();
