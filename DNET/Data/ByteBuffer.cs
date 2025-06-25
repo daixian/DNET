@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace DNET
@@ -49,7 +50,7 @@ namespace DNET
         public void Clear() => _length = 0;
 
         /// <summary>
-        /// 转为byte[].
+        /// 转为byte[],进行一次拷贝.
         /// </summary>
         /// <returns></returns>
         public byte[] ToArray()
@@ -64,8 +65,12 @@ namespace DNET
         /// </summary>
         public void Recycle()
         {
-            if (_bufferPool != null)
+            if (_bufferPool != null) {
                 _bufferPool.Recycle(this);
+            }
+            //else {
+            //    _buffer = null;
+            //}
 
             _length = 0;
         }

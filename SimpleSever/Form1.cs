@@ -34,17 +34,17 @@ namespace SimpleSever
 
         private void OnTokenReceData(Peer peer)
         {
-            byte[][] datas = peer.GetReceiveData();
+            var datas = peer.GetReceiveData();
             if (datas == null) {
                 return;
             }
 
-            for (int i = 0; i < datas.Length; i++) {
-                byte[] data = datas[i];
+            for (int i = 0; i < datas.Count; i++) {
+                var msg = datas[i];
                 if (isReSend) //如果CheckBox选择了要回发
                 {
                     //直接回发
-                    DNServer.Inst.Send(peer, data);
+                    DNServer.Inst.Send(peer, msg.data);
                 }
                 //得到消息类型然后处理
                 //int pType = BitConverter.ToInt32(data, 0);

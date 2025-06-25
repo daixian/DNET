@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using DNET.Protocol;
 
 namespace DNET
 {
@@ -30,9 +33,9 @@ namespace DNET
 
             ReceiveBuffer = new byte[receiveBufferSize];
 
-            _sendQueue = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
-            _receiveQueue = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
-            _reserveQueuePacked = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
+            //_sendQueue = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
+            //_receiveQueue = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
+            //_reserveQueuePacked = new BytesQueue(int.MaxValue, MAX_BYTES_SIZE, 256);
 
             LastMsgReceTickTime = DateTime.Now.Ticks;
             LastMsgSendTickTime = DateTime.Now.Ticks;
@@ -87,27 +90,22 @@ namespace DNET
         /// <summary>
         /// 要发送的数据队列（逻辑部分，已经预打包）
         /// </summary>
-        private BytesQueue _sendQueue;
+        ConcurrentQueue<ByteBuffer> _sendQueue = new ConcurrentQueue<ByteBuffer>();
 
         /// <summary>
         /// 接收到的数据队列（对应逻辑部分，已解包）
         /// </summary>
-        private BytesQueue _receiveQueue;
+        ConcurrentQueue<Message> _receiveQueue = new ConcurrentQueue<Message>();
 
         /// <summary>
         /// 当前接收到的还未解包的数据
         /// </summary>
-        private BytesQueue _reserveQueuePacked;
+        private ConcurrentQueue<ByteBuffer> _reserveQueuePacked = new ConcurrentQueue<ByteBuffer>();
 
         /// <summary>
         /// ReserveData的锁
         /// </summary>
         private object _lockReserveData = new object();
-
-        /// <summary>
-        /// 当前还未处理的接收消息缓存
-        /// </summary>
-        private byte[] _reserveData;
 
         /// <summary>
         /// 当前异步发送计数
@@ -170,7 +168,7 @@ namespace DNET
         /// <summary>
         /// 未解包的发送队列的长度
         /// </summary>
-        public int SendQueueCount { get { return _sendQueue.Count; } }
+        public int WaitSendMsgCount { get { return _sendQueue.Count; } }
 
         /// <summary>
         /// 接收队列的长度
@@ -200,6 +198,16 @@ namespace DNET
 
         internal SocketAsyncEventArgs ReceiveArgs { get { return _receiveArgs; } private set { _receiveArgs = value; } }
 
+        /// <summary>
+        /// 发送队列
+        /// </summary>
+        internal ConcurrentQueue<ByteBuffer> waitSendQueue => _sendQueue;
+
+        /// <summary>
+        /// 正在发送的ByteBuffer
+        /// </summary>
+        internal ByteBuffer sendingByteBuffer { get; set; }
+
         #endregion Property
 
         #region Exposed Function
@@ -208,18 +216,13 @@ namespace DNET
         ///面向逻辑层，获取目前所有的已接收的数据(已解包)，返回byte[][]的形式,没有则返回null
         /// </summary>
         /// <returns>已接收的byte[]数据,没有则返回null</returns>
-        public byte[][] GetReceiveData()
+        public List<Message> GetReceiveData()
         {
-            return _receiveQueue.GetData();
-        }
-
-        /// <summary>
-        /// 面向逻辑层，获取目前所有的已接收的数据文本(已解包)，返回string[]的形式,没有则返回null
-        /// </summary>
-        /// <returns>已接收的string[]文本数据,没有则返回null</returns>
-        public string[] GetReceiveText()
-        {
-            return _receiveQueue.GetText();
+            List<Message> messages = new List<Message>();
+            while (_receiveQueue.TryDequeue(out var msg)) {
+                messages.Add(msg);
+            }
+            return messages;
         }
 
         /// <summary>
@@ -231,11 +234,12 @@ namespace DNET
         /// <param name="length">数据长度</param>
         public void AddSendData(byte[] data, int index, int length)
         {
-            IPacket packet = DNServer.Inst.Packet;
-            //进行预打包然后加入到队列
-            if (!_sendQueue.EnqueueMaxLimit(packet.PrePack(data, index, length))) {
-                LogProxy.LogWarning("Token.AddSendData():要发送的数据队列 丢弃了一段数据");
-            }
+            IPacket3 packet = DNServer.Inst.Packet;
+            // 进行预打包然后加入到队列
+            _sendQueue.Enqueue(packet.Pack(data, index, length, Format.Raw, 0, 0));
+
+            // TODO: 判断发送队列长度，如果超出最大限制，则进行丢弃
+            // LogProxy.LogWarning("Token.AddSendData():要发送的数据队列 丢弃了一段数据"); 
         }
 
         /// <summary>
@@ -254,91 +258,52 @@ namespace DNET
         /// 记录下从客户端的接收到的未解包数据
         /// </summary>
         /// <param name="args"></param>
-        internal void SetData(SocketAsyncEventArgs args)
+        internal void SetReceiveData(SocketAsyncEventArgs args)
         {
             int count = args.BytesTransferred;
 
-            byte[] receDate = new byte[count];
-            Buffer.BlockCopy(args.Buffer, args.Offset, receDate, 0, count);
-
-            if (!_reserveQueuePacked.EnqueueMaxLimit(receDate)) {
-                LogProxy.LogWarning("Token.SetData():接收的还未解包的数据队列 丢弃了一段数据");
-            }
+            var receDate = GlobalData.Inst.GetBuffer(args.BytesTransferred);
+            receDate.Write(args.Buffer, args.Offset, args.BytesTransferred);
+            //Buffer.BlockCopy(args.Buffer, args.Offset, receDate.buffer, 0, count);
+            _reserveQueuePacked.Enqueue(receDate);
+            //if (!) {
+            //    LogProxy.LogWarning("Token.SetData():接收的还未解包的数据队列 丢弃了一段数据");
+            //}
         }
 
         /// <summary>
         /// 解包当前已经接收到的原始数据，结果存放进了已接收消息队列, 返回true如果接收到了消息.
         /// </summary>
         /// <param name="packeter"> 打包方法. </param>
-        /// <param name="length">   [out] 接收到数据长度. </param>
+        /// <param name="bytesLen">   [out] 接收到数据长度. </param>
         ///
         /// <returns> 解包出来的消息条数(注意不是长度). </returns>
-        internal int UnpackReceiveData(IPacket packeter, out int length)
+        internal int UnpackReceiveData(IPacket3 packeter, out int bytesLen)
         {
             lock (this._lockReserveData) {
-                //拼接所有的已接受数据
-                byte[] alldata = _reserveQueuePacked.GetDataOnce(_reserveData);
-                _reserveData = null; //清空已经无用的_reserveData
-                if (alldata == null) {
-                    length = 0; //长度为0
-                    //这个情形在客户端狂发速度过快的时候容易出现，但是不影响接收，所以去掉这个日志
-                    //DxDebug.LogWarning("Token.UnpackReceiveData(): alldata为null！");
-                    return 0;
-                }
-                length = alldata.Length; //传出这个数据长度
-                FindPacketResult findPacketResult = packeter.FindPacket(alldata, 0); //解包
-                _reserveData = findPacketResult.reserveData; //更新reserveData
-                if (findPacketResult.dataArr != null) //将结果加入队列
-                {
-                    //记录下一共找到的有效消息条数
-                    int msgCount = findPacketResult.dataArr.Length;
 
-                    for (int i = 0; i < findPacketResult.dataArr.Length; i++) //结果是一个消息数组
-                    {
-                        byte[] data = findPacketResult.dataArr[i];
-                        if (data == null) {
-                            //这里是否会频繁发生？
-                            LogProxy.LogWarning("Token.UnpackReceiveData(): 结果中的data为null！");
-                            break;
-                        }
-                        //如果不是心跳包才加入接收消息队列
-                        if (!Config.CompareHeartBeat(findPacketResult.dataArr[i])) //Config中的静态函数判断
-                        {
-                            if (!_receiveQueue.EnqueueMaxLimit(findPacketResult.dataArr[i])) {
-                                LogProxy.LogWarning("Peer.UnpackReceiveData():接收已解包的数据队列 丢弃了一段数据");
+                // 解包所有的数据
+                bytesLen = 0;
+                int count = 0;
+                foreach (var item in _reserveQueuePacked) {
+                    bytesLen += item.Length;// 顺便记录一个接收到的数据长度
+
+                    var msgs = packeter.Unpack(item.buffer, 0, item.Length);
+                    if (msgs != null && msgs.Count > 0) {
+                        LastMsgReceTickTime = DateTime.Now.Ticks; //记录最近一次接收到消息的时间
+                        foreach (var msg in msgs) {
+                            if (msg.header.format == Format.Heart) {
+                                LogProxy.LogDebug("Peer.UnpackReceiveData():接收到了心跳包 TokenID:" + this.ID);
+                            }
+                            else {
+                                _receiveQueue.Enqueue(msg);
+                                count++;
                             }
                         }
-                        else {
-                            LogProxy.LogDebug("Peer.UnpackReceiveData():接收到了心跳包 TokenID:" + this.ID);
-                        }
                     }
-                    LastMsgReceTickTime = DateTime.Now.Ticks; //记录最近一次接收到消息的时间
-                    //DxDebug.Log("某个token接收到了 " + findPacketResult.data.Length + "条消息");
-
-                    return msgCount;
                 }
-                else {
-                    LogProxy.LogWarning("Peer.UnpackReceiveData():接收到数据，经过FindPacket(),但是没有找到有效消息！");
-                    return 0;
-                }
+                return count;
             }
-        }
-
-        /// <summary>
-        /// 打包并整合所有要发送的数据,从一个未打包队列里提取然后完成打包，之后直接传出
-        /// </summary>
-        /// <param name="packeter"></param>
-        internal byte[] PackSendData(IPacket packeter)
-        {
-            byte[][] datas = _sendQueue.GetData(); //这里的数据应该已经是预打包数据
-            if (datas != null) {
-                for (int i = 0; i < datas.Length; i++) {
-                    datas[i] = packeter.CompletePack(datas[i]); //完成数据打包
-                }
-                byte[] SeriesData = BytesQueue.BytesArrayToBytes(datas);
-                return SeriesData;
-            }
-            return null;
         }
 
         /// <summary>

@@ -11,12 +11,13 @@ namespace DNET.Protocol
         /// 打包数据
         /// </summary>
         /// <param name="data">要打包的数据</param>
+        /// <param name="offset"></param>
         /// <param name="length">数据长度</param> 
         /// <param name="format">数据实际格式</param>
         /// <param name="txrId">事务ID，用于标识本次通信的事务序号</param>
         /// <param name="eventType">事件类型，表示当前通信事件的类别</param>
         /// <returns>打包数据结果</returns>
-        ByteBuffer Pack(byte[] data, int length, Format format, uint txrId, int eventType);
+        ByteBuffer Pack(byte[] data, int offset, int length, Format format, uint txrId, int eventType);
 
         /// <summary>
         /// 直接打包一个 Message
@@ -29,9 +30,15 @@ namespace DNET.Protocol
         /// 持续的解包数据
         /// </summary>
         /// <param name="receBuff">接收数据缓冲区</param>
+        /// <param name="offset">接收数据缓冲区起始</param>
         /// <param name="length">数据长度</param> 
         /// <returns>解析到的完整数据包数量</returns>
-        List<Message> Unpack(byte[] receBuff, int length);
+        List<Message> Unpack(byte[] receBuff, int offset, int length);
+
+        /// <summary>
+        /// 清理数据
+        /// </summary>
+        void Clear();
 
         /// <summary>
         /// 当前是否有不完整的解析数据缓存着

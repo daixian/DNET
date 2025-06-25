@@ -20,5 +20,20 @@ namespace DNET.Protocol
         /// 数据
         /// </summary>
         public byte[] data;
+
+        /// <summary>
+        /// 事务ID
+        /// </summary>
+        public uint TxrId => header.txrId;
+
+        /// <summary>
+        /// 事件类型
+        /// </summary>
+        public int EventType => header.eventType;
+
+        /// <summary>
+        /// 数据长度
+        /// </summary>
+        public uint Length => header.dataLen;
     }
 }

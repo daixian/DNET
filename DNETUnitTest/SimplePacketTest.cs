@@ -34,7 +34,7 @@ namespace DNETUnitTest
             Assert.IsTrue(packedBuffer.Length > 0);
 
             // 测试 Unpack
-            List<Message> unpackedMessages = packet.Unpack(packedBuffer.buffer, packedBuffer.Length);
+            List<Message> unpackedMessages = packet.Unpack(packedBuffer.buffer, 0, packedBuffer.Length);
             Assert.IsNotNull(unpackedMessages);
             Assert.AreEqual(1, unpackedMessages.Count);
 
@@ -84,7 +84,7 @@ namespace DNETUnitTest
                 byte[] oneByte = new byte[1] { fullBuffer[i] };
 
                 // Unpack 返回可能的消息集合（可能空，因为数据不完整）
-                var msgs = packet.Unpack(oneByte, 1);
+                var msgs = packet.Unpack(oneByte, 0, 1);
 
                 if (msgs != null && msgs.Count > 0) {
                     totalMessages.AddRange(msgs);

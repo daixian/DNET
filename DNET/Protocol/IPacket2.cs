@@ -23,11 +23,6 @@
         int WriteSendDataToBuffer(byte[] sendBuff, int sendBuffOffset, int sendCount);
 
         /// <summary>
-        /// 当前的待发送数据长度.(一般不用)
-        /// </summary>
-        int SendDataLength { get; }
-
-        /// <summary>
         /// 当前待发消息条数，程序会使用这个来判断当前是否还有未发送的数据
         /// </summary>
         int SendMsgCount { get; }

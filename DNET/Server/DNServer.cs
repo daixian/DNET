@@ -5,6 +5,7 @@ using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using DNET.Protocol;
 
 #if Multitask
 using System.Threading.Tasks;
@@ -31,7 +32,7 @@ namespace DNET
             //}
 
             //_packet = new DPacketNoCrc();
-            _packet = new FastPacket();
+            _packet = new SimplePacket();
 
             ServerTimer.GetInstance().Start();
 
@@ -127,7 +128,7 @@ namespace DNET
         /// <summary>
         /// 打包解包器
         /// </summary>
-        private IPacket _packet;
+        private IPacket3 _packet;
 
         /// <summary>
         /// CPU消耗时间计算，目前没有开启
@@ -170,7 +171,7 @@ namespace DNET
         /// <summary>
         /// 打包方法
         /// </summary>
-        public IPacket Packet { get { return _packet; } set { _packet = value; } }
+        public IPacket3 Packet { get { return _packet; } set { _packet = value; } }
 
         /// <summary>
         /// 通信库所使用的临时文件工作目录,是绝对路径。这个目录是由SetDirCache()函数设置的
@@ -482,13 +483,10 @@ namespace DNET
                 }
                 //DxDebug.Log("DoSend : ID号 " + token.ID + "  当前的SendingCount  " + token.SendingCount);
                 if (peer.SendingCount < MAX_TOKEN_SENDING_COUNT) {
-                    int msgCount = peer.SendQueueCount;
-                    byte[] data = peer.PackSendData(_packet); //打包发送
-                    if (data != null) {
-                        Interlocked.Add(ref Status.CountSend, msgCount); //状态统计发送递增
-                        Interlocked.Add(ref Status.CountSendBytes, data.Length); //状态统计递增发送数据长度
-
-                        _socketListener.Send(peer, data);
+                    if (peer.WaitSendMsgCount > 0) {
+                        int sendByteLen = _socketListener.Send(peer);
+                        Interlocked.Add(ref Status.CountSend, 1); //状态统计发送递增
+                        Interlocked.Add(ref Status.CountSendBytes, sendByteLen); //状态统计递增发送数据长度 
                     }
                 }
                 else //如果当前正在发送，那么这次发送完成之后，会自动的开始下一次发送：OnSend()函数
@@ -514,12 +512,10 @@ namespace DNET
                     Peer peer = tokens[i];
                     //DxDebug.Log("DoSend : ID号 " + token.ID + "  当前的SendingCount  " + token.SendingCount);
                     if (peer.SendingCount < MAX_TOKEN_SENDING_COUNT) {
-                        int msgCount = peer.SendQueueCount;
-                        byte[] data = peer.PackSendData(_packet); //打包发送
-                        if (data != null) {
-                            Interlocked.Add(ref Status.CountSend, msgCount); //状态统计发送递增
-                            Interlocked.Add(ref Status.CountSendBytes, data.Length); //状态统计递增发送数据长度
-                            _socketListener.Send(peer, data);
+                        if (peer.WaitSendMsgCount > 0) {
+                            int sendByteLen = _socketListener.Send(peer);
+                            Interlocked.Add(ref Status.CountSend, 1); //状态统计发送递增
+                            Interlocked.Add(ref Status.CountSendBytes, sendByteLen); //状态统计递增发送数据长度 
                         }
                     }
                     else //如果当前正在发送，那么这次发送完成之后，会自动的开始下一次发送：OnSend()函数
@@ -533,17 +529,15 @@ namespace DNET
 
         private void DoReceive(NetWorkTaskArgs args)
         {
-            string debugStr = "";
+
             try {
                 Peer peer = args.peer;
                 if (peer != null) {
-                    int length;
-                    debugStr = "开始执行token.UnpackReceiveData(_packet, out length);\r\n";
-                    int msgCount = peer.UnpackReceiveData(_packet, out length);
-                    debugStr = "执行token.UnpackReceiveData(_packet, out length)完毕!\r\n";
+
+                    int bytesLen = 0;
+                    int msgCount = peer.UnpackReceiveData(_packet, out bytesLen);
                     if (msgCount > 0) //解包有数据
                     {
-                        debugStr = "开始执行状态统计递增一条记录\r\n";
                         Interlocked.Add(ref Status.CountReceive, msgCount); //状态统计递增一条记录
 
                         if (EventPeerReceData != null) //发出事件：有收到客户端消息
@@ -555,11 +549,10 @@ namespace DNET
                             }
                         }
                     }
-                    debugStr = "开始执行状态统计递增接收数据长度\r\n";
-                    Interlocked.Add(ref Status.CountReceiveBytes, length); //状态统计递增接收数据长度
+                    Interlocked.Add(ref Status.CountReceiveBytes, bytesLen); //状态统计递增接收数据长度
                 }
             } catch (Exception e) {
-                LogProxy.LogWarning("DNServer.DoReceive()：异常 " + e.Message + "debugStr=" + debugStr);
+                LogProxy.LogWarning($"DNServer.DoReceive()：异常 {e}");
             }
         }
 
@@ -587,7 +580,7 @@ namespace DNET
 
         private void OnSend(Peer peer)
         {
-            if (peer.SendQueueCount > 0) //如果待发送队列里有消息这里应该不需要这个判断了token.SendingCount < MAX_TOKEN_SENDING_COUNT &&
+            if (peer.WaitSendMsgCount > 0) //如果待发送队列里有消息这里应该不需要这个判断了token.SendingCount < MAX_TOKEN_SENDING_COUNT &&
             {
                 //DxDebug.Log("OnSend 信号量： 发送");
                 NetWorkTaskArgs msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.S_Send, null, peer.ID);

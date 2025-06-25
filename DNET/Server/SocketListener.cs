@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
@@ -145,18 +147,42 @@ namespace DNET
         /// <summary>
         /// 由Socket开始一个异步发送
         /// </summary>
-        /// <param name="peer"></param>
-        /// <param name="data"></param>
-        internal void Send(Peer peer, byte[] data)
+        /// <param name="peer"></param> 
+        internal int Send(Peer peer)
         {
             int errorCount = 0;
+            int byteLen = 0;
             try {
                 if (peer.disposed == false) //如果这个token已经被释放，那就不要再发送了
                 {
+                    if (peer.waitSendQueue.Count == 0) {
+                        return byteLen;
+                    }
+
                     peer.IncrementSendingCount(); //计数递增：这里需要及早标记，否则多线程调用SocketAsyncEventArgs会异常。
 
                     SocketAsyncEventArgs sendEventArgs = peer.SendArgs;
-                    sendEventArgs.SetBuffer(data, 0, data.Length);
+
+                    // 取出所有待发送的数据
+                    List<ByteBuffer> buffers = new List<ByteBuffer>();
+                    while (peer.waitSendQueue.TryDequeue(out var sendBuff)) {
+                        buffers.Add(sendBuff);
+                    }
+                    if (buffers.Count == 0) {
+                        return byteLen;
+                    }
+
+                    // 统计总长度
+                    int totalLength = buffers.Sum(x => x.Length);
+                    var sendBuffer = GlobalData.Inst.GetBuffer(totalLength);
+                    for (int i = 0; i < buffers.Count; i++) {
+                        sendBuffer.Append(buffers[i]);
+                        buffers[i].Recycle();
+                    }
+
+                    peer.sendingByteBuffer = sendBuffer;
+                    sendEventArgs.SetBuffer(sendBuffer.buffer, 0, sendBuffer.Length);
+                    byteLen += sendBuffer.Length;
 
                     //这里这个有可能会出现异常:"现在已经正在使用此 SocketAsyncEventArgs 实例进行异步套接字操作。
                     //所以这句可能要加锁
@@ -168,12 +194,13 @@ namespace DNET
             } catch (Exception e) {
                 errorCount++;
                 LogProxy.LogWarning("SocketListener.Send()：异常:" + e.Message);
-                peer.DecrementSendingCount(); //直接异常了就去掉这个计数递减
-                if (errorCount <= 2) {
-                    LogProxy.LogDebug("SocketListener.Send()尝试自动重试！errorCount=" + errorCount);
-                    Send(peer, data);
-                }
+                //peer.DecrementSendingCount(); //直接异常了就去掉这个计数递减
+                //if (errorCount <= 2) {
+                //    LogProxy.LogDebug("SocketListener.Send()尝试自动重试！errorCount=" + errorCount);
+                //    Send(peer);
+                //}
             }
+            return byteLen;
         }
 
         #endregion Exposed Function
@@ -262,7 +289,7 @@ namespace DNET
                 if (e.BytesTransferred > 0) {
                     if (e.SocketError == SocketError.Success) {
                         Peer peer = e.UserToken as Peer;
-                        peer.SetData(e);
+                        peer.SetReceiveData(e);
 
                         /* Socket s = token.socket;
                          if (s.Available == 0)
@@ -311,10 +338,15 @@ namespace DNET
             try {
                 if (e.SocketError == SocketError.Success) {
                     Peer peer = e.UserToken as Peer; //获取token
+                    peer.sendingByteBuffer?.Recycle();
                     peer.DecrementSendingCount(); //计数递减
-                    if (EventSend != null) //产生发送完成事件
-                    {
+                    if (EventSend != null) {
+                        //产生发送完成事件
                         EventSend(peer);
+                    }
+
+                    if (peer.WaitSendMsgCount > 0) {
+                        Send(peer);//自动启动发送下一个
                     }
                 }
                 else {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -16,22 +17,26 @@ namespace DNET.Protocol
         private const int MAX_ALLOWED_SIZE = 10 * 1024 * 1024;
 
         // 接收缓冲区
-        private readonly List<byte> _unpackBuff = new List<byte>();
+        private readonly UnsafeByteBuffer _unpackBuff = new UnsafeByteBuffer(4096);
 
+        /// <summary>
+        /// 由于Pack接口的传出都是ByteBuffer，所以这里用一个池存起来
+        /// </summary>
         private ByteBufferPool _pool = new ByteBufferPool(2048);
 
         /// <summary>
         /// 打包数据
         /// </summary>
         /// <param name="data">要打包的数据</param>
+        /// <param name="offset"></param>
         /// <param name="length">数据长度</param> 
         /// <param name="format">数据实际格式</param>
         /// <param name="txrId">事务ID，用于标识本次通信的事务序号</param>
         /// <param name="eventType">事件类型，表示当前通信事件的类别</param>
         /// <returns>打包数据结果</returns>
-        public ByteBuffer Pack(byte[] data, int length, Format format, uint txrId, int eventType)
+        public ByteBuffer Pack(byte[] data, int offset, int length, Format format, uint txrId, int eventType)
         {
-            if (data == null || length < 0 || length > data.Length)
+            if (data == null || length < 0 || offset + length > data.Length)
                 throw new ArgumentException("Invalid data length");
 
             int headerSize = Marshal.SizeOf<Header>();
@@ -46,7 +51,7 @@ namespace DNET.Protocol
                 eventType = eventType
             };
             header.WriteToByteBuffer(result);
-            result.Append(data, 0, data.Length);
+            result.Append(data, offset, data.Length);
             return result;
         }
 
@@ -68,20 +73,20 @@ namespace DNET.Protocol
         /// 持续的解包数据
         /// </summary>
         /// <param name="receBuff">接收数据缓冲区</param>
+        /// <param name="offset">接收数据缓冲区起始</param>
         /// <param name="length">数据长度</param> 
         /// <returns>解析到的完整数据包数量</returns>
-        public List<Message> Unpack(byte[] receBuff, int length)
+        public List<Message> Unpack(byte[] receBuff, int offset, int length)
         {
-            if (receBuff == null || length < 0 || length > receBuff.Length)
+            if (receBuff == null || length < 0 || offset + length > receBuff.Length)
                 throw new ArgumentException("Invalid data length");
 
             List<Message> messages = new List<Message>();
 
 
-            // 添加数据到缓存（兼容.NET 4.6.2）
-            for (int i = 0; i < length; i++) {
-                _unpackBuff.Add(receBuff[i]);
-            }
+            // 添加数据到缓存（兼容.NET 4.6.2） 
+            _unpackBuff.Append(receBuff, offset, length);
+
             int headerSize = Marshal.SizeOf<Header>();
 
             while (true) {
@@ -92,9 +97,9 @@ namespace DNET.Protocol
                     break;
 
                 // 读取头部时，只拿 _unpackBuff 前 headerSize 字节
-                byte[] headerBytes = _unpackBuff.GetRange(0, headerSize).ToArray();
+                //byte[] headerBytes = _unpackBuff.GetRange(0, headerSize).ToArray();
 
-                Header header = BytesToStruct<Header>(headerBytes);
+                Header header = _unpackBuff.Read<Header>(0);    //BytesToStruct<Header>(headerBytes);
 
                 if (header.magic != MAGIC) {
                     // 魔数错，清空缓存避免死循环
@@ -114,39 +119,42 @@ namespace DNET.Protocol
                 // 解析数据体
                 Message msg = new Message {
                     header = header,
-                    data = _unpackBuff.GetRange(headerSize, (int)header.dataLen).ToArray()
+                    data = _unpackBuff.ToArray(headerSize, (int)header.dataLen)
                 };
 
                 messages.Add(msg);
 
                 // 移除已消费数据
-                _unpackBuff.RemoveRange(0, totalLen);
+                _unpackBuff.Erase(0, totalLen);
             }
 
             return messages;
         }
 
+        /// <summary>
+        /// 当前是否有不完整的解析数据缓存着
+        /// </summary>
         public bool IsUnpackCached => _unpackBuff.Count > 0;
 
         /// <summary>
         /// 同步到魔数位置
         /// </summary>
         /// <returns></returns>
-        private bool TrySyncToMagic()
+        private unsafe bool TrySyncToMagic()
         {
             byte[] magicBytes = BitConverter.GetBytes(MAGIC); // 小端
 
             for (int i = 0; i + magicBytes.Length <= _unpackBuff.Count; i++) {
                 bool found = true;
                 for (int j = 0; j < magicBytes.Length; j++) {
-                    if (_unpackBuff[i + j] != magicBytes[j]) {
+                    if (_unpackBuff.Ptr[i + j] != magicBytes[j]) {
                         found = false;
                         break;
                     }
                 }
                 if (found) {
                     if (i > 0) {
-                        _unpackBuff.RemoveRange(0, i);
+                        _unpackBuff.Erase(0, i);
                     }
                     return true;
                 }
@@ -155,29 +163,14 @@ namespace DNET.Protocol
             // 没找到魔数，保留最后几个字节以备拼接
             int keep = Math.Min(3, _unpackBuff.Count);
             if (_unpackBuff.Count > keep) {
-                _unpackBuff.RemoveRange(0, _unpackBuff.Count - keep);
+                _unpackBuff.Erase(0, _unpackBuff.Count - keep);
             }
             return false;
         }
 
-
-
-        // 字节数组转结构体
-        private static T BytesToStruct<T>(byte[] arr) where T : struct
+        void IPacket3.Clear()
         {
-            T str;
-            int size = Marshal.SizeOf<T>();
-            if (arr.Length < size)
-                throw new ArgumentException("Byte array too small for struct");
-
-            IntPtr ptr = Marshal.AllocHGlobal(size);
-            try {
-                Marshal.Copy(arr, 0, ptr, size);
-                str = Marshal.PtrToStructure<T>(ptr);
-            } finally {
-                Marshal.FreeHGlobal(ptr);
-            }
-            return str;
+            _unpackBuff.Clear();
         }
     }
 
