@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using DNET.Protocol;
@@ -6,10 +6,10 @@ using DNET;
 
 namespace DNETUnitTest
 {
-    [TestClass]
+    [TestFixture]
     public class SimplePacketTest
     {
-        [TestMethod]
+        [Test]
         public void TestMethod_SimplePacket1()
         {
             var packet = new SimplePacket();
@@ -30,31 +30,30 @@ namespace DNETUnitTest
             // 测试 Pack
             ByteBuffer packedBuffer = packet.Pack(msg);
 
-            Assert.IsNotNull(packedBuffer);
-            Assert.IsTrue(packedBuffer.Length > 0);
+            Assert.That(packedBuffer, Is.Not.Null);
+            Assert.That(packedBuffer.Length, Is.GreaterThan(0));
 
             // 测试 Unpack
             List<Message> unpackedMessages = packet.Unpack(packedBuffer.buffer, 0, packedBuffer.Length);
-            Assert.IsNotNull(unpackedMessages);
-            Assert.AreEqual(1, unpackedMessages.Count);
+            Assert.That(unpackedMessages, Is.Not.Null);
+            Assert.That(unpackedMessages.Count, Is.EqualTo(1));
 
             var unpackedMsg = unpackedMessages[0];
-            Assert.AreEqual(header.magic, unpackedMsg.header.magic);
-            Assert.AreEqual(header.format, unpackedMsg.header.format);
-            Assert.AreEqual(header.txrId, unpackedMsg.header.txrId);
-            Assert.AreEqual(header.eventType, unpackedMsg.header.eventType);
-            Assert.AreEqual(header.dataLen, unpackedMsg.header.dataLen);
+            Assert.That(unpackedMsg.header.magic, Is.EqualTo(header.magic));
+            Assert.That(unpackedMsg.header.format, Is.EqualTo(header.format));
+            Assert.That(unpackedMsg.header.txrId, Is.EqualTo(header.txrId));
+            Assert.That(unpackedMsg.header.eventType, Is.EqualTo(header.eventType));
+            Assert.That(unpackedMsg.header.dataLen, Is.EqualTo(header.dataLen));
 
             string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data);
-            Assert.AreEqual("Hello, SimplePacket!", unpackedString);
+            Assert.That(unpackedString, Is.EqualTo("Hello, SimplePacket!"));
 
             // 释放 ByteBuffer 资源（如果需要）
             packedBuffer.Recycle();
         }
 
 
-
-        [TestMethod]
+        [Test]
         public void TestMethod_SimplePacket_IncrementalUnpack()
         {
             var packet = new SimplePacket();
@@ -92,20 +91,19 @@ namespace DNETUnitTest
             }
 
             // 断言最终收到了1条完整消息
-            Assert.AreEqual(1, totalMessages.Count);
+            Assert.That(totalMessages.Count, Is.EqualTo(1));
 
             var unpackedMsg = totalMessages[0];
-            Assert.AreEqual(header.magic, unpackedMsg.header.magic);
-            Assert.AreEqual(header.format, unpackedMsg.header.format);
-            Assert.AreEqual(header.txrId, unpackedMsg.header.txrId);
-            Assert.AreEqual(header.eventType, unpackedMsg.header.eventType);
-            Assert.AreEqual(header.dataLen, unpackedMsg.header.dataLen);
+            Assert.That(unpackedMsg.header.magic, Is.EqualTo(header.magic));
+            Assert.That(unpackedMsg.header.format, Is.EqualTo(header.format));
+            Assert.That(unpackedMsg.header.txrId, Is.EqualTo(header.txrId));
+            Assert.That(unpackedMsg.header.eventType, Is.EqualTo(header.eventType));
+            Assert.That(unpackedMsg.header.dataLen, Is.EqualTo(header.dataLen));
 
             string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data);
-            Assert.AreEqual("Hello, SimplePacket!", unpackedString);
+            Assert.That(unpackedString, Is.EqualTo("Hello, SimplePacket!"));
 
             packedBuffer.Recycle();
         }
-
     }
 }

@@ -1,5 +1,5 @@
 ﻿using DNET;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
 using System;
 using System.Threading;
 
@@ -8,10 +8,10 @@ namespace DNETUnitTest
     /// <summary>
     /// 包含有创建服务器，创建客户端，然后互发的测试。
     /// </summary>
-    [TestClass]
-    public partial class UnitTest1
+    [TestFixture]
+    public class UnitTest1
     {
-        [TestMethod]
+        [Test]
         public void TestMethod_Log()
         {
             Config.IsAutoHeartbeat = false;
@@ -28,7 +28,7 @@ namespace DNETUnitTest
         /// 启动一个服务器，它会原样回发接收到的消息。
         /// 再启动一个客户端和它发送消息，验证发送接收正常
         /// </summary>
-        [TestMethod]
+        [Test]
         public void TestMethod_SendReceDPacketNoCrc()
         {
             Config.IsAutoHeartbeat = false;
@@ -99,15 +99,15 @@ namespace DNETUnitTest
                     for (int i = 0; i < msgs.Count; i++) {
                         var msg = msgs[i];
                         //判断接收长度是否一致
-                        Assert.IsTrue(msg.data.Length == sendDataLength);
+                        Assert.That(msg.data.Length == sendDataLength);
                         //判断消息序号
                         int msgNum = BitConverter.ToInt32(msg.data, 0);
                         LogProxy.LogDebug("客户端接收到回发:msgNum=" + msgNum);
-                        Assert.IsTrue(msgNum == receCount);
+                        Assert.That(msgNum == receCount);
 
                         for (int j = 4; j < msg.data.Length; j++) {
                             //判断每个字节是否一致
-                            Assert.IsTrue(msg.data[j] == sendData[j]);
+                            Assert.That(msg.data[j] == sendData[j]);
                         }
 
                         receCount++;
@@ -116,7 +116,7 @@ namespace DNETUnitTest
             }
             //}
 
-            Assert.IsTrue(receCount == sendCount);
+            Assert.That(receCount == sendCount);
 
             DNClient.Inst.CloseImmediate();
             DNServer.Inst.Close();
@@ -126,7 +126,7 @@ namespace DNETUnitTest
         /// 启动一个服务器，它会原样回发接收到的消息。
         /// 再启动一个客户端和它发送消息，验证发送接收正常
         /// </summary>
-        [TestMethod]
+        [Test]
         public void TestMethod_SendReceFastPacket()
         {
             Config.IsAutoHeartbeat = false;
@@ -197,15 +197,15 @@ namespace DNETUnitTest
                         for (int i = 0; i < datas.Count; i++) {
                             var msg = datas[i];
                             //判断接收长度是否一致
-                            Assert.IsTrue(msg.data.Length == sendDataLength);
+                            Assert.That(msg.data.Length == sendDataLength);
                             //判断消息序号
                             int msgNum = BitConverter.ToInt32(msg.data, 0);
                             LogProxy.LogDebug("客户端接收到回发:msgNum=" + msgNum);
-                            Assert.IsTrue(msgNum == receCount);
+                            Assert.That(msgNum == receCount);
 
                             for (int j = 4; j < msg.data.Length; j++) {
                                 //判断每个字节是否一致
-                                Assert.IsTrue(msg.data[j] == sendData[j]);
+                                Assert.That(msg.data[j] == sendData[j]);
                             }
 
                             receCount++;
@@ -214,7 +214,7 @@ namespace DNETUnitTest
                 }
             }
 
-            Assert.IsTrue(receCount == sendCount);
+            Assert.That(receCount == sendCount);
 
             DNClient.Inst.CloseImmediate();
             DNServer.Inst.Close();
@@ -296,15 +296,15 @@ namespace DNETUnitTest
         //                for (int i = 0; i < msgCount; i++) {
         //                    ByteBuffer msg = dataBuffers[i];
         //                    //判断接收长度是否一致
-        //                    Assert.IsTrue(msg.Length == sendDataLength);
+        //                    Assert.That(msg.Length == sendDataLength);
         //                    //判断消息序号
         //                    int msgNum = BitConverter.ToInt32(msg.buffer, 0);
         //                    LogProxy.LogDebug("客户端接收到回发:msgNum=" + msgNum);
-        //                    Assert.IsTrue(msgNum == receCount);
+        //                    Assert.That(msgNum == receCount);
 
         //                    for (int j = 4; j < msg.Length; j++) {
         //                        //判断每个字节是否一致
-        //                        Assert.IsTrue(msg.buffer[j] == sendData[j]);
+        //                        Assert.That(msg.buffer[j] == sendData[j]);
         //                    }
 
         //                    msg.Recycle();
@@ -314,7 +314,7 @@ namespace DNETUnitTest
         //        }
         //    }
 
-        //    Assert.IsTrue(receCount == sendCount);
+        //    Assert.That(receCount == sendCount);
 
         //    DNClient.Inst.CloseImmediate();
         //    DNServer.Inst.Close();
@@ -323,7 +323,7 @@ namespace DNETUnitTest
         /// <summary>
         /// 较大压力的测法。
         /// </summary>
-        [TestMethod]
+        [Test]
         public void TestMethod_SendRecePressure()
         {
             Config.IsAutoHeartbeat = false;
@@ -395,15 +395,15 @@ namespace DNETUnitTest
                     for (int i = 0; i < msgs.Count; i++) {
                         var msg = msgs[i];
                         //判断接收长度是否一致
-                        Assert.IsTrue(msg.data.Length == sendDataLength);
+                        Assert.That(msg.data.Length == sendDataLength);
                         //判断消息序号
                         int msgNum = BitConverter.ToInt32(msg.data, 0);
                         LogProxy.LogDebug("客户端接收到回发:msgNum=" + msgNum);
-                        Assert.IsTrue(msgNum == receCount);
+                        Assert.That(msgNum == receCount);
 
                         for (int j = 4; j < msg.data.Length; j++) {
                             //判断每个字节是否一致
-                            Assert.IsTrue(msg.data[j] == sendData[j]);
+                            Assert.That(msg.data[j] == sendData[j]);
                         }
 
                         receCount++;
@@ -419,15 +419,15 @@ namespace DNETUnitTest
                     for (int i = 0; i < datas.Count; i++) {
                         var msg = datas[i];
                         //判断接收长度是否一致
-                        Assert.IsTrue(msg.data.Length == sendDataLength);
+                        Assert.That(msg.data.Length == sendDataLength);
                         //判断消息序号
                         int msgNum = BitConverter.ToInt32(msg.data, 0);
                         LogProxy.LogDebug("客户端接收到回发:msgNum=" + msgNum);
-                        Assert.IsTrue(msgNum == receCount);
+                        Assert.That(msgNum == receCount);
 
                         for (int j = 4; j < msg.data.Length; j++) {
                             //判断每个字节是否一致
-                            Assert.IsTrue(msg.data[j] == sendData[j]);
+                            Assert.That(msg.data[j] == sendData[j]);
                         }
 
                         receCount++;
@@ -443,7 +443,7 @@ namespace DNETUnitTest
                 }
             }
 
-            Assert.IsTrue(receCount == sendCount);
+            Assert.That(receCount == sendCount);
 
             DNClient.Inst.CloseImmediate();
             DNServer.Inst.Close();

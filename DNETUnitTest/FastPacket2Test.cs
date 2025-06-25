@@ -1,5 +1,5 @@
 ﻿using DNET;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 
 namespace DNETUnitTest
 {
-    [TestClass]
+    [TestFixture]
     public unsafe class FastPacket2Test
     {
-        //[TestMethod]
+        //[Test]
         public void TestMethod_Temp1()
         {
             DQueue<IntPtr> queue = new DQueue<IntPtr>(1024);
@@ -26,10 +26,10 @@ namespace DNETUnitTest
                 queue.Enqueue(msg);
             }
             Thread.Sleep(500);
-            Assert.IsTrue(queue.Count == msgCount * 2);
+            Assert.That(queue.Count, Is.EqualTo(msgCount * 2));
         }
 
-        [TestMethod]
+        [Test]
         public void TestMethod_AddSend()
         {
             // LogFile.GetInst().CreatLogFile();
@@ -83,10 +83,10 @@ namespace DNETUnitTest
                 sendLength += fp2.WriteSendDataToBuffer(sendBuff, 0, rand.Next(sendBuff.Length));
             }
 
-            Assert.IsTrue(sendLength == (data.Length + sizeof(int)) * msgCount * 2);
+            Assert.That(sendLength, Is.EqualTo((data.Length + sizeof(int)) * msgCount * 2));
         }
 
-        [TestMethod]
+        [Test]
         public void TestMethod_AddRece()
         {
             Random rand = new Random();
@@ -127,7 +127,7 @@ namespace DNETUnitTest
                 sendLength += fp2.WriteSendDataToBuffer(sendBuff, sendLength, rand.Next(sendBuff.Length));
             }
 
-            Assert.IsTrue(sendLength == (data.Length + sizeof(int)) * msgCount);
+            Assert.That(sendLength, Is.EqualTo((data.Length + sizeof(int)) * msgCount));
 
             int receCount = 0;
             int curIndex = 0;
@@ -149,13 +149,13 @@ namespace DNETUnitTest
                     if (curReceCount > 0) {
                         //查看和发送数据的长度是否一致
                         ByteBuffer bf = fp2.GetReceMsg();
-                        Assert.IsTrue(bf.Length == 256);
+                        Assert.That(bf.Length, Is.EqualTo(256));
                         bf.Recycle();
                     }
                 }
             }
 
-            Assert.IsTrue(receCount == msgCount);
+            Assert.That(receCount, Is.EqualTo(msgCount));
         }
     }
 }

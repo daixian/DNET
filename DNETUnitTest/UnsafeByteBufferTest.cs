@@ -1,13 +1,13 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using NUnit.Framework;
 using System;
 using DNET;
 
 namespace DNETUnitTest
 {
-    [TestClass]
+    [TestFixture]
     public class UnsafeByteBufferTest
     {
-        [TestMethod]
+        [Test]
         public void Append_And_ToArray_ShouldMatch()
         {
             var buffer = new UnsafeByteBuffer(8);
@@ -15,10 +15,10 @@ namespace DNETUnitTest
             buffer.Append(data, 0, data.Length);
 
             byte[] result = buffer.ToArray();
-            CollectionAssert.AreEqual(data, result);
+            Assert.That(result, Is.EqualTo(data));
         }
 
-        [TestMethod]
+        [Test]
         public void Write_And_Read_Int_ShouldMatch()
         {
             var buffer = new UnsafeByteBuffer();
@@ -26,10 +26,10 @@ namespace DNETUnitTest
             buffer.Write(value);
 
             int read = buffer.Read<int>(0);
-            Assert.AreEqual(value, read);
+            Assert.That(read, Is.EqualTo(value));
         }
 
-        [TestMethod]
+        [Test]
         public void Write_And_Read_Struct_ShouldMatch()
         {
             var buffer = new UnsafeByteBuffer();
@@ -38,11 +38,11 @@ namespace DNETUnitTest
             buffer.Write(original);
 
             var read = buffer.Read<TestStruct>(0);
-            Assert.AreEqual(original.a, read.a);
-            Assert.AreEqual(original.b, read.b, 0.0001f);
+            Assert.That(read.a, Is.EqualTo(original.a));
+            Assert.That(read.b, Is.EqualTo(original.b).Within(0.0001f));
         }
 
-        [TestMethod]
+        [Test]
         public void Erase_ShouldRemoveBytes()
         {
             var buffer = new UnsafeByteBuffer();
@@ -53,10 +53,10 @@ namespace DNETUnitTest
 
             byte[] expected = { 10, 40, 50 };
             byte[] result = buffer.ToArray();
-            CollectionAssert.AreEqual(expected, result);
+            Assert.That(result, Is.EqualTo(expected));
         }
 
-        [TestMethod]
+        [Test]
         public void EnsureCapacity_ShouldExpandBuffer()
         {
             var buffer = new UnsafeByteBuffer(4);
@@ -66,76 +66,75 @@ namespace DNETUnitTest
             buffer.Append(data, 0, data.Length);
             byte[] result = buffer.ToArray();
 
-            CollectionAssert.AreEqual(data, result);
-            Assert.IsTrue(buffer.Capacity >= 100);
+            Assert.That(result, Is.EqualTo(data));
+            Assert.That(buffer.Capacity, Is.GreaterThanOrEqualTo(100));
         }
 
-        [TestMethod]
+        [Test]
         public void Clear_ShouldResetPosition()
         {
             var buffer = new UnsafeByteBuffer();
             buffer.Write<int>(1234);
             buffer.Clear();
-            Assert.AreEqual(0, buffer.Count);
+            Assert.That(buffer.Count, Is.EqualTo(0));
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
+        [Test]
         public void Read_BeyondPosition_ShouldThrow()
         {
             var buffer = new UnsafeByteBuffer();
             buffer.Write<int>(42);
-            buffer.Read<int>(4); // 越界访问
+
+            Assert.Throws<InvalidOperationException>(() => {
+                buffer.Read<int>(4); // 越界访问
+            });
         }
 
-
-        [TestMethod]
+        [Test]
         public void ToArray_ReturnsCorrectSubArray()
         {
             var buffer = new UnsafeByteBuffer();
             buffer.Append(new byte[] { 10, 20, 30, 40, 50 });
 
             var result = buffer.ToArray(1, 3); // should return [20,30,40]
-
-            CollectionAssert.AreEqual(new byte[] { 20, 30, 40 }, result);
+            Assert.That(result, Is.EqualTo(new byte[] { 20, 30, 40 }));
         }
 
-        [TestMethod]
+        [Test]
         public void ToArray_OffsetZero_ReturnsFullArray()
         {
             var buffer = new UnsafeByteBuffer();
             buffer.Append(new byte[] { 1, 2, 3, 4, 5 });
 
             var result = buffer.ToArray(0, buffer.Count);
-
-            CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4, 5 }, result);
+            Assert.That(result, Is.EqualTo(new byte[] { 1, 2, 3, 4, 5 }));
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
+        [Test]
         public void ToArray_InvalidNegativeOffset_ThrowsException()
         {
             var buffer = new UnsafeByteBuffer();
             buffer.Append(new byte[] { 1, 2, 3 });
-            buffer.ToArray(-1, 2);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => { buffer.ToArray(-1, 2); });
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
+        [Test]
         public void ToArray_CountExceedsValidRange_ThrowsException()
         {
             var buffer = new UnsafeByteBuffer();
             buffer.Append(new byte[] { 1, 2, 3 });
-            buffer.ToArray(1, 5); // exceeds buffer.Count
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => { buffer.ToArray(1, 5); });
         }
 
-        [TestMethod]
+        [Test]
         public void ToArray_ZeroLength_ReturnsEmptyArray()
         {
             var buffer = new UnsafeByteBuffer();
             buffer.Append(new byte[] { 1, 2, 3 }, 0, 3);
-            var result = buffer.ToArray(2, 0); // should be empty
-            Assert.AreEqual(0, result.Length);
+            var result = buffer.ToArray(2, 0);
+            Assert.That(result.Length, Is.EqualTo(0));
         }
 
         private struct TestStruct

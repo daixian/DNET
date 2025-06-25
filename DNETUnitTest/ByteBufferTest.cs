@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using NUnit.Framework;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace DNETUnitTest
 {
-    [TestClass]
+    [TestFixture]
     public class ByteBufferTest
     {
         //[TestMethod]
