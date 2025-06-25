@@ -240,6 +240,7 @@ namespace DNET
 
             _areConnectDone.WaitOne(); //debug:这里可能不应该阻塞工作线程，或该在后面改进处理
 
+            // dx: 注意这里这样发出异常
             SocketError errorCode = connectArgs.SocketError;
             if (errorCode != SocketError.Success) {
                 throw new SocketException((int)errorCode);
