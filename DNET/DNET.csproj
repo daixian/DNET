@@ -9,9 +9,10 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>DNET</RootNamespace>
     <AssemblyName>DNET</AssemblyName>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -57,7 +58,7 @@
     <Compile Include="Common\IWorkMsg.cs" />
     <Compile Include="Common\NetWorkTaskArgs.cs" />
     <Compile Include="Common\WorkThread.cs" />
-    <Compile Include="Data\DNetPool.cs" />
+    <Compile Include="Data\GlobalData.cs" />
     <Compile Include="Data\IBufferPool.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Protocol\Crc32.cs" />
@@ -67,6 +68,11 @@
     <Compile Include="Protocol\FastPacket2.cs" />
     <Compile Include="Protocol\IPacket.cs" />
     <Compile Include="Protocol\IPacket2.cs" />
+    <Compile Include="Protocol\Message\IPacket3.cs" />
+    <Compile Include="Protocol\Message\Message.cs" />
+    <Compile Include="Protocol\Message\Format.cs" />
+    <Compile Include="Protocol\Message\Header.cs" />
+    <Compile Include="Protocol\Message\SimplePacket.cs" />
     <Compile Include="Server\ServerStatus.cs" />
     <Compile Include="Server\PeerErrorType.cs" />
     <Compile Include="Server\ServerTimer.cs" />

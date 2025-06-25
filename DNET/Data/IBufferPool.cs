@@ -8,14 +8,24 @@
         /// <summary>
         /// 获得一个buffer
         /// </summary>
-        /// <param name="size">期望的buffer大小</param>
+        /// <param name="requestedSize">期望的buffer大小</param>
         /// <returns></returns>
-        ByteBuffer GetBuffer(int size);
+        ByteBuffer Get(int requestedSize);
 
         /// <summary>
         /// 归还一个buffer
         /// </summary>
         /// <param name="buff"></param>
-        void RecycleBuffer(ByteBuffer buff);
+        void Recycle(ByteBuffer buff);
+
+        /// <summary>
+        /// 获取已分配的buffer数量
+        /// </summary>
+        int TotalAllocated { get; }
+
+        /// <summary>
+        /// 获取已放入池中的buffer数量 
+        /// </summary>
+        int InPoolCount { get; }
     }
 }

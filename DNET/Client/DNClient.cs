@@ -540,8 +540,8 @@ namespace DNET
             }
             byte[][] datas = new byte[ListMsg.Count][];
             for (int i = 0; i < datas.Length; i++) {
-                datas[i] = new byte[ListMsg[i].validLength];
-                Buffer.BlockCopy(ListMsg[i].buffer, 0, datas[i], 0, ListMsg[i].validLength);
+                datas[i] = new byte[ListMsg[i].Length];
+                Buffer.BlockCopy(ListMsg[i].buffer, 0, datas[i], 0, ListMsg[i].Length);
                 ListMsg[i].Recycle();
             }
 
@@ -571,7 +571,7 @@ namespace DNET
             }
             string[] texts = new string[listMsg.Count];
             for (int i = 0; i < texts.Length; i++) {
-                texts[i] = Encoding.UTF8.GetString(listMsg[i].buffer, 0, listMsg[i].validLength);
+                texts[i] = Encoding.UTF8.GetString(listMsg[i].buffer, 0, listMsg[i].Length);
                 listMsg[i].Recycle();
             }
             return texts;

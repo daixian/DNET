@@ -149,7 +149,7 @@ namespace DNETUnitTest
                     if (curReceCount > 0) {
                         //查看和发送数据的长度是否一致
                         ByteBuffer bf = fp2.GetReceMsg();
-                        Assert.IsTrue(bf.validLength == 256);
+                        Assert.IsTrue(bf.Length == 256);
                         bf.Recycle();
                     }
                 }

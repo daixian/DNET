@@ -296,13 +296,13 @@ namespace DNETUnitTest
                         for (int i = 0; i < msgCount; i++) {
                             ByteBuffer msg = dataBuffers[i];
                             //判断接收长度是否一致
-                            Assert.IsTrue(msg.validLength == sendDataLength);
+                            Assert.IsTrue(msg.Length == sendDataLength);
                             //判断消息序号
                             int msgNum = BitConverter.ToInt32(msg.buffer, 0);
                             LogProxy.LogDebug("客户端接收到回发:msgNum=" + msgNum);
                             Assert.IsTrue(msgNum == receCount);
 
-                            for (int j = 4; j < msg.validLength; j++) {
+                            for (int j = 4; j < msg.Length; j++) {
                                 //判断每个字节是否一致
                                 Assert.IsTrue(msg.buffer[j] == sendData[j]);
                             }

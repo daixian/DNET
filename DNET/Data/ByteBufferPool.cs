@@ -1,99 +1,122 @@
-﻿namespace DNET
+﻿using System;
+using System.Collections.Concurrent;
+using System.Threading;
+
+namespace DNET
 {
     /// <summary>
-    /// 一个byteBuffer池
+    /// ByteBuffer的.net
     /// </summary>
     public class ByteBufferPool : IBufferPool
     {
         /// <summary>
-        /// 构造函数
+        /// 这是线程安全的.
         /// </summary>
-        public ByteBufferPool(long blockSize, long maxByteSize)
-        {
-            this._bolckSize = blockSize;
+        private readonly ConcurrentStack<ByteBuffer> _pool = new ConcurrentStack<ByteBuffer>();
 
-            _queueFree = new DQueue<ByteBuffer>((int)(maxByteSize / blockSize), 16);
+        /// <summary>
+        /// 默认的块大小
+        /// </summary>
+        private int _blockSize;
+
+        /// <summary>
+        /// 最大的容量个数
+        /// </summary>
+        private int _capacityLimit;
+
+        /// <summary>
+        /// 已分配总个数
+        /// </summary>
+        private int _totalAllocated = 0;
+
+        /// <summary>
+        /// 创建一个 ByteBuffer 池
+        /// </summary>
+        /// <param name="blockSize"></param>
+        /// <param name="capacityLimit"></param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public ByteBufferPool(int blockSize, int capacityLimit = 1000)
+        {
+            if (blockSize <= 0) throw new ArgumentOutOfRangeException(nameof(blockSize));
+            if (capacityLimit <= 0) throw new ArgumentOutOfRangeException(nameof(capacityLimit));
+
+            _blockSize = blockSize;
+            _capacityLimit = capacityLimit;
         }
 
         /// <summary>
-        /// 有效队列
+        /// 池中可用数量
         /// </summary>
-        private DQueue<ByteBuffer> _queueFree;
+        public int InPoolCount => _pool.Count;
 
         /// <summary>
-        /// buffer块大小
+        /// 已分配总数
         /// </summary>
-        private long _bolckSize;
+        public int TotalAllocated => _totalAllocated;
 
         /// <summary>
-        /// buffer块大小
+        /// 从池中租一个ByteBuffer，如果池为空则创建新的.
         /// </summary>
-        public long bolckSize { get { return _bolckSize; } }
-
-        /// <summary>
-        /// 获得一个buffer
-        /// </summary>
+        /// <param name="requestedSize"></param>
         /// <returns></returns>
-        public ByteBuffer GetBuffer(int wantLength)
+        public ByteBuffer Get(int requestedSize)
         {
-            //如果期望大小直接大于实际能力大小
-            if (wantLength > _bolckSize) {
-                ByteBufferPool.countNew++;
-                //这实际是一个错误，那就只好随便new一个
-                return new ByteBuffer(wantLength);
+            if (_pool.TryPop(out ByteBuffer buffer)) {
+                if (buffer.Capacity < requestedSize) {
+                    // 这里一定要检查容量,如果容量不够，那么就重新分配一个
+                    buffer = new ByteBuffer(GetCapacityForSize(requestedSize));
+                }
+
+                buffer.Clear();
+                buffer._bufferPool = this;
+                return buffer;
             }
 
-            ByteBuffer buff = _queueFree.Dequeue();
-            //如果可用队列中取不到了（已经空了），那么就new一个
-            if (buff == default(ByteBuffer)) {
-                //DxDebug.LogConsole(string.Format("ByteBufferPool.GetBuffer():可用队列中取不到了(已经空了) poolBolckSize={0} wantLength={1}", _bolckSize, wantLength));
-                //统计工作效果
-                ByteBufferPool.countNew++;
-
-                buff = new ByteBuffer(_bolckSize);
-                buff._bufferPool = this; //设置所属是自己
+            ByteBuffer newBuf = null;
+            if (requestedSize > _blockSize) {
+                // 如果容量不够，那么就重新分配一个
+                newBuf = new ByteBuffer(GetCapacityForSize(requestedSize));
             }
             else {
-                //统计工作效果
-                ByteBufferPool.countSaveGC++;
-
-                buff.validLength = 0;
+                newBuf = new ByteBuffer(_blockSize);
             }
-
-            buff.isInFreePool = false;
-            return buff;
+            newBuf._bufferPool = this;
+            Interlocked.Increment(ref _totalAllocated);
+            return newBuf;
         }
 
         /// <summary>
-        /// 归还Buffer
+        /// 将ByteBuffer回收进入池.
         /// </summary>
-        /// <param name="buff">要归还的buffer</param>
-        public void RecycleBuffer(ByteBuffer buff)
+        /// <param name="buffer"></param>
+        public void Recycle(ByteBuffer buffer)
         {
-            _queueFree.LockEnter();
-            _queueFree.EnqueueMaxLimit(buff);
-            buff.validLength = 0;
-            buff.isInFreePool = true;
-            _queueFree.LockExit();
+            if (buffer == null) return;
+            buffer.Clear();
+
+            if (_pool.Count < _capacityLimit) {
+                _pool.Push(buffer);
+            }
+            else {
+                // 超出上限丢弃
+            }
         }
 
-        #region 统计实际运行效果
-
         /// <summary>
-        /// 成功节省GC次数
+        /// 按照2倍的递增获取容量
         /// </summary>
-        public static int countSaveGC = 0;
-
-        /// <summary>
-        /// 仍然消耗了的gc次数
-        /// </summary>
-        public static int countBadGC = 0;
-
-        /// <summary>
-        /// 成功节省GC次数
-        /// </summary>
-        public static int countNew = 0;
-
-        #endregion 统计实际运行效果
+        /// <param name="requestedSize"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        private int GetCapacityForSize(int requestedSize)
+        {
+            int capacity = _blockSize;
+            while (capacity < requestedSize) {
+                capacity *= 2;
+                if (capacity <= 0) // 防止溢出
+                    throw new ArgumentOutOfRangeException(nameof(requestedSize), "Requested size too large");
+            }
+            return capacity;
+        }
     }
 }

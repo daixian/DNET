@@ -138,7 +138,7 @@ namespace DNET
                             count -= sizeof(int);
 
                             _lastMsgLength = BitConverter.ToInt32(_lastMsgHeadLenBuff, 0); //最后一条消息的实际内容长度  _lastMsgHeadLenBuffPtrInt[0];
-                            _lastMsg = DNetPool.GetInst().byteBufPools.GetBuffer(_lastMsgLength, false); //取得一块buffer存放去头去尾的消息
+                            _lastMsg = _msgPool.Get(_lastMsgLength); //取得一块buffer存放去头去尾的消息
 
                             //拷贝一次消息的实际内容
                             CopyMsgData(ref receBuff, ref offset, ref count, ref receMsgCount);
@@ -172,7 +172,7 @@ namespace DNET
                                 count -= copyLen;
 
                                 _lastMsgLength = BitConverter.ToInt32(_lastMsgHeadLenBuff, 0); //_lastMsgHeadLenBuffPtrInt[0];//最后一条消息的实际内容长度
-                                _lastMsg = DNetPool.GetInst().byteBufPools.GetBuffer(_lastMsgLength, false); //取得一块buffer存放去头去尾的消息
+                                _lastMsg = _msgPool.Get(_lastMsgLength); //取得一块buffer存放去头去尾的消息
 
                                 //拷贝一次消息的实际内容
                                 CopyMsgData(ref receBuff, ref offset, ref count, ref receMsgCount);
@@ -316,9 +316,9 @@ namespace DNET
         private byte[] _lastMsgHeadLenBuff;
 
         /// <summary>
-        /// 用来保存最后一条消息的头和长度
+        /// 消息对象池
         /// </summary>
-        //private int* _lastMsgHeadLenBuffPtrInt;
+        private ByteBufferPool _msgPool = new ByteBufferPool(4096);
 
         /// <summary>
         /// 当前接收到最后一条消息的头和长度的当前位置
@@ -344,11 +344,12 @@ namespace DNET
         /// <param name="receMsgCount"></param>
         private void CopyMsgData(ref byte[] receBuff, ref int offset, ref int count, ref int receMsgCount)
         {
-            if (count + _lastMsg.validLength >= _lastMsgLength) //如果这次接收到内容长度有完整消息
+            if (count + _lastMsg.Length >= _lastMsgLength) //如果这次接收到内容长度有完整消息
             {
-                int copyLen = _lastMsgLength - _lastMsg.validLength;
-                Buffer.BlockCopy(receBuff, offset, _lastMsg.buffer, _lastMsg.validLength, copyLen);
-                _lastMsg.validLength = _lastMsgLength;
+                int copyLen = _lastMsgLength - _lastMsg.Length;
+                //Buffer.BlockCopy(receBuff, offset, _lastMsg.buffer, _lastMsg.Length, copyLen);
+                //_lastMsg.length = _lastMsgLength;
+                _lastMsg.Append(receBuff, offset, copyLen);
                 offset += copyLen;
                 count -= copyLen;
 
@@ -358,9 +359,9 @@ namespace DNET
             }
             else //如果这次接收到内容长度没有完整消息
             {
-                Buffer.BlockCopy(receBuff, offset, _lastMsg.buffer, _lastMsg.validLength, count); //只好先拷贝count长度
-                _lastMsg.validLength += count; //记录实际起始,好下次拷贝的时候利用
-
+                //Buffer.BlockCopy(receBuff, offset, _lastMsg.buffer, _lastMsg.Length, count); //只好先拷贝count长度
+                //_lastMsg.Length += count; //记录实际起始,好下次拷贝的时候利用
+                _lastMsg.Append(receBuff, offset, count);
                 offset += count;
                 count -= count;
             }
