@@ -18,7 +18,12 @@ namespace DNET
     /// </summary>
     public class DNServer
     {
+        private static readonly Lazy<DNServer> _instance = new Lazy<DNServer>(() => new DNServer());
 
+        /// <summary>
+        /// 单例
+        /// </summary>
+        public static DNServer Inst => _instance.Value;
 
         /// <summary>
         /// 构造函数
@@ -39,20 +44,6 @@ namespace DNET
             status = new ServerStatus(this); //创建状态统计
             status.BindTimer(ServerTimer.GetInstance()); //绑定一个计时器
             status.isPrintCur1s = false; //默认不打印状态统计（1s一打印）
-        }
-
-        private static DNServer _instance = null;
-
-        /// <summary>
-        /// 获得实例
-        /// </summary>
-        public static DNServer Inst {
-            get {
-                if (_instance == null) {
-                    _instance = new DNServer();
-                }
-                return _instance;
-            }
         }
 
         /// <summary>

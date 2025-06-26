@@ -70,6 +70,7 @@ namespace UnitTest
             DNClient.Inst.Connect("127.0.0.1", 21024);
 
             while (true) {
+                Thread.Sleep(20);
                 if (DNClient.Inst.IsConnected) {
                     LogProxy.LogDebug("TestMethod_Send():连接成功");
                     break;
@@ -255,6 +256,7 @@ namespace UnitTest
 
             DNServer.Inst.Start(21024); //启动服务器
             while (true) {
+                Thread.Sleep(20);
                 if (DNServer.Inst.IsStarted) {
                     LogProxy.LogDebug("TestMethod_Send():服务器启动成功");
                     break;
@@ -269,6 +271,7 @@ namespace UnitTest
             DNClient.Inst.Connect("127.0.0.1", 21024);
 
             while (true) {
+                Thread.Sleep(20);
                 if (DNClient.Inst.IsConnected) {
                     LogProxy.LogDebug("TestMethod_Send():连接成功");
                     break;

@@ -77,7 +77,7 @@ namespace DNET
         /// <summary>
         /// 调试用的名字
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = "unnamed";
 
         /// <summary>
         /// 是否已经连接上了服务器
@@ -195,7 +195,6 @@ namespace DNET
                 socket.SendTimeout = 8 * 1000;
                 socket.ReceiveTimeout = 0;
 
-
                 PrepareSocketAsyncEventArgs();
                 peerStatus.Reset();
 
@@ -280,6 +279,9 @@ namespace DNET
             if (errorCode != SocketError.Success) {
                 throw new SocketException((int)errorCode);
             }
+
+            // 自动开始一次发送吧,在等待连接切换线程的这段时间可能外面已经有添加发送队列进来了.
+            TryBeginSend();
         }
 
         /// <summary>

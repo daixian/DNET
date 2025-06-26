@@ -109,6 +109,10 @@ namespace DNET
         /// </summary>
         public bool IsConnected {
             get {
+                // 这个检查会比工作线程完成更快,所以这里先确定工作线程准备好了,再启动.
+                if (IsConnecting)
+                    return false;
+
                 if (_peerSocket == null) {
                     return false;
                 }
