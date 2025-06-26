@@ -6,7 +6,7 @@
     public interface IBufferPool
     {
         /// <summary>
-        /// 获得一个buffer
+        /// 获得一个buffer.注意实现的时候由调用这个函数的线程Rest()
         /// </summary>
         /// <param name="requestedSize">期望的buffer大小</param>
         /// <returns></returns>

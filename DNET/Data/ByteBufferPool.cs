@@ -67,7 +67,7 @@ namespace DNET
                     buffer = new ByteBuffer(GetCapacityForSize(requestedSize));
                 }
 
-                buffer.Clear();
+                buffer.Reset();
                 buffer._bufferPool = this;
                 return buffer;
             }
@@ -92,7 +92,9 @@ namespace DNET
         public void Recycle(ByteBuffer buffer)
         {
             if (buffer == null) return;
-            buffer.Clear();
+            // dx: 一定要注意这里由于线程安全，所以不能Reset().
+            // 我考虑对象池中对象的清理Reset()应该由Get()的线程负责，而不是Recycle()的线程负责。
+            // buffer.Reset();
 
             if (_pool.Count < _capacityLimit) {
                 _pool.Push(buffer);

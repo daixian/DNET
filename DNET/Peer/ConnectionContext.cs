@@ -31,8 +31,8 @@ namespace DNET
         public int curSendMsgCount;
 
         /// <summary>
-        /// 接收buffer
+        /// 接收buffer这里也换着来吧.
         /// </summary>
-        public byte[] recvBuffer;
+        public ByteBuffer recvBuffer;
     }
 }

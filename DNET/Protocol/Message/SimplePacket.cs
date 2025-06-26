@@ -43,13 +43,11 @@ namespace DNET.Protocol
             ByteBuffer result = GlobalBuffer.Inst.Get(headerSize + length);
 
             // 构造头
-            Header header = new Header {
-                magic = MAGIC,
-                dataLen = (uint)length,
-                format = format,
-                txrId = txrId,
-                eventType = eventType
-            };
+            Header header = Header.CreateDefault();
+            header.dataLen = (uint)length;
+            header.format = format;
+            header.txrId = txrId;
+            header.eventType = eventType;
             header.WriteToByteBuffer(result);
             result.Append(data, offset, data.Length);
             return result;
@@ -96,10 +94,7 @@ namespace DNET.Protocol
                 if (_unpackBuff.Count < headerSize)
                     break;
 
-                // 读取头部时，只拿 _unpackBuff 前 headerSize 字节
-                //byte[] headerBytes = _unpackBuff.GetRange(0, headerSize).ToArray();
-
-                Header header = _unpackBuff.Read<Header>(0);    //BytesToStruct<Header>(headerBytes);
+                Header header = _unpackBuff.Read<Header>(0);
 
                 if (header.magic != MAGIC) {
                     // 魔数错，清空缓存避免死循环

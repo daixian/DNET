@@ -23,14 +23,9 @@ namespace DNET
         /// <summary>
         /// 公有的构造函数，可以用来在一个程序中开多个客户端。
         /// 它没有启动公共Timer
-        /// </summary>
-        /// <param name="clientName"></param>
-        public DNClient(string clientName = "unname client")
+        /// </summary> 
+        public DNClient()
         {
-            this.Name = clientName;
-
-            Peer = new Peer();
-
             IsConnecting = false;
             IsInited = false;
 
@@ -102,7 +97,7 @@ namespace DNET
         /// <summary>
         /// 这个客户端的名字
         /// </summary>
-        public string Name { get; set; }
+        public string Name => _peerSocket.Name;
 
         /// <summary>
         /// 这个客户端是否已经初始化可用,这个属性目前只对外标记，对内没有用来作判断。
@@ -138,11 +133,6 @@ namespace DNET
                 return false;
             }
         }
-
-        /// <summary>
-        /// 方便逻辑统一使用的token，用来记录一些用户保存的对象，传给事件，只有里面的userObj是有意义的
-        /// </summary>
-        public Peer Peer { get; set; }
 
         /// <summary>
         /// 它的状态.
@@ -456,6 +446,7 @@ namespace DNET
                 }
                 else {
                     _peerSocket = new PeerSocket();
+                    _peerSocket.Name = "DNClient";
                     //_peerSocket.EventReceiveCompleted += OnReceiveCompleted;
                     //_peerSocket.EventSendCompleted += OnSendCompleted;
                     _peerSocket.EventError += OnError;

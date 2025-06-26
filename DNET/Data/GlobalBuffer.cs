@@ -17,7 +17,7 @@ namespace DNET
         /// <summary>
         /// 支持的 buffer 大小分档
         /// </summary>
-        private static readonly int[] _sizes = new int[] { 256, 512, 1024, 2048, 4096, 8192, 1024 * 16 };
+        private static readonly int[] _sizes = new int[] { 256, 512, 1024, 2048, 4096, 8192, 1024 * 16, 1024 * 32, 1024 * 64 };
 
         /// <summary>
         /// 缓冲池组

@@ -53,6 +53,7 @@ namespace DNET
         internal Peer AddPeer(Peer peer)
         {
             peer.ID = Interlocked.Increment(ref _curID) - 1;
+            peer.peerSocket.Name = $"Peer[{peer.ID}]";
             if (_dictPeer.TryAdd(peer.ID, peer)) {
                 try {
                     EventAddToken?.Invoke(peer.ID);

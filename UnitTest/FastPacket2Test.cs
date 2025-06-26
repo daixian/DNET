@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DNETUnitTest
+namespace UnitTest
 {
     [TestFixture]
     public unsafe class FastPacket2Test

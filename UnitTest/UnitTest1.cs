@@ -3,7 +3,7 @@ using NUnit.Framework;
 using System;
 using System.Threading;
 
-namespace DNETUnitTest
+namespace UnitTest
 {
     /// <summary>
     /// 包含有创建服务器，创建客户端，然后互发的测试。

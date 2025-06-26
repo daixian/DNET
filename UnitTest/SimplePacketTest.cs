@@ -4,13 +4,13 @@ using System.Collections.Generic;
 using DNET.Protocol;
 using DNET;
 
-namespace DNETUnitTest
+namespace UnitTest
 {
     [TestFixture]
     public class SimplePacketTest
     {
         [Test]
-        public void TestMethod_SimplePacket1()
+        public unsafe void TestMethod_SimplePacket1()
         {
             var packet = new SimplePacket();
 
@@ -21,6 +21,8 @@ namespace DNETUnitTest
             header.txrId = 123;
             header.eventType = 456;
             header.dataLen = (uint)testData.Length;
+
+            int headerSize = sizeof(Header);
 
             var msg = new Message {
                 header = header,

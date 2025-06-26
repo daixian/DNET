@@ -10,42 +10,49 @@ namespace DNET.Protocol
     /// <summary>
     /// 通用消息头定义（确保结构体大小固定且字段顺序一致）
     /// </summary>
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Explicit)]
     public struct Header
     {
         /// <summary>
         /// 魔数 'XMSG' in little-endian
         /// </summary>
+        [FieldOffset(0)]
         public uint magic;
 
         /// <summary>
         /// 协议版本
         /// </summary>
+        [FieldOffset(4)]
         public ushort version;
 
         /// <summary>
         /// 保留字段（用于对齐或扩展）
         /// </summary>
+        [FieldOffset(6)]
         public ushort reserved;
 
         /// <summary>
         /// 数据长度（不包含头部长度）
         /// </summary>
+        [FieldOffset(8)]
         public uint dataLen;
 
         /// <summary>
         /// 消息格式
         /// </summary>
+        [FieldOffset(12)]
         public Format format;
 
         /// <summary>
         /// 事务ID（用于标识响应与请求）
         /// </summary>
+        [FieldOffset(16)]
         public int txrId;
 
         /// <summary>
         /// 事件类型（用户自定义）
         /// </summary>
+        [FieldOffset(20)]
         public int eventType;
 
         /// <summary>
@@ -70,15 +77,12 @@ namespace DNET.Protocol
         /// <param name="buff"></param>
         public unsafe void WriteToByteBuffer(ByteBuffer buff)
         {
-
             if (buff == null) throw new ArgumentNullException(nameof(buff));
 
             int size = sizeof(Header); // 需要加上 [StructLayout(LayoutKind.Sequential, Pack = 1)] 保证结构体布局
             fixed (Header* srcPtr = &this) {
                 buff.Write(srcPtr, size);
             }
-
-
         }
     }
 }

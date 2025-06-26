@@ -14,7 +14,7 @@ namespace DNET.Protocol
         /// <summary>
         /// 实际的头,它其实也是各种字段.
         /// </summary>
-        public Header header;
+        public Header header = Header.CreateDefault();
 
         /// <summary>
         /// 数据

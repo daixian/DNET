@@ -30,7 +30,7 @@ namespace DNET
         private byte[] _buffer;
 
         /// <summary>
-        /// buffer的数据长度
+        /// buffer的有效的数据长度
         /// </summary>
         public int Length => _length;
 
@@ -47,7 +47,7 @@ namespace DNET
         /// <summary>
         /// 清空buffer
         /// </summary>
-        public void Clear() => _length = 0;
+        public void Reset() => _length = 0;
 
         /// <summary>
         /// 转为byte[],进行一次拷贝.
@@ -70,9 +70,7 @@ namespace DNET
             }
             //else {
             //    _buffer = null;
-            //}
-
-            _length = 0;
+            //} 
         }
 
         /// <summary>

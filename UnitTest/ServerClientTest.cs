@@ -18,7 +18,7 @@ public class ServerClientTest
     public void TestMethod_ServerClient()
     {
         Config.IsAutoHeartbeat = false;
-        Config.isDebugLog = true;
+        Config.isDebugLog = false;
 
         // 服务端接收到的次数
         int serverReceCount = 0;
@@ -58,10 +58,10 @@ public class ServerClientTest
             }
         }
         Random rand = new Random();
-        int sendDataLength = rand.Next(16, 64);
+        int sendDataLength = 100;
         byte[] sendData = new byte[sendDataLength];
         for (int i = 0; i < sendData.Length; i++) {
-            sendData[i] = (byte)rand.Next(128, 256);
+            sendData[i] = 0xFF;
         }
         DNClient.Inst.Connect("127.0.0.1", 21024);
 
@@ -77,12 +77,9 @@ public class ServerClientTest
         int sendCount = 0;
 
         //发送n次
-        for (int count = 0; count < 200; count++) {
+        for (int count = 0; count < 100; count++) {
             //一次连发n条
             for (int i = 0; i < 500; i++) {
-                //发送sendDataLength字节的sendData
-
-                Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
                 while (DNClient.Inst.SendQueueOverflow) {
                     Thread.Sleep(2);
                 }
