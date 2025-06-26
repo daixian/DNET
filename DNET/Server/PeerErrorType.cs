@@ -6,6 +6,11 @@
     public enum PeerErrorType
     {
         /// <summary>
+        /// 用户逻辑上的手动删除
+        /// </summary>
+        UserManualDelete,
+
+        /// <summary>
         /// 接收字节数为0
         /// </summary>
         BytesTransferredZero, //这个试试不去删除它
@@ -25,9 +30,6 @@
         /// </summary>
         ClearAllToken,
 
-        /// <summary>
-        /// 用户逻辑上的删除
-        /// </summary>
-        UserDelete
+
     }
 }

@@ -19,10 +19,10 @@ namespace DNET.Protocol
         // 接收缓冲区
         private readonly UnsafeByteBuffer _unpackBuff = new UnsafeByteBuffer(4096);
 
-        /// <summary>
-        /// 由于Pack接口的传出都是ByteBuffer，所以这里用一个池存起来
-        /// </summary>
-        private ByteBufferPool _pool = new ByteBufferPool(2048);
+        ///// <summary>
+        ///// 由于Pack接口的传出都是ByteBuffer，所以这里用一个池存起来
+        ///// </summary>
+        //private ByteBufferPool _pool = new ByteBufferPool(2048);
 
         /// <summary>
         /// 打包数据
@@ -34,13 +34,13 @@ namespace DNET.Protocol
         /// <param name="txrId">事务ID，用于标识本次通信的事务序号</param>
         /// <param name="eventType">事件类型，表示当前通信事件的类别</param>
         /// <returns>打包数据结果</returns>
-        public ByteBuffer Pack(byte[] data, int offset, int length, Format format, uint txrId, int eventType)
+        public ByteBuffer Pack(byte[] data, int offset, int length, Format format, int txrId, int eventType)
         {
             if (data == null || length < 0 || offset + length > data.Length)
                 throw new ArgumentException("Invalid data length");
 
             int headerSize = Marshal.SizeOf<Header>();
-            ByteBuffer result = _pool.Get(headerSize + length);
+            ByteBuffer result = GlobalBuffer.Inst.Get(headerSize + length);
 
             // 构造头
             Header header = new Header {
@@ -63,7 +63,7 @@ namespace DNET.Protocol
         public ByteBuffer Pack(Message msg)
         {
             int headerSize = Marshal.SizeOf<Header>();
-            ByteBuffer result = _pool.Get(headerSize + (int)msg.header.dataLen);
+            ByteBuffer result = GlobalBuffer.Inst.Get(headerSize + (int)msg.header.dataLen);
             msg.header.WriteToByteBuffer(result);
             result.Append(msg.data, 0, msg.data.Length);
             return result;
@@ -154,6 +154,7 @@ namespace DNET.Protocol
                 }
                 if (found) {
                     if (i > 0) {
+                        LogProxy.LogWarning("SimplePacket.TrySyncToMagic():有丢弃数据!");
                         _unpackBuff.Erase(0, i);
                     }
                     return true;

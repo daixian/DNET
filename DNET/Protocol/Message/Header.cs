@@ -41,7 +41,7 @@ namespace DNET.Protocol
         /// <summary>
         /// 事务ID（用于标识响应与请求）
         /// </summary>
-        public uint txrId;
+        public int txrId;
 
         /// <summary>
         /// 事件类型（用户自定义）

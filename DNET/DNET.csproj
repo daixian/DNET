@@ -43,9 +43,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\ClientTimer.cs" />
+    <Compile Include="Peer\ConnectionContext.cs" />
     <Compile Include="Client\DNClient.cs" />
     <Compile Include="Client\EventType.cs" />
-    <Compile Include="Client\SocketClient.cs" />
+    <Compile Include="Peer\PeerStatus.cs" />
+    <Compile Include="Peer\PeerSocket.cs" />
+    <Compile Include="Common\DNETExt.cs" />
     <Compile Include="Data\ByteBuffer.cs" />
     <Compile Include="Data\ByteBufferPool.cs" />
     <Compile Include="Data\ByteBufferPools.cs" />
@@ -79,7 +82,7 @@
     <Compile Include="Server\ServerTimer.cs" />
     <Compile Include="Server\DNServer.cs" />
     <Compile Include="Server\SocketAsyncEventArgsPool.cs" />
-    <Compile Include="Server\SocketListener.cs" />
+    <Compile Include="Server\ServerListenerSocket.cs" />
     <Compile Include="Server\Peer.cs" />
     <Compile Include="Server\PeerManager.cs" />
     <Compile Include="Server\UserObj.cs" />

@@ -8,34 +8,17 @@ using DNET.Protocol;
 namespace DNET
 {
     /// <summary>
-    /// 通信传输的客户端类，默认通信数据包打包方法类的类型为FastPacket2。
+    /// 通信传输的客户端类.
+    /// 主要就是再加上一层工作线程的异步封装
     /// </summary>
     public class DNClient
     {
-        #region Constructor
+        private static readonly Lazy<DNClient> _instance = new Lazy<DNClient>(() => new DNClient());
 
         /// <summary>
-        /// 私有的构造函数，用来构造单例
+        /// 单例
         /// </summary>
-        private DNClient()
-        {
-            if (_instance != null) {
-                this.Dispose();
-                _instance = null;
-            }
-            this.Name = "unname client";
-
-
-            Peer = new Peer();
-            Peer.client = this;
-
-            IsConnecting = false;
-            IsInited = false;
-            //Init();
-
-            //启动公共Timer
-            ClientTimer.GetInstance().Start();
-        }
+        public static DNClient Inst => _instance.Value;
 
         /// <summary>
         /// 公有的构造函数，可以用来在一个程序中开多个客户端。
@@ -47,37 +30,15 @@ namespace DNET
             this.Name = clientName;
 
             Peer = new Peer();
-            Peer.client = this;
 
             IsConnecting = false;
             IsInited = false;
-            //Init();
+
+            //启动公共Timer
+            ClientTimer.Inst.Start();
         }
-
-        private static DNClient _instance;
-
-
-        /// <summary>
-        /// 获得实例
-        /// </summary>
-        public static DNClient Inst {
-            get {
-                if (_instance == null) {
-                    _instance = new DNClient();
-                    _instance.Name = "singleton client";
-                }
-                return _instance;
-            }
-        }
-
-        #endregion Constructor
 
         #region Fields
-
-        /// <summary>
-        /// 最多当前正在发送数
-        /// </summary>
-        private int MAX_SENDING_DATA = 1;
 
         /// <summary>
         /// 工作线程
@@ -117,12 +78,7 @@ namespace DNET
         /// <summary>
         /// 底层的通信类
         /// </summary>
-        private SocketClient _socketClient = null;
-
-        /// <summary>
-        /// 当前正在发送的计数
-        /// </summary>
-        private volatile int _snedingCount = 0; //volatile
+        private PeerSocket _peerSocket = null;
 
         /// <summary>
         /// 发出消息处理等待警告时的时间长度，会逐级递增和递减.
@@ -158,11 +114,11 @@ namespace DNET
         /// </summary>
         public bool IsConnected {
             get {
-                if (_socketClient == null) {
+                if (_peerSocket == null) {
                     return false;
                 }
                 else {
-                    return _socketClient.IsConnected;
+                    return _peerSocket.IsConnected;
                 }
             }
         }
@@ -177,21 +133,11 @@ namespace DNET
         /// </summary>
         public bool SendQueueOverflow {
             get {
-                if (_socketClient.WaitSendMsgCount >= 256)
+                if (_peerSocket.WaitSendMsgCount >= 64)
                     return true;
                 return false;
             }
         }
-
-        /// <summary>
-        /// 用来记录最后一次收到这个Token发来的消息时间的Tick,创建这Token对象的时候初始化,自动发送心跳包时用
-        /// </summary>
-        public long LastMsgReceTickTime { get; internal set; }
-
-        /// <summary>
-        /// 用来记录最后一次向这个Token发送的消息时间的Tick,创建这Token对象的时候初始化,自动发送心跳包时用
-        /// </summary>
-        public long LastMsgSendTickTime { get; internal set; }
 
         /// <summary>
         /// 方便逻辑统一使用的token，用来记录一些用户保存的对象，传给事件，只有里面的userObj是有意义的
@@ -199,9 +145,9 @@ namespace DNET
         public Peer Peer { get; set; }
 
         /// <summary>
-        /// 是否打印调试型的日志.
+        /// 它的状态.
         /// </summary>
-        public bool isDebugLog { get; set; }
+        public PeerStatus Status => _peerSocket.peerStatus;
 
         #endregion Property
 
@@ -270,8 +216,6 @@ namespace DNET
                 }
                 AddTask(taskArg);
 
-                LastMsgReceTickTime = DateTime.Now.Ticks;
-                LastMsgSendTickTime = DateTime.Now.Ticks;
             } catch (Exception e) {
                 // 一般来说其实不会进入这个异常.因为这个函数只是吧一个Message添加到队列中，不会发生异常.
                 IsConnecting = false; //连接失败了
@@ -301,8 +245,8 @@ namespace DNET
         {
             try {
                 this.Clear();
-                if (_socketClient != null) {
-                    _socketClient.Disconnect();
+                if (_peerSocket != null) {
+                    _peerSocket.Disconnect();
                 }
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.DisConnect():执行DisConnect异常：" + e.Message);
@@ -357,24 +301,16 @@ namespace DNET
             int offset,
             int count,
             Format format = Format.Raw,
-            uint txrId = 0,
+            int txrId = 0,
             int eventType = 0)
         {
             if (data == null) {
                 LogProxy.LogWarning("DNClient.Send(data,offset,count):要发送的数据为null！");
             }
             try {
-                _socketClient.AddSendData(data, offset, count, format, txrId, eventType);
-
-                //进行数据的预打包，然后不拷贝
-                NetWorkTaskArgs msg = _taskArgsPool.Dequeue();
-                if (msg == null) {
-                    msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_Send);
-                }
-                else {
-                    msg.Reset(NetWorkTaskArgs.Tpye.C_Send);
-                }
-                AddTask(msg);
+                // 这里其实已经开始打包了.
+                _peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
+                _peerSocket.TryBeginSend();//这个函数可以直接启动 
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.Send(p1,p2,p3):异常 " + e.Message);
             }
@@ -405,7 +341,7 @@ namespace DNET
         /// <returns>所有的byte[]数据,没有则返回null</returns>
         public List<Message> GetReceiveData()
         {
-            return _socketClient.GetReceiveMessages();
+            return _peerSocket.GetReceiveMessages();
         }
 
         /// <summary>
@@ -511,28 +447,25 @@ namespace DNET
                 //标记正在连接
                 IsConnecting = true;
 
-                Interlocked.Exchange(ref _snedingCount, 0);
                 this.Clear(); //清空数据
 
-                if (_socketClient != null) {
-                    //DxDebug.LogConsole("DNClient.DoConnect():断开原先连接！");
-                    _socketClient.Disconnect();
-                    _socketClient.BindRemote(_host, _port); //绑定新ip
-                    _socketClient.Clear();
-                    LogProxy.LogDebug("DNClient.DoConnect():正在连接...");
-                    _socketClient.Connect();
-                    LogProxy.LogDebug("DNClient.DoConnect():连接服务器成功！" + _host + ":" + _port);
+                if (_peerSocket != null) {
+                    // 断开原先连接，绑定新ip，清理状态
+                    _peerSocket.Disconnect();
+                    _peerSocket.Clear();
                 }
                 else {
-                    _socketClient = new SocketClient();
-                    _socketClient.BindRemote(_host, _port);
-                    _socketClient.EventReceiveCompleted += OnReceiveCompleted; //加入接收事件
-                    _socketClient.EventSendCompleted += OnSendCompleted; //加入发送事件
-                    _socketClient.EventError += OnError; //加入错误事件
-                    LogProxy.LogDebug("DNClient.DoConnect():正在连接...");
-                    _socketClient.Connect();
-                    LogProxy.LogDebug("DNClient.DoConnect():连接服务器成功！" + _host + ":" + _port);
+                    _peerSocket = new PeerSocket();
+                    //_peerSocket.EventReceiveCompleted += OnReceiveCompleted;
+                    //_peerSocket.EventSendCompleted += OnSendCompleted;
+                    _peerSocket.EventError += OnError;
+
                 }
+
+                LogProxy.LogDebug("DNClient.DoConnect():正在连接...");
+                _peerSocket.BindRemote(_host, _port);
+                _peerSocket.Connect();
+                LogProxy.LogDebug($"DNClient.DoConnect():连接服务器成功！{_host}:{_port}");
 
                 if (EventConnectSuccess != null) {
                     try {
@@ -565,17 +498,10 @@ namespace DNET
                     LogProxy.LogWarning("DNClient.DoSend：当前还未连接到一个主机！ ");
                     return;
                 }
-
-                // DxDebug.Log("-----------DoSend   " + "  当前的SendingCount  " + _snedingCount);
-                if (_snedingCount >= MAX_SENDING_DATA) {
-                    return;
-                }
                 // 如果还有待发送的消息,直接从打包器中获取数据发送
-                if (_socketClient.SendData()) {
-                    // 如果确实发送成功了就递增一下,这个在发送完成回调函数中会递减
-                    Interlocked.Increment(ref _snedingCount);
+                if (_peerSocket.TryBeginSend()) {
 
-                    LastMsgSendTickTime = DateTime.Now.Ticks; //记录最后发送消息时间
+
                 }
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.DoSend():异常: " + e.Message);
@@ -585,8 +511,6 @@ namespace DNET
         private void DoReceive()
         {
             try {
-                // 记录接收到消息的时间
-                LastMsgReceTickTime = DateTime.Now.Ticks;
                 //接收数据事件
                 if (EventReceData != null) {
                     try {
@@ -621,9 +545,9 @@ namespace DNET
                 _msgSemaphore = null;
                 //Interlocked.Exchange(ref _curSemCount, 0);
 
-                if (_socketClient != null) {
-                    _socketClient.Dispose();
-                    _socketClient = null;
+                if (_peerSocket != null) {
+                    _peerSocket.Dispose();
+                    _peerSocket = null;
                 }
 
                 IsConnecting = false;
@@ -686,36 +610,18 @@ namespace DNET
 
         private void OnReceiveCompleted()
         {
-            if (this.isDebugLog)
+            if (Config.isDebugLog)
                 LogProxy.LogDebug("-----------EventHandler：进入了OnReceive回调！");
 
-            // 再自动开启下一次接收
-            NetWorkTaskArgs msg = _taskArgsPool.Dequeue();
-            if (msg == null) {
-                msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_Receive);
-            }
-            else {
-                msg.Reset(NetWorkTaskArgs.Tpye.C_Receive);
-            }
-            AddTask(msg);
+
         }
 
         private void OnSendCompleted()
         {
-            if (isDebugLog)
+            if (Config.isDebugLog)
                 LogProxy.LogDebug("-----------EventHandler.OnSend()：进入OnSend回调！");
 
-            Interlocked.Decrement(ref _snedingCount); //递减这个消息
 
-            // 这个是.net池线程中异步的加入发送队列
-            NetWorkTaskArgs msg = _taskArgsPool.Dequeue();
-            if (msg == null) {
-                msg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_Send);
-            }
-            else {
-                msg.Reset(NetWorkTaskArgs.Tpye.C_Send);
-            }
-            AddTask(msg);
         }
 
         private void OnError()
@@ -775,9 +681,9 @@ namespace DNET
                 // 清理非托管资源
                 _msgSemaphore.Close();
                 _msgSemaphore = null;
-                if (_socketClient != null) {
-                    _socketClient.Dispose();
-                    _socketClient = null;
+                if (_peerSocket != null) {
+                    _peerSocket.Dispose();
+                    _peerSocket = null;
                 }
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.Dispose():释放异常" + e.Message);

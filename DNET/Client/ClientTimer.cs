@@ -8,35 +8,12 @@ namespace DNET
     /// </summary>
     public class ClientTimer
     {
-        /// <summary>
-        /// 构造函数
-        /// </summary>
-        public ClientTimer()
-        {
-        }
+        private static readonly Lazy<ClientTimer> _instance = new Lazy<ClientTimer>(() => new ClientTimer());
 
         /// <summary>
-        /// 静态构造函数
+        /// 单例
         /// </summary>
-        private static ClientTimer _instance = new ClientTimer();
-
-        /// <summary>
-        /// 获得实例
-        /// </summary>
-        /// <returns></returns>
-        public static ClientTimer GetInstance()
-        {
-            return _instance;
-        }
-
-        /// <summary>
-        /// 获得实例
-        /// </summary>
-        /// <returns></returns>
-        public static ClientTimer GetInst()
-        {
-            return _instance;
-        }
+        public static ClientTimer Inst => _instance.Value;
 
         /// <summary>
         /// 定时器间隔
@@ -86,7 +63,7 @@ namespace DNET
             DNClient client = DNClient.Inst;
 
             if (Config.IsAutoHeartbeat && client.IsConnected) {
-                float time = (DateTime.Now.Ticks - client.LastMsgSendTickTime) / 10000;
+                float time = (DateTime.Now.Ticks - client.Status.LastMsgSendTickTime) / 10000;
                 if (time > Config.HeartBeatSendTime) //如果时间已经超过了那么就发送心跳包
                 {
                     //发送一次心跳包
@@ -96,7 +73,7 @@ namespace DNET
 
             if (Config.IsAutoHeartbeat && client.IsConnected) {
                 //如果15s没有收到心跳包
-                float time = (DateTime.Now.Ticks - client.LastMsgReceTickTime) / 10000;
+                float time = (DateTime.Now.Ticks - client.Status.LastMsgReceTickTime) / 10000;
                 if (time > Config.HeartBeatCheckTime) {
                     LogProxy.LogWarning("ClientTimer.OnTimerTick()：长时间没有收到心跳包，判断可能已经掉线！");
                     client.Disconnect(); //关闭连接

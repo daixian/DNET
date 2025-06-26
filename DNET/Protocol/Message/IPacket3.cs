@@ -17,7 +17,7 @@ namespace DNET.Protocol
         /// <param name="txrId">事务ID，用于标识本次通信的事务序号</param>
         /// <param name="eventType">事件类型，表示当前通信事件的类别</param>
         /// <returns>打包数据结果</returns>
-        ByteBuffer Pack(byte[] data, int offset, int length, Format format, uint txrId, int eventType);
+        ByteBuffer Pack(byte[] data, int offset, int length, Format format, int txrId, int eventType);
 
         /// <summary>
         /// 直接打包一个 Message

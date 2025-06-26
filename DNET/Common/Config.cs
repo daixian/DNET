@@ -9,6 +9,11 @@ namespace DNET
     public static class Config
     {
         /// <summary>
+        /// 是否打印调试型的日志.
+        /// </summary>
+        public static bool isDebugLog = false;
+
+        /// <summary>
         /// 自动心跳包。
         /// 只有当它为true的时候，客户端才会在timer中自动发送，服务器才会在timer中检查离线。
         /// </summary>

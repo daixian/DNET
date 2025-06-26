@@ -69,5 +69,16 @@ namespace DNET
         /// 调试级别日志的回调委托。
         /// </summary>
         public static Action<string> actionLogDebug;
+
+        /// <summary>
+        /// 简单的全部输出到控制台
+        /// </summary>
+        public static void SetupLogToConsole()
+        {
+            actionLog = (s) => { Console.WriteLine(s); };
+            actionLogWarning = (s) => { Console.WriteLine(s); };
+            actionLogError = (s) => { Console.WriteLine(s); };
+            actionLogDebug = (s) => { Console.WriteLine(s); };
+        }
     }
 }

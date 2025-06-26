@@ -15,7 +15,7 @@ namespace DNETUnitTest
         public void TestMethod_Log()
         {
             Config.IsAutoHeartbeat = false;
-            DNClient.Inst.isDebugLog = true;
+            Config.isDebugLog = true;
             LogProxy.LogWarning("123");
             LogProxy.LogError("123");
 
@@ -32,7 +32,7 @@ namespace DNETUnitTest
         public void TestMethod_SendReceDPacketNoCrc()
         {
             Config.IsAutoHeartbeat = false;
-            DNClient.Inst.isDebugLog = true;
+            Config.isDebugLog = true;
 
             DNServer.Inst.EventPeerReceData += (token) => {
                 var msgs = token.GetReceiveData();
@@ -85,7 +85,7 @@ namespace DNETUnitTest
                 Thread.Sleep(20);
             }
             //一次连发n条
-            for (uint i = 0; i < 16; i++) {
+            for (int i = 0; i < 16; i++) {
                 //发送sendDataLength字节的sendData
                 LogProxy.LogDebug("客户端发送:msgNum=" + sendCount);
                 Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
@@ -122,105 +122,7 @@ namespace DNETUnitTest
             DNServer.Inst.Close();
         }
 
-        /// <summary>
-        /// 启动一个服务器，它会原样回发接收到的消息。
-        /// 再启动一个客户端和它发送消息，验证发送接收正常
-        /// </summary>
-        [Test]
-        public void TestMethod_SendReceFastPacket()
-        {
-            Config.IsAutoHeartbeat = false;
-            DNClient.Inst.isDebugLog = true;
-            int serverReceCount = 0;
-            DNServer.Inst.EventPeerReceData += (token) => {
-                var msgs = token.GetReceiveData();
-                if (msgs == null) {
-                    return;
-                }
 
-                for (int i = 0; i < msgs.Count; i++) {
-                    //收到的每一条消息.
-                    var msg = msgs[i];
-
-                    LogProxy.LogDebug("服务端接收到:msgNum=" + BitConverter.ToInt32(msg.data, 0));
-                    serverReceCount++;
-                    //直接原样回发
-                    DNServer.Inst.Send(token, msg.data);
-
-                    //得到消息类型然后处理
-                    //int pType = BitConverter.ToInt32(data, 0);
-                    //TypeRegister.GetInstance().Dispatch(token, pType, data, sizeof(int), data.Length - sizeof(int));
-                }
-            };
-
-            DNServer.Inst.Start(21024); //启动服务器
-            while (true) {
-                if (DNServer.Inst.IsStarted) {
-                    LogProxy.LogDebug("TestMethod_Send():服务器启动成功");
-                    break;
-                }
-            }
-            Random rand = new Random();
-            int sendDataLength = rand.Next(16, 64);
-            byte[] sendData = new byte[sendDataLength];
-            for (int i = 0; i < sendData.Length; i++) {
-                sendData[i] = (byte)rand.Next(128, 256);
-            }
-            DNClient.Inst.Connect("127.0.0.1", 21024);
-
-            while (true) {
-                if (DNClient.Inst.IsConnected) {
-                    LogProxy.LogDebug("TestMethod_Send():连接成功");
-                    Thread.Sleep(1000);
-                    break;
-                }
-            }
-
-            int receCount = 0; //接收的消息总条数
-            int sendCount = 0;
-
-            //发送n次
-            for (int count = 0; count < 200; count++) {
-                //一次连发n条
-                for (int i = 0; i < 500; i++) {
-                    //发送sendDataLength字节的sendData
-                    LogProxy.LogDebug("客户端发送:msgNum=" + sendCount);
-                    Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
-                    while (DNClient.Inst.SendQueueOverflow) {
-                        Thread.Sleep(2);
-                    }
-                    DNClient.Inst.Send(sendData);
-                    sendCount++;
-                }
-                while (receCount != sendCount) {
-                    Thread.Sleep(1);
-                    var datas = DNClient.Inst.GetReceiveData();
-                    if (datas != null) {
-                        for (int i = 0; i < datas.Count; i++) {
-                            var msg = datas[i];
-                            //判断接收长度是否一致
-                            Assert.That(msg.data.Length == sendDataLength);
-                            //判断消息序号
-                            int msgNum = BitConverter.ToInt32(msg.data, 0);
-                            LogProxy.LogDebug("客户端接收到回发:msgNum=" + msgNum);
-                            Assert.That(msgNum, Is.EqualTo(receCount));
-
-                            for (int j = 4; j < msg.data.Length; j++) {
-                                //判断每个字节是否一致
-                                Assert.That(msg.data[j] == sendData[j]);
-                            }
-
-                            receCount++;
-                        }
-                    }
-                }
-            }
-
-            Assert.That(receCount == sendCount);
-
-            DNClient.Inst.CloseImmediate();
-            DNServer.Inst.Close();
-        }
 
         ///// <summary>
         ///// 启动一个服务器，它会原样回发接收到的消息。
@@ -329,7 +231,7 @@ namespace DNETUnitTest
         public void TestMethod_SendRecePressure()
         {
             Config.IsAutoHeartbeat = false;
-            DNClient.Inst.isDebugLog = false;
+            Config.isDebugLog = false;
 
             DNServer.Inst.EventPeerReceData += (token) => {
                 var msgs = token.GetReceiveData();

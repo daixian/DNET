@@ -136,11 +136,11 @@ namespace DNET
                 if (tokens != null) {
                     for (int i = 0; i < tokens.Length; i++) {
                         Peer peer = tokens[i];
-                        if (peer.LastMsgReceTickTime < _checkTickTime) //如果从上次的进入这里的时间之后一直都没有收到消息
+                        if (peer.Status.LastMsgReceTickTime < _checkTickTime) //如果从上次的进入这里的时间之后一直都没有收到消息
                         {
                             LogProxy.LogDebug("ServerTimer.CheckOffLine()：一个用户长时间没有收到心跳包，被删除!");
 
-                            PeerManager.Inst.DeleteToken(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
+                            PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
                         }
                     }
                 }
@@ -159,10 +159,10 @@ namespace DNET
                 if (tokens != null) {
                     for (int i = 0; i < tokens.Length; i++) {
                         Peer peer = tokens[i];
-                        if (peer.disposed == false && peer.LastMsgSendTickTime < subTimeTick) //如果从上次的进入这里的时间之后一直都没有发消息
+                        if (peer.Status.LastMsgSendTickTime < subTimeTick) //如果从上次的进入这里的时间之后一直都没有发消息
                         {
                             //应该发送一条心跳包
-                            peer.AddSendData(Config.HeartBeatData, 0, Config.HeartBeatData.Length);
+                            peer.peerSocket.AddSendData(Config.HeartBeatData, 0, Config.HeartBeatData.Length);
                         }
                     }
                     DNServer.Inst.SendAll(); //整体发送

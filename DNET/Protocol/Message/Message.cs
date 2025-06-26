@@ -24,7 +24,7 @@ namespace DNET.Protocol
         /// <summary>
         /// 事务ID
         /// </summary>
-        public uint TxrId => header.txrId;
+        public int TxrId => header.txrId;
 
         /// <summary>
         /// 事件类型
