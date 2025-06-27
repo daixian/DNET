@@ -19,7 +19,7 @@ namespace UnitTest
             LogProxy.LogWarning("123");
             LogProxy.LogError("123");
 
-            DNClient.Inst.CloseImmediate();
+            DNClient.Inst.Close();
             DNServer.Inst.Close();
         }
 
@@ -119,7 +119,7 @@ namespace UnitTest
 
             Assert.That(receCount == sendCount);
 
-            DNClient.Inst.CloseImmediate();
+            DNClient.Inst.Close();
             DNServer.Inst.Close();
         }
 
@@ -355,7 +355,7 @@ namespace UnitTest
 
             Assert.That(receCount == sendCount);
 
-            DNClient.Inst.CloseImmediate();
+            DNClient.Inst.Close();
             DNServer.Inst.Close();
         }
     }

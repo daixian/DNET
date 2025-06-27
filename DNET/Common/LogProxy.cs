@@ -75,10 +75,10 @@ namespace DNET
         /// </summary>
         public static void SetupLogToConsole()
         {
-            actionLog = (s) => { Console.WriteLine(s); };
-            actionLogWarning = (s) => { Console.WriteLine(s); };
-            actionLogError = (s) => { Console.WriteLine(s); };
-            actionLogDebug = (s) => { Console.WriteLine(s); };
+            actionLog = (s) => { Console.WriteLine($"[INFO] {s}"); };
+            actionLogWarning = (s) => { Console.WriteLine($"[WARN] {s}"); };
+            actionLogError = (s) => { Console.WriteLine($"[ERROR] {s}"); };
+            actionLogDebug = (s) => { Console.WriteLine($"[DEBUG] {s}"); };
         }
     }
 }

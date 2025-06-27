@@ -105,8 +105,8 @@ namespace DNET
         public string RemoteIP {
             get {
                 try {
-                    IPEndPoint clientipe = (IPEndPoint)_remoteEndPoint;
-                    return clientipe.Address.ToString();
+                    IPEndPoint ipEndPoint = (IPEndPoint)_remoteEndPoint;
+                    return ipEndPoint.Address.ToString();
                 } catch (Exception) {
                     return "Unknow";
                 }
@@ -118,7 +118,7 @@ namespace DNET
         /// <summary>
         /// 出现错误
         /// </summary>
-        internal event Action EventError;
+        internal event Action<ErrorType> EventError;
 
         /// <summary>
         /// 连接成功的事件
@@ -152,13 +152,13 @@ namespace DNET
             Format format = Format.Raw, int txrId = 0, int eventType = 0)
         {
             if (data == null) {
-                LogProxy.LogWarning("PeerSocket.AddSendData(data,offset,count):要发送的数据为null！");
+                // LogProxy.LogWarning("PeerSocket.AddSendData(data,offset,count):要发送的数据为null！");
             }
             try {
                 ByteBuffer packedData = _packet.Pack(data, offset, count, format, txrId, eventType);
                 _sendQueue.Enqueue(packedData);
             } catch (Exception e) {
-                LogProxy.LogWarning("PeerSocket.AddSendData(p1,p2,p3):异常 " + e.Message);
+                LogProxy.LogWarning($"PeerSocket.AddSendData:[{Name}] 异常 {e}");
             }
         }
 
@@ -202,13 +202,11 @@ namespace DNET
                     PrepareReceive(_receiveArgs); // 启动接收
                 }
                 else {
-                    LogProxy.LogError("PeerSocket.SetAcceptSocket(): IsConnected=false,这不应该!");
+                    LogProxy.LogError($"PeerSocket.SetAcceptSocket():[{Name}]  IsConnected=false,这不应该!");
                 }
-
             } catch (Exception e) {
-                LogProxy.LogWarning($"PeerSocket.SetAcceptSocket(): 异常{e}");
+                LogProxy.LogWarning($"PeerSocket.SetAcceptSocket():[{Name}]  异常{e}");
             }
-
         }
 
         /// <summary>
@@ -245,7 +243,7 @@ namespace DNET
                 socket.SendTimeout = 8 * 1000;
                 socket.ReceiveTimeout = 0;
             } catch (Exception e) {
-                LogProxy.LogWarning("PeerSocket.BindRemote():绑定远程地址地址错误: " + e.Message);
+                LogProxy.LogWarning($"PeerSocket.BindRemote():[{Name}] 绑定远程地址地址错误: " + e.Message);
             }
         }
 
@@ -271,7 +269,7 @@ namespace DNET
                 OnConnectCompleted(this, connectArgs);
             }
 
-            // TODO: 这里可能不应该阻塞工作线程，或该在后面改进处理
+            // 这里阻塞吧.
             _areConnectDone.WaitOne();
 
             // dx: 注意这里这样发出异常
@@ -292,10 +290,11 @@ namespace DNET
             try {
                 if (IsConnected) {
                     socket.Shutdown(SocketShutdown.Both);
-                    socket.Disconnect(false); //不允许重用套接字  
+                    socket.Disconnect(false); //不允许重用套接字
+                    Clear(); //清空数据
                 }
             } catch (Exception e) {
-                LogProxy.LogWarning("PeerSocket.Disconnect()：异常 " + e.Message);
+                LogProxy.LogWarning($"PeerSocket.Disconnect():[{Name}] 异常 " + e.Message);
             }
         }
 
@@ -322,7 +321,7 @@ namespace DNET
                 int totalLength = 0;
                 List<ByteBuffer> buffers = new List<ByteBuffer>();
                 if (_sendFailData != null) {
-                    LogProxy.LogWarning($"SocketClient.TryBeginSend():{Name} 有一个发送失败的数据,接上重发");
+                    LogProxy.LogWarning($"SocketClient.TryBeginSend():[{Name}] 有一个发送失败的数据,接上重发");
                     buffers.Add(_sendFailData);
                     totalLength += _sendFailData.Length;
                     _sendFailData = null;
@@ -331,7 +330,7 @@ namespace DNET
                 while (_sendQueue.TryDequeue(out ByteBuffer item)) {
                     buffers.Add(item);
                     if (item.Length == 0) {
-                        LogProxy.LogError($"SocketClient.TryBeginSend():{Name} 发送item数据长度不应该为0!");
+                        LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 发送item数据长度不应该为0!");
                     }
                     // 统计总长度
                     totalLength += item.Length;
@@ -358,7 +357,7 @@ namespace DNET
                 }
 
                 if (sendBuffer.Length == 0) {
-                    LogProxy.LogError($"SocketClient.TryBeginSend():{Name} 发送数据长度不应该为0!");
+                    LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 发送数据长度不应该为0!");
                 }
 
                 ConnectionContext context = _sendArgs.GetConnectionContext();
@@ -372,8 +371,9 @@ namespace DNET
                 return true;
             }
             else {
-                throw new SocketException((int)SocketError.NotConnected);
+                LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 还未连接,不能发送数据!");
             }
+            return false;
         }
 
         /// <summary>
@@ -408,17 +408,15 @@ namespace DNET
                         PrepareReceive(_receiveArgs); // 启动接收
                     }
                     else {
-                        LogProxy.LogWarning("PeerSocket.OnConnectCompleted(): IsConnected=false, 但 SocketError.Success");
+                        LogProxy.LogWarning($"PeerSocket.OnConnectCompleted():[{Name}] IsConnected=false, 但 SocketError.Success");
                     }
                 }
                 else {
-                    LogProxy.LogWarning($"PeerSocket.OnConnectCompleted():连接失败: SocketError={args.SocketError}");
+                    LogProxy.LogWarning($"PeerSocket.OnConnectCompleted():[{Name}] 连接失败: SocketError={args.SocketError}");
                     // 你可以触发一个连接失败的事件或重试逻辑
                 }
-
-
             } catch (Exception e) {
-                LogProxy.LogWarning($"PeerSocket.OnConnectCompleted(): 异常 {e}");
+                LogProxy.LogWarning($"PeerSocket.OnConnectCompleted():[{Name}] 异常 {e}");
             }
         }
 
@@ -432,19 +430,18 @@ namespace DNET
 
                 if (args.BytesTransferred == 0) {
                     // 在本机回环飞速的发送的时候,有时候会进入这里,导致丢失一个包,似乎不会出现,观察一下.这个错误实际是由Buffer池导致的.后面似乎可以去掉这个
-                    LogProxy.LogWarning($"SocketClient.OnSendCompleted():{Name}发送状态成功 但是发送数据字节数 {args.BytesTransferred}");
+                    LogProxy.LogWarning($"SocketClient.OnSendCompleted():[{Name}] 发送状态成功 但是发送数据字节数 {args.BytesTransferred}");
 
                     // 缓存最后发送失败数据
                     _sendFailData = context.sendBuffer;
-
                 }
                 else {
-                    // 回收发送缓冲区 
+                    // 回收发送缓冲区
                     context.sendBuffer.Recycle();
                     context.sendBuffer = null;
 
                     if (Config.isDebugLog)
-                        LogProxy.LogDebug($"SocketClient.OnSendCompleted():{Name}发送成功 发送数据字节数 {args.BytesTransferred}");
+                        LogProxy.LogDebug($"SocketClient.OnSendCompleted():[{Name}] 发送成功 发送数据字节数 {args.BytesTransferred}");
                     // 这是多条消息合并发送的,所以这里要记录
                     peerStatus.RecordSentMessage(context.curSendMsgCount, args.BytesTransferred);
 
@@ -452,7 +449,6 @@ namespace DNET
                     if (EventSendCompleted != null) {
                         EventSendCompleted();
                     }
-
                 }
 
                 // 标记发送结束
@@ -462,7 +458,7 @@ namespace DNET
                 if (_sendQueue.Count > 0 || _sendFailData != null)
                     TryBeginSend();
             } catch (Exception e) {
-                LogProxy.LogWarning($"PeerSocket.OnSendCompleted(): {e}");
+                LogProxy.LogWarning($"PeerSocket.OnSendCompleted():[{Name}]  {e}");
             }
         }
 
@@ -477,18 +473,18 @@ namespace DNET
                 //有可能会出现接收到的数据长度为0的情形，如当服务器关闭连接的时候
                 if (args.BytesTransferred == 0) {
                     // 这个应该是看不同平台,可能不同
-                    LogProxy.LogWarning($"PeerSocket.OnReceiveCompleted():{Name}BytesTransferred函数返回了零，说明远程可能已经关闭了连接 ");
+                    LogProxy.LogWarning($"PeerSocket.OnReceiveCompleted():[{Name}] BytesTransferred函数返回了零，说明远程可能已经关闭了连接 ");
                     this.ProcessError(args);
                 }
 
                 // 确定接收成功之后
-                var curRecvBuffer = args.GetConnectionContext().recvBuffer;// 这是当前的接收缓冲区
+                var curRecvBuffer = args.GetConnectionContext().recvBuffer; // 这是当前的接收缓冲区
                 byte[] bytes = args.Buffer;
                 int offset = args.Offset;
                 int length = args.BytesTransferred;
 
                 if (Config.isDebugLog)
-                    LogProxy.LogDebug($"SocketClient.OnReceiveCompleted():{Name}接收成功 接收数据字节数 {length}");
+                    LogProxy.LogDebug($"SocketClient.OnReceiveCompleted():[{Name}] 接收成功 接收数据字节数 {length}");
 
                 // 写入当前接收的数据(这里等于说是由.net线程池的接收线程进行了解包)
                 var msgs = _packet.Unpack(bytes, offset, length);
@@ -497,9 +493,9 @@ namespace DNET
                 }
                 int msgCount = msgs == null ? 0 : msgs.Count;
 
-                curRecvBuffer.Recycle();//解包结束,回收接收缓存区
+                curRecvBuffer.Recycle(); //解包结束,回收接收缓存区
 
-                // 记录接收状态 
+                // 记录接收状态
                 peerStatus.RecordReceivedMessage(msgCount, length);
 
                 //如果确实收到了一条消息.执行事件
@@ -507,9 +503,8 @@ namespace DNET
                     EventReceiveCompleted();
                 }
                 PrepareReceive(args); //立刻开始下一个接收,免得解包速度过慢
-
             } catch (Exception e) {
-                LogProxy.LogWarning($"PeerSocket.OnReceiveCompleted():异常 {e}");
+                LogProxy.LogWarning($"PeerSocket.OnReceiveCompleted():[{Name}] 异常 {e}");
             }
         }
 
@@ -531,7 +526,7 @@ namespace DNET
                 };
                 _sendArgs.Completed += OnSendCompleted;
             }
-            _sendArgs.GetConnectionContext().socket = this.socket;// 考虑到这个socket可能会改变
+            _sendArgs.GetConnectionContext().socket = this.socket; // 考虑到这个socket可能会改变
 
             if (_receiveArgs == null) {
                 _receiveArgs = new SocketAsyncEventArgs();
@@ -543,9 +538,7 @@ namespace DNET
                 _receiveArgs.UserToken = context;
                 _receiveArgs.Completed += OnReceiveCompleted;
             }
-            _receiveArgs.GetConnectionContext().socket = this.socket;// 考虑到这个socket可能会改变
-
-
+            _receiveArgs.GetConnectionContext().socket = this.socket; // 考虑到这个socket可能会改变
         }
 
 
@@ -555,25 +548,20 @@ namespace DNET
         /// <param name="args"></param>
         private void ProcessError(SocketAsyncEventArgs args)
         {
-            LogProxy.LogWarning("PeerSocket.ProcessError():进入了ProcessError.  ErroType：" + args.SocketError); //显示下接收的信息
+            LogProxy.LogWarning($"PeerSocket.ProcessError():[{Name}] 进入了ProcessError,SocketError={args.SocketError}"); //显示下接收的信息
             ConnectionContext context = args.GetConnectionContext(); //使用传递的Token
             if (context.socket.Connected) {
                 try {
-                    LogProxy.LogDebug("PeerSocket.ProcessError():调用Shutdown()关闭连接");
+                    LogProxy.LogDebug($"PeerSocket.ProcessError():[{Name}] 调用Shutdown()关闭连接");
                     context.socket.Shutdown(SocketShutdown.Both);
                 } catch (Exception ex) {
-                    LogProxy.LogWarning("PeerSocket.ProcessError() ：Shutdown()异常 " + ex.Message);
+                    LogProxy.LogWarning($"PeerSocket.ProcessError():[{Name}] Shutdown()异常 {ex}");
                 } finally {
-                    if (context.socket.Connected) {
-                        context.socket.Close();
-                        LogProxy.LogWarning("PeerSocket.ProcessError() ：调用Close()关闭了连接"); //这里是否必须要关闭待定
-                    }
+                    context.socket.Close();
                 }
             }
             //产生错误事件，这是一个很重要的事件，处理服务器连接断开等
-            if (EventError != null) {
-                EventError();
-            }
+            EventError?.Invoke(ErrorType.IOError);
         }
 
         /// <summary>
@@ -587,7 +575,7 @@ namespace DNET
                 // 这个判断不严谨
                 if (!s.Connected) //如果当前没有连接上，就不发送
                 {
-                    LogProxy.LogWarning("PeerSocket.PrepareSend() 当前已经断线，但仍尝试发送，已经忽略这条发送.");
+                    LogProxy.LogWarning($"PeerSocket.PrepareSend():[{Name}] 当前已经断线，但仍尝试发送，已经忽略这条发送.");
                     return;
                 }
                 // 开始发送,这里作异常处理
@@ -597,7 +585,7 @@ namespace DNET
                     OnSendCompleted(this, args); //如果立即返回
                 }
             } catch (Exception e) {
-                LogProxy.LogWarning("PeerSocket.PrepareSend() 开始准备异步发送出错！！" + e.Message);
+                LogProxy.LogWarning($"PeerSocket.PrepareSend():[{Name}] 异常{e}");
                 // 这里捕获过的异常有：
                 // Thread creation failed.
             }
@@ -618,7 +606,7 @@ namespace DNET
                 // 这里重新给一个接收buffer
                 var context = args.GetConnectionContext();
                 context.recvBuffer = GlobalBuffer.Inst.Get(RECE_BUFFER_SIZE);
-                byte[] buff = context.recvBuffer.buffer;// dx: 注意这里是buffer的容量
+                byte[] buff = context.recvBuffer.buffer; // dx: 注意这里是buffer的容量
                 args.SetBuffer(buff, 0, buff.Length);
 
                 //开始接收
@@ -629,7 +617,7 @@ namespace DNET
                     OnReceiveCompleted(this, args);
                 }
             } catch (Exception e) {
-                LogProxy.LogWarning("PeerSocket.PrepareReceive() 开始异步接收错误：" + e.Message);
+                LogProxy.LogWarning($"PeerSocket.PrepareReceive():[{Name}] 开始异步接收错误：" + e.Message);
                 //这里捕获过的异常有：
                 // Thread creation failed.
             }
@@ -650,7 +638,7 @@ namespace DNET
             _disposed = true;
 
             try {
-                LogProxy.Log("PeerSocket.Dispose():进入Dispose");
+                LogProxy.Log($"PeerSocket.Dispose():[{Name}] 进入Dispose");
                 //快速的尝试掉线？
                 //_clientSocket.SendTimeout = 500;
                 //_clientSocket.ReceiveTimeout = 500;
@@ -667,24 +655,24 @@ namespace DNET
                     // dx: 这里不要置空，因为可能此时还有异步回调没有进入
                     //_sendArgs.UserToken = null;
                     _sendArgs.Dispose();
-                    _sendArgs = null;
                 }
                 if (this._receiveArgs != null) {
                     // dx: 这里不要置空，因为可能此时还有异步回调没有进入
                     //_receiveArgs.UserToken = null;
                     _receiveArgs.Dispose();
-                    _receiveArgs = null;
                 }
                 if (socket != null) {
                     socket.Dispose();
                 }
 
                 _areConnectDone?.Dispose();
-                _areConnectDone = null;
-                //_areSendDone.Close();
-                //_areReceiveDone.Close();
             } catch (Exception e) {
                 LogProxy.LogWarning("PeerSocket.Dispose() 异常：" + e.Message);
+            } finally {
+                socket = null;
+                _areConnectDone = null;
+                _sendArgs = null;
+                _receiveArgs = null;
             }
         }
 

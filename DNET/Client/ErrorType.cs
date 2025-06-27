@@ -3,13 +3,8 @@
     /// <summary>
     /// DNET模块的事件类型
     /// </summary>
-    public enum EventType
+    public enum ErrorType
     {
-        /// <summary>
-        /// 连接服务器成功
-        /// </summary>
-        ConnectSucceed,
-
         /// <summary>
         /// 连接服务器失败
         /// </summary>

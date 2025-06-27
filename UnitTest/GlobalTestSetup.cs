@@ -9,10 +9,10 @@ public class GlobalTestSetup
         // 在所有测试开始前执行一次
         //DNET.LogProxy.SetupLogToConsole();
 
-        DNET.LogProxy.actionLog = (s) => TestContext.Progress.WriteLine("[LOG] " + s);
-        DNET.LogProxy.actionLogWarning = (s) => TestContext.Progress.WriteLine("[WARN] " + s);
-        DNET.LogProxy.actionLogError = (s) => TestContext.Progress.WriteLine("[ERROR] " + s);
-        DNET.LogProxy.actionLogDebug = (s) => TestContext.Progress.WriteLine("[DEBUG] " + s);
+        DNET.LogProxy.actionLog = (s) => TestContext.Progress.WriteLine($"[INFO] {s}");
+        DNET.LogProxy.actionLogWarning = (s) => TestContext.Progress.WriteLine($"[WARN] {s}");
+        DNET.LogProxy.actionLogError = (s) => TestContext.Progress.WriteLine($"[ERROR] {s}");
+        DNET.LogProxy.actionLogDebug = (s) => TestContext.Progress.WriteLine($"[DEBUG] {s}");
     }
 
     [OneTimeTearDown]

@@ -43,9 +43,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\ClientTimer.cs" />
+    <Compile Include="Client\CtMessage.cs" />
     <Compile Include="Peer\ConnectionContext.cs" />
     <Compile Include="Client\DNClient.cs" />
-    <Compile Include="Client\EventType.cs" />
+    <Compile Include="Client\ErrorType.cs" />
     <Compile Include="Peer\PeerStatus.cs" />
     <Compile Include="Peer\PeerSocket.cs" />
     <Compile Include="Common\DNETExt.cs" />
@@ -54,12 +55,13 @@
     <Compile Include="Common\BytesQueue.cs" />
     <Compile Include="Common\Config.cs" />
     <Compile Include="Common\DQueue.cs" />
-    <Compile Include="Common\DThreadTimeAnalyze.cs" />
+    <Compile Include="Thread\ThreadAnalyzer.cs" />
     <Compile Include="Common\LogProxy.cs" />
     <Compile Include="Common\GZip.cs" />
     <Compile Include="Common\IWorkMsg.cs" />
     <Compile Include="Common\NetWorkTaskArgs.cs" />
-    <Compile Include="Common\WorkThread.cs" />
+    <Compile Include="Thread\ThreadSampler.cs" />
+    <Compile Include="Thread\WorkThread.cs" />
     <Compile Include="Data\GlobalBuffer.cs" />
     <Compile Include="Data\IBufferPool.cs" />
     <Compile Include="Data\UnsafeByteBuffer.cs" />
@@ -84,6 +86,7 @@
     <Compile Include="Server\PeerManager.cs" />
     <Compile Include="Server\UserObj.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>

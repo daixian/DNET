@@ -11,7 +11,7 @@ namespace DNET
     /// 通信传输的客户端类.
     /// 主要就是再加上一层工作线程的异步封装
     /// </summary>
-    public class DNClient
+    public class DNClient : IWorkHandler<CtMessage>
     {
         private static readonly Lazy<DNClient> _instance = new Lazy<DNClient>(() => new DNClient());
 
@@ -23,37 +23,17 @@ namespace DNET
         /// <summary>
         /// 公有的构造函数，可以用来在一个程序中开多个客户端。
         /// 它没有启动公共Timer
-        /// </summary> 
+        /// </summary>
         public DNClient()
         {
-            IsConnecting = false;
-            IsInited = false;
-
             //启动公共Timer
             ClientTimer.Inst.Start();
         }
 
-        #region Fields
-
         /// <summary>
         /// 工作线程
         /// </summary>
-        private Thread _workThread = null;
-
-        /// <summary>
-        /// 对应一条消息的信号量
-        /// </summary>
-        private Semaphore _msgSemaphore = null;
-
-        /// <summary>
-        /// 和U3D主模块之间的通信的消息队列
-        /// </summary>
-        private DQueue<NetWorkTaskArgs> _taskArgsQueue = null;
-
-        /// <summary>
-        /// 通信类使用的控制消息池
-        /// </summary>
-        private DQueue<NetWorkTaskArgs> _taskArgsPool = null;
+        private WorkThread<CtMessage> _workThread;
 
         /// <summary>
         /// 当前的信号量计数,防止出异常吧
@@ -88,21 +68,13 @@ namespace DNET
         /// <summary>
         /// 这个对象是否已经被释放掉
         /// </summary>
-        private bool _disposed = true;
+        private bool _disposed = false;
 
-        #endregion Fields
-
-        #region Property
 
         /// <summary>
         /// 这个客户端的名字
         /// </summary>
         public string Name => _peerSocket.Name;
-
-        /// <summary>
-        /// 这个客户端是否已经初始化可用,这个属性目前只对外标记，对内没有用来作判断。
-        /// </summary>
-        public bool IsInited { get; private set; }
 
         /// <summary>
         /// 是否已经连接上了服务器
@@ -116,9 +88,7 @@ namespace DNET
                 if (_peerSocket == null) {
                     return false;
                 }
-                else {
-                    return _peerSocket.IsConnected;
-                }
+                return _peerSocket.IsConnected;
             }
         }
 
@@ -143,7 +113,6 @@ namespace DNET
         /// </summary>
         public PeerStatus Status => _peerSocket.peerStatus;
 
-        #endregion Property
 
         #region Event
 
@@ -157,12 +126,12 @@ namespace DNET
         /// 有几条数据就会有几次事件，但是由于粘包问题这些事件可能会一连串的来。
         /// 用户在这个事件中应该自己调用GetReceiveData()。
         /// </summary>
-        public event Action<DNClient> EventReceData;
+        public event Action<DNClient> EventReceive;
 
         /// <summary>
         /// 事件：错误,可以用来通知服务器断线，关闭等。当进入这个事件的时候，此时与服务器的连接肯定已经断开了
         /// </summary>
-        public event Action<DNClient, EventType, Exception> EventError;
+        public event Action<DNClient, ErrorType, Exception> EventError;
 
         /// <summary>
         /// 事件：发送队列的大小已经过大
@@ -176,59 +145,44 @@ namespace DNET
 
         #endregion Event
 
-        #region Exposed Function
-
         /// <summary>
         /// 连接服务器,输入IP和端口号。如果没有初始化在第一次会初始化。
         /// </summary>
         /// <param name="host">主机IP</param>
         /// <param name="port">端口号</param>
-        /// <param name="isTry">是否是尝试连接</param>
-        public void Connect(string host, int port, bool isTry = false)
+        public void Connect(string host, int port)
         {
-            try {
-                LogProxy.LogDebug("DNClient.Connect():连接服务器 主机：" + host + "  端口:" + port);
-
-                // 标记正在连接
+            lock (this) {
+                if (IsConnecting) return;
                 IsConnecting = true;
 
-                // 这个初始化如果重复调用并不会重新new出成员.
-                Init();
+                try {
+                    LogProxy.LogDebug("DNClient.Connect():连接服务器 主机：" + host + "  端口:" + port);
+                    _host = host;
+                    _port = port;
 
-                // 进行一次连接的时候，把消息队列清空
-                Clear();
-
-                Interlocked.Exchange(ref this._host, host); //给类成员赋值
-                Interlocked.Exchange(ref this._port, port); //给类成员赋值
-
-                NetWorkTaskArgs taskArg = _taskArgsPool.Dequeue();
-                if (taskArg == null) {
-                    taskArg = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_Connect);
-                }
-                else {
-                    taskArg.Reset(NetWorkTaskArgs.Tpye.C_Connect);
-                }
-                AddTask(taskArg);
-
-            } catch (Exception e) {
-                // 一般来说其实不会进入这个异常.因为这个函数只是吧一个Message添加到队列中，不会发生异常.
-                IsConnecting = false; //连接失败了
-                if (!isTry) {
-                    LogProxy.LogError("DNClient.Connect():异常：" + e.Message);
-
-                    if (EventError != null) {
-                        try {
-                            EventError(this, EventType.ConnectError, e); //事件类型：ConnectError
-                        } catch (Exception e2) {
-                            LogProxy.LogWarning("DNClient.Connect():执行EventError事件异常：" + e2.Message);
-                        }
+                    // 工作线程总是启动
+                    if (_workThread == null) {
+                        _workThread = new WorkThread<CtMessage>("DNClientWorkThread");
                     }
-                }
-                else {
-                    LogProxy.LogDebug("DNClient.Connect():异常：" + e.Message);
-                }
+                    _workThread.ClearQueue();
 
-                Dispose(); //释放
+                    if (_peerSocket == null) {
+                        _peerSocket = new PeerSocket();
+                        _peerSocket.Name = "DNClient";
+                        _peerSocket.EventError += OnError;
+                        _peerSocket.EventReceiveCompleted += OnReceiveCompleted;
+                    }
+
+                    // 让工作线程处理这个消息
+                    var msg = new CtMessage() { type = CtMessage.Type.Connect };
+                    _workThread.Post(in msg, this);
+                } catch (Exception e) {
+                    // 一般来说其实不会进入这个异常.因为这个函数只是吧一个Message添加到队列中，不会发生异常.
+                    IsConnecting = false; //连接失败了
+
+                    LogProxy.LogError($"DNClient.Connect():未能启动连接,异常 {e}");
+                }
             }
         }
 
@@ -237,40 +191,44 @@ namespace DNET
         /// </summary>
         public void Disconnect()
         {
-            try {
-                this.Clear();
-                if (_peerSocket != null) {
-                    _peerSocket.Disconnect();
+            lock (this) {
+                try {
+                    _workThread.ClearQueue();
+                    if (_peerSocket != null) {
+                        _peerSocket.Disconnect();
+                    }
+                } catch (Exception e) {
+                    LogProxy.LogWarning("DNClient.DisConnect():执行DisConnect异常：" + e.Message);
                 }
-            } catch (Exception e) {
-                LogProxy.LogWarning("DNClient.DisConnect():执行DisConnect异常：" + e.Message);
             }
         }
 
         /// <summary>
-        /// 异步的关闭socket和线程，会在消息队列中执行完这个消息之前的所有消息后，才会执行。
+        /// 直接关闭,不会等待所有数据发送完成.
         /// </summary>
         public void Close()
         {
-            LogProxy.Log("DNClient.Close():进入了close函数！");
-
-            NetWorkTaskArgs args = _taskArgsPool.Dequeue();
-            if (args == null) {
-                args = new NetWorkTaskArgs(NetWorkTaskArgs.Tpye.C_AsynClose);
+            LogProxy.Log("DNClient.Close():准备关闭Socket和停止工作线程...");
+            lock (this) {
+                try {
+                    if (_workThread != null) {
+                        _workThread.Stop();
+                    }
+                } catch (Exception e) {
+                    LogProxy.LogWarning($"DNClient.Close():停止工作线程异常 {e}");
+                } finally {
+                    _workThread = null;
+                }
+                try {
+                    if (_peerSocket != null) {
+                        _peerSocket.Dispose();
+                    }
+                } catch (Exception e) {
+                    LogProxy.LogWarning($"DNClient.Close():关闭Socket异常 {e}");
+                } finally {
+                    _peerSocket = null;
+                }
             }
-            else {
-                args.Reset(NetWorkTaskArgs.Tpye.C_AsynClose);
-            }
-            AddTask(args);
-        }
-
-        /// <summary>
-        /// 立即的关闭线程和socket，会调用这个类的Dispose()
-        /// </summary>
-        public void CloseImmediate()
-        {
-            LogProxy.Log("DNClient.CloseImmediate():进入了CloseImmediate函数！");
-            Dispose();
         }
 
         /// <summary>
@@ -288,15 +246,17 @@ namespace DNET
         /// <param name="data">要发送的数据</param>
         /// <param name="offset">数据的起始位置</param>
         /// <param name="count">数据的长度</param>
-        /// <param name="format"></param>
-        /// <param name="txrId"></param>
-        /// <param name="eventType"></param>
+        /// <param name="format">数据格式</param>
+        /// <param name="txrId">事务id</param>
+        /// <param name="eventType">消息类型</param>
+        /// <param name="immediately">是否立刻尝试开始发送</param>
         public void Send(byte[] data,
             int offset,
             int count,
             Format format = Format.Raw,
             int txrId = 0,
-            int eventType = 0)
+            int eventType = 0,
+            bool immediately = true)
         {
             if (data == null) {
                 LogProxy.LogWarning("DNClient.Send(data,offset,count):要发送的数据为null！");
@@ -304,7 +264,13 @@ namespace DNET
             try {
                 // 这里其实已经开始打包了.
                 _peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
-                _peerSocket.TryBeginSend();//这个函数可以直接启动 
+                if (immediately)
+                    _peerSocket.TryBeginSend(); //这个函数可以直接启动
+                else {
+                    // 让工作线程处理这个消息
+                    var msg = new CtMessage() { type = CtMessage.Type.Send };
+                    _workThread.Post(in msg, this);
+                }
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.Send(p1,p2,p3):异常 " + e.Message);
             }
@@ -319,7 +285,7 @@ namespace DNET
             try {
                 byte[] dataBytes = null;
                 if (string.IsNullOrEmpty(text)) {
-                    Send(dataBytes);
+                    Send(dataBytes); //发送一个没有内容的空消息
                     return;
                 }
                 dataBytes = Encoding.UTF8.GetBytes(text);
@@ -338,166 +304,83 @@ namespace DNET
             return _peerSocket.GetReceiveMessages();
         }
 
+        #region 工作线程
+
         /// <summary>
-        /// 加入一条要执行的消息，如果加入的过快而无法发送，则将产生信号量溢出异常，表明当前发送数据频率要大于系统能力
+        /// 处理消息
         /// </summary>
-        /// <param name="taskArgs"></param>
-        internal void AddTask(NetWorkTaskArgs taskArgs)
+        /// <param name="msg"></param>
+        public void Handle(ref CtMessage msg)
         {
-            if (_disposed) {
-                LogProxy.LogWarning($"DNClient.AddTask():DNClient对象已经被释放，不能再加入消息。msgType = {taskArgs.type}");
-                return;
-            }
-            try {
-                LogProxy.LogDebug("DNClient.AddTask():向消息队列中添加消息");
-                if (taskArgs != null)
-                    _taskArgsQueue.Enqueue(taskArgs); //消息进队列
+            switch (msg.type) {
+                case CtMessage.Type.Connect:
+                    DoConnect();
+                    break;
 
-                try {
-                    //如果当前的信号量剩余不多的时候
-                    if (_curSemCount < 4) {
-                        Interlocked.Increment(ref _curSemCount);
-                        _msgSemaphore.Release(); // 释放信号量
-                    }
-                    // 如果加入的过快而无法发送，则将产生信号量溢出异常,但是不会影响程序的唤醒
-                } catch (Exception) {
-                }
-            } catch (Exception e) {
-                LogProxy.LogError($"DNClient.AddTask():异常：{e}");
-            }
-        }
+                case CtMessage.Type.Send:
+                    DoSend();
+                    break;
 
-        #endregion Exposed Function
+                case CtMessage.Type.Receive:
+                    DoReceive();
+                    break;
 
-        #region Thread Function
-
-        private void DoWork()
-        {
-            try {
-                LogProxy.LogDebug("DNClient.DoWork():通信线程启动！");
-                while (true) {
-                    Interlocked.Exchange(ref _isThreadWorking, 0); //标记当前线程已经停止工作
-
-                    _msgSemaphore.WaitOne();
-                    Interlocked.Decrement(ref _curSemCount); //递减信号量计数
-
-                    Interlocked.Exchange(ref _isThreadWorking, 1); //标记当前线程已经正在执行工作
-
-                    while (true) {
-                        NetWorkTaskArgs taskArg = _taskArgsQueue.Dequeue();
-                        if (taskArg == null) {
-                            break;
-                        }
-                        float waitTime = (DateTime.Now.Ticks - taskArg.timeTickCreat) / 10000; //毫秒
-                        if (waitTime > _warringWaitTime) {
-                            _warringWaitTime += 500;
-                            LogProxy.LogWarning("DNClient.DoWork():NetWorkMsg等待处理时间过长！waitTime:" + waitTime);
-                        }
-                        else if ((_warringWaitTime - waitTime) > 500) {
-                            _warringWaitTime -= 500;
-                        }
-
-                        if (taskArg != null) {
-                            switch (taskArg.type) {
-                                case NetWorkTaskArgs.Tpye.C_Connect:
-                                    DoConnect();
-                                    break;
-
-                                case NetWorkTaskArgs.Tpye.C_Send:
-                                    DoSend(taskArg);
-                                    break;
-
-                                case NetWorkTaskArgs.Tpye.C_Receive:
-                                    DoReceive();
-                                    break;
-
-                                case NetWorkTaskArgs.Tpye.C_AsynClose:
-                                    DoClose();
-                                    _workThread = null; //把这个成员置为空
-                                    return; //执行完就结束了整个线程函数
-
-                                default:
-
-                                    break;
-                            }
-                            //用过的消息放回池里
-                            _taskArgsPool.EnqueueMaxLimit(taskArg);
-                        }
-                        else {
-                            // _cpuTime.Calculate();//空闲的话就计算一下
-                        }
-                        //long costTime = _cpuTime.WaitStart(); //时间分析计时
-                    }
-                }
-            } catch (Exception e) {
-                LogProxy.LogError("DNClient.DoWork():异常：通信线程执行异常！ " + e.Message);
+                case CtMessage.Type.Close:
+                    DoClose();
+                    break;
+                default:
+                    break;
             }
         }
 
         private void DoConnect()
         {
             try {
-                //DxDebug.LogConsole("DNClient.DoConnect():执行Connect...");
+                if (Config.isDebugLog)
+                    LogProxy.LogDebug("DNClient.DoConnect():执行Connect...");
+
                 //标记正在连接
                 IsConnecting = true;
 
-                this.Clear(); //清空数据
+                // 断开原先连接，绑定新ip，清理状态
+                _peerSocket.Disconnect();
 
-                if (_peerSocket != null) {
-                    // 断开原先连接，绑定新ip，清理状态
-                    _peerSocket.Disconnect();
-                    _peerSocket.Clear();
-                }
-                else {
-                    _peerSocket = new PeerSocket();
-                    _peerSocket.Name = "DNClient";
-                    //_peerSocket.EventReceiveCompleted += OnReceiveCompleted;
-                    //_peerSocket.EventSendCompleted += OnSendCompleted;
-                    _peerSocket.EventError += OnError;
 
-                }
-
-                LogProxy.LogDebug("DNClient.DoConnect():正在连接...");
+                LogProxy.Log("DNClient.DoConnect():正在连接...");
                 _peerSocket.BindRemote(_host, _port);
-                _peerSocket.Connect();
-                LogProxy.LogDebug($"DNClient.DoConnect():连接服务器成功！{_host}:{_port}");
+                _peerSocket.Connect(); //这个函数连接失败会异常
+                LogProxy.Log($"DNClient.DoConnect():连接服务器成功！{_host}:{_port}");
 
-                if (EventConnectSuccess != null) {
-                    try {
-                        EventConnectSuccess(this);
-                    } //事件类型：ConnectError
-                    catch (Exception e) {
-                        LogProxy.LogError($"DNClient.DoConnect():执行 EventConnectSuccess 事件异常：{e}");
-                    }
+                if (!IsConnected) {
+                    LogProxy.LogError($"DNClient.DoConnect():连接应该是成功的,但是IsConnected是false！");
+                }
+                try {
+                    EventConnectSuccess?.Invoke(this);
+                } catch (Exception e) {
+                    LogProxy.LogError($"DNClient.DoConnect():执行 EventConnectSuccess 事件异常：{e}");
                 }
             } catch (Exception e) {
-                LogProxy.LogWarning($"DNClient.DoConnect():连接服务器失败！{e.Message}");
+                LogProxy.Log($"DNClient.DoConnect():连接服务器失败！{e.Message}");
 
-                if (EventError != null) {
-                    try {
-                        EventError(this, EventType.ConnectError, e);
-                    } //事件类型：ConnectError
-                    catch (Exception e2) {
-                        LogProxy.LogError("DNClient.DoConnect():执行 EventError 事件异常：" + e2.Message);
-                    }
+                try {
+                    EventError?.Invoke(this, ErrorType.ConnectError, e); //事件类型：ConnectError
+                } catch (Exception e2) {
+                    LogProxy.LogError("DNClient.DoConnect():执行 EventError 事件异常：" + e2.Message);
                 }
             }
             //标记已经结束了连接
             IsConnecting = false;
         }
 
-        private void DoSend(NetWorkTaskArgs args)
+        private void DoSend()
         {
             try {
                 if (IsConnected == false) {
                     LogProxy.LogWarning("DNClient.DoSend：当前还未连接到一个主机！ ");
                     return;
                 }
-                // 如果还有待发送的消息,直接从打包器中获取数据发送
-                if (_peerSocket.TryBeginSend()) {
-
-
-                }
+                // 尝试驱动一次,之后PeerSocket会一直发送直到没有数据
+                _peerSocket.TryBeginSend();
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.DoSend():异常: " + e.Message);
             }
@@ -505,190 +388,71 @@ namespace DNET
 
         private void DoReceive()
         {
-            try {
-                //接收数据事件
-                if (EventReceData != null) {
-                    try {
-                        EventReceData(this); //发出事件：接收到了数据
-                    } catch (Exception e) {
-                        LogProxy.LogWarning($"DNClient.DoReceive()：执行外部事件 EventReceData 异常: {e}");
-                    }
-                }
-
-                //DxDebug.Log("-----------数据解包完成，数据条数：  " + findPacketResult.data.Length);
-            } catch (Exception e) {
-                LogProxy.LogWarning($"DNClient.DoReceive():异常: {e}");
-            }
+            // 原来这里是使用工作线程解包,现在省略了这些设计
         }
 
+        /// <summary>
+        /// 目前实际没有使用这个
+        /// </summary>
         private void DoClose()
         {
             try {
-                IsInited = false;
                 LogProxy.LogDebug("DNClient.DoClose():开始释放资源 ");
-                _disposed = true;
-
-                // 清理托管资源
-                _taskArgsQueue.Clear();
-                _taskArgsPool.Clear();
-
-                _taskArgsQueue = null;
-                _taskArgsPool = null;
-
-                // 清理非托管资源
-                _msgSemaphore.Close();
-                _msgSemaphore = null;
-                //Interlocked.Exchange(ref _curSemCount, 0);
 
                 if (_peerSocket != null) {
                     _peerSocket.Dispose();
-                    _peerSocket = null;
                 }
 
                 IsConnecting = false;
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.DoClose():异常: " + e.Message);
+            } finally {
+                _peerSocket = null;
             }
         }
 
         #endregion Thread Function
 
-        #region BuiltIn Function
-
-        /// <summary>
-        /// 初始化这个对象,会创建工作线程
-        /// </summary>
-        private void Init()
-        {
-            try {
-                //if (!_disposed)//强制释放一遍
-                //{
-                //    DxDebug.LogConsole("DNClient.Init():释放资源");
-                //    Dispose();
-                //}
-                if (_taskArgsQueue == null)
-                    _taskArgsQueue = new DQueue<NetWorkTaskArgs>(int.MaxValue, 256);
-                if (_taskArgsPool == null)
-                    _taskArgsPool = new DQueue<NetWorkTaskArgs>(int.MaxValue, 256);
-
-                if (_msgSemaphore == null) {
-                    _msgSemaphore = new Semaphore(0, 4);
-                    //Interlocked.Exchange(ref _curSemCount, 0);
-                }
-
-                if (_workThread == null) {
-                    _workThread = new Thread(DoWork);
-                    _workThread.IsBackground = true;
-
-                    _workThread.Start(); //启动线程
-                }
-
-                _disposed = false;
-                IsInited = true;
-            } catch (Exception e) {
-                Dispose();
-                LogProxy.LogError("DNClient.Init():异常：" + e.Message);
-            }
-        }
-
-        /// <summary>
-        /// 清空当前所有队列和数据存储
-        /// </summary>
-        private void Clear()
-        {
-            _taskArgsQueue.Clear();
-        }
-
-        #endregion BuiltIn Function
-
         #region EventHandler
 
         private void OnReceiveCompleted()
         {
-            if (Config.isDebugLog)
-                LogProxy.LogDebug("-----------EventHandler：进入了OnReceive回调！");
-
-
+            try {
+                EventReceive?.Invoke(this); //发出事件：接收到了数据
+            } catch (Exception e) {
+                LogProxy.LogWarning($"DNClient.OnReceiveCompleted()：执行外部事件 EventReceive 异常: {e}");
+            }
         }
 
         private void OnSendCompleted()
         {
-            if (Config.isDebugLog)
-                LogProxy.LogDebug("-----------EventHandler.OnSend()：进入OnSend回调！");
-
-
         }
 
-        private void OnError()
+        private void OnError(ErrorType errorType)
         {
-            if (EventError != null) {
-                try {
-                    EventError(this, EventType.IOError, null);
-                } catch (Exception e) {
-                    LogProxy.LogWarning("DNClient.OnError()：执行 EventError 事件异常:" + e.Message);
-                }
+            try {
+                EventError?.Invoke(this, errorType, null);
+            } catch (Exception e) {
+                LogProxy.LogWarning("DNClient.OnError()：执行 EventError 事件异常:" + e.Message);
             }
         }
 
         #endregion EventHandler
 
-        #region IDisposable implementation
-
         /// <summary>
-        /// Dispose，这个对象的Close()函数会调用该函数
+        /// 释放资源
         /// </summary>
         public void Dispose()
         {
-            if (_workThread != null) {
-                LogProxy.Log("DNClient.Dispose():_threadTest.IsAlive 为:" + _workThread.IsAlive);
-            }
-            Dispose(true);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (_disposed) {
-                return;
-            }
-            IsInited = false;
+            if (_disposed) return;
+            _disposed = true;
 
             try {
-                //最先去把线程关了
-                if (_workThread != null && _workThread.IsAlive) {
-                    LogProxy.LogDebug("DNClient.Dispose():_workThread.Abort()线程中断！");
-                    _workThread.Abort();
-                }
+                Close();
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.Dispose(): _workThread.Abort()异常" + e.Message);
             } finally {
-                _workThread = null;
             }
-
-            try {
-                if (disposing) {
-                    // 清理托管资源
-                    _taskArgsQueue.Clear();
-                    _taskArgsPool.Clear();
-
-                    _taskArgsQueue = null;
-                    _taskArgsPool = null;
-                }
-                // 清理非托管资源
-                _msgSemaphore.Close();
-                _msgSemaphore = null;
-                if (_peerSocket != null) {
-                    _peerSocket.Dispose();
-                    _peerSocket = null;
-                }
-            } catch (Exception e) {
-                LogProxy.LogWarning("DNClient.Dispose():释放异常" + e.Message);
-            }
-            //让类型知道自己已经被释放
-            _disposed = true;
-
-            IsConnecting = false;
         }
-
-        #endregion IDisposable implementation
     }
 }

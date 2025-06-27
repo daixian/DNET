@@ -6,10 +6,8 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using DNET.Protocol;
-
-#if Multitask
 using System.Threading.Tasks;
-#endif
+
 
 namespace DNET
 {
@@ -30,13 +28,6 @@ namespace DNET
         /// </summary>
         private DNServer()
         {
-            //if (_instance != null)
-            //{
-            //    this.Dispose();
-            //    _instance = null;
-            //}
-
-            //_packet = new DPacketNoCrc();
             _packet = new SimplePacket();
 
             ServerTimer.GetInstance().Start();
@@ -107,11 +98,6 @@ namespace DNET
         private IPacket3 _packet;
 
         /// <summary>
-        /// CPU消耗时间计算，目前没有开启
-        /// </summary>
-        private DThreadTimeAnalyze _cpuTime = new DThreadTimeAnalyze();
-
-        /// <summary>
         /// 发出消息处理等待警告时的时间长度，会逐级递增和递减.
         /// </summary>
         private int _warringWaitTime = 500;
@@ -143,9 +129,7 @@ namespace DNET
         /// <summary>
         /// 当前的消息队列长度
         /// </summary>
-        public int msgQueueLength {
-            get { return _taskArgsQueue.Count; }
-        }
+        public int msgQueueLength { get { return _taskArgsQueue.Count; } }
 
         #region Exposed Function
 
@@ -208,7 +192,7 @@ namespace DNET
         }
 
         /// <summary>
-        /// 向某个Peer发送一条数据. 
+        /// 向某个Peer发送一条数据.
         /// </summary>
         /// <param name="peer"></param>
         /// <param name="data"></param>
@@ -225,7 +209,7 @@ namespace DNET
         }
 
         /// <summary>
-        /// 向某个Peer发送一条数据. 
+        /// 向某个Peer发送一条数据.
         /// </summary>
         /// <param name="peer"></param>
         /// <param name="text"></param>
@@ -313,7 +297,6 @@ namespace DNET
                 _msgSemaphore.WaitOne();
                 Interlocked.Decrement(ref _curSemCount);
                 while (true) {
-                    _cpuTime.WorkStart(); //时间分析计时
 #if Multitask
                     NetWorkMsg msg1 = _msgQueue.Dequeue();
                     NetWorkMsg msg2 = _msgQueue.Dequeue();
@@ -355,7 +338,6 @@ namespace DNET
 
                     ProcessTaskArgs(taskArg);
 #endif
-                    _cpuTime.WaitStart(); //时间分析计时
                 }
             }
         }
@@ -458,7 +440,6 @@ namespace DNET
             try {
                 Peer peer = args.peer;
                 // 现在没有线程的解包,所以不需要工作
-
             } catch (Exception e) {
                 LogProxy.LogWarning($"DNServer.DoReceive()：异常 {e}");
             }
@@ -470,14 +451,12 @@ namespace DNET
 
         private void OnListenerSocketAccept(Peer peer)
         {
-            peer.peerSocket.EventError += () => {
+            peer.peerSocket.EventError += (eventError) => {
                 EventPeerError?.Invoke(peer, PeerErrorType.SocketError);
                 LogProxy.Log($"客户端{peer.ID}发生错误,删除它");
                 PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.SocketError); //关闭Token
             };
-            peer.peerSocket.EventReceiveCompleted += () => {
-                EventPeerReceData?.Invoke(peer);
-            };
+            peer.peerSocket.EventReceiveCompleted += () => { EventPeerReceData?.Invoke(peer); };
 
             PeerManager.Inst.AddPeer(peer); //把这个用户加入TokenManager,分配一个ID
         }
