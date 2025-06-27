@@ -1,5 +1,8 @@
 ﻿namespace DNET
 {
+    /// <summary>
+    /// 给服务器的工作线程传递事件
+    /// </summary>
     public struct SwMessage
     {
         /// <summary>
@@ -7,8 +10,14 @@
         /// </summary>
         public enum Type
         {
+            /// <summary>
+            /// 无
+            /// </summary>
             None,
 
+            /// <summary>
+            /// 异步的启动服务器(没有必要,去掉了)
+            /// </summary>
             Start,
 
             /// <summary>
@@ -29,7 +38,12 @@
             /// <summary>
             /// 开始向所有用户的一次发送。自动发送这些用户待发送队列中的数据
             /// </summary>
-            SendAll
+            SendAll,
+
+            /// <summary>
+            /// 定时检查
+            /// </summary>
+            TimerCheckStatus,
         }
 
         /// <summary>
@@ -43,7 +57,7 @@
         public byte[] data;
 
         /// <summary>
-        /// 附加参数（服务器端用于记录了TokenID）
+        /// 附加参数
         /// </summary>
         public int arg1;
 
@@ -53,7 +67,7 @@
         public string text1;
 
         /// <summary>
-        /// 这个字段一般被直接赋值了，应该合并这个字段和arg1字段
+        /// 附加参数
         /// </summary>
         public Peer peer;
     }

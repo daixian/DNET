@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Net.Sockets;
 
 namespace DNET
 {
-    public static class DNETExt
+    public static class DNETExtension
     {
         /// <summary>
         /// 从 SocketAsyncEventArgs 的 UserToken 中获取 ConnectionContext 类型的对象。

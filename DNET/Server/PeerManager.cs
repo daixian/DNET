@@ -20,29 +20,29 @@ namespace DNET
         /// <summary>
         /// 所有用户的字典，key是Token的ID，线程安全
         /// </summary>
-        private ConcurrentDictionary<int, Peer> _dictPeer = new ConcurrentDictionary<int, Peer>();
+        private readonly ConcurrentDictionary<int, Peer> _dictPeer = new ConcurrentDictionary<int, Peer>();
 
         /// <summary>
         /// 一个递增的ID计数，会分配给新的Token
         /// </summary>
-        private int _curID = 0;
+        private int _curID;
 
         /// <summary>
         /// 当前用户的计数
         /// </summary>
-        public int TokensCount => _dictPeer.Count;
+        public int PeersCount => _dictPeer.Count;
 
         #region Event
 
         /// <summary>
         /// 事件：新连接上了一个客户。参数int: Token的id
         /// </summary>
-        public event Action<int> EventAddToken;
+        public event Action<int> EventAddPeer;
 
         /// <summary>
         /// 事件：删除/关闭了一个客户。参数int: Token的id，参数PeerErrorType: 删除原因
         /// </summary>
-        public event Action<int, PeerErrorType> EventDeleteToken;
+        public event Action<int, PeerErrorType> EventDeletePeer;
 
         #endregion Event
 
@@ -56,7 +56,7 @@ namespace DNET
             peer.peerSocket.Name = $"Peer[{peer.ID}]";
             if (_dictPeer.TryAdd(peer.ID, peer)) {
                 try {
-                    EventAddToken?.Invoke(peer.ID);
+                    EventAddPeer?.Invoke(peer.ID);
                 } catch (Exception e) {
                     LogProxy.LogWarning($"PeerManager.AddPeer(): 执行事件EventAddToken异常: {e.Message}");
                 }
@@ -64,9 +64,8 @@ namespace DNET
                 LogProxy.LogDebug($"PeerManager.AddPeer(): 添加了一个客户端. 当前服务器上有 {_dictPeer.Count} 个客户端; ip: {peer.peerSocket.RemoteIP}");
                 return peer;
             }
-            else {
-                throw new InvalidOperationException($"添加客户端失败，ID {peer.ID} 已存在");
-            }
+            throw new InvalidOperationException($"添加客户端失败，ID {peer.ID} 已存在");
+            return peer;
         }
 
         /// <summary>
@@ -86,7 +85,7 @@ namespace DNET
         /// 删除一个peer，先关闭，再从字典移除，触发事件
         /// </summary>
         /// <param name="id"></param>
-        /// <param name="errorType"></param>
+        /// <param name="errorType">关闭的错误原因</param>
         public void DeletePeer(int id, PeerErrorType errorType = PeerErrorType.UserManualDelete)
         {
             ClosePeer(id, errorType);
@@ -94,7 +93,7 @@ namespace DNET
             // 字典中移除
             if (_dictPeer.TryRemove(id, out _)) {
                 try {
-                    EventDeleteToken?.Invoke(id, errorType);
+                    EventDeletePeer?.Invoke(id, errorType);
                 } catch (Exception e) {
                     LogProxy.LogWarning($"PeerManager.DeletePeer(): 执行事件EventDeleteToken异常: {e.Message}");
                 }
@@ -108,9 +107,11 @@ namespace DNET
         /// </summary>
         public void DeleteAllPeer()
         {
-            if (_dictPeer.IsEmpty) { return; }
+            if (_dictPeer.IsEmpty) {
+                return;
+            }
 
-            LogProxy.LogWarning("PeerManager.DeleteAllPeer(): 删除所有客户端！");
+            LogProxy.Log("PeerManager.DeleteAllPeer(): 删除所有客户端！");
             var peers = GetAllPeer();
             foreach (var peer in peers) {
                 DeletePeer(peer.ID, PeerErrorType.ClearAllToken);
@@ -161,27 +162,16 @@ namespace DNET
 
         #region IDisposable Support
 
-        private bool _disposed = false;
+        private bool _disposed;
 
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
+            if (_disposed) return;
+            _disposed = true;
 
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed) {
-                if (disposing) {
-                    EventAddToken = null;
-                    EventDeleteToken = null;
-
-                    DeleteAllPeer();
-
-                    _dictPeer.Clear();
-                }
-                _disposed = true;
-            }
+            EventAddPeer = null;
+            EventDeletePeer = null;
+            _dictPeer.Clear();
         }
 
         #endregion

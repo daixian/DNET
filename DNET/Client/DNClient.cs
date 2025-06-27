@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using System.Threading;
-using DNET.Protocol;
 
 namespace DNET
 {
@@ -21,27 +19,7 @@ namespace DNET
         public static DNClient Inst => _instance.Value;
 
         /// <summary>
-        /// 公有的构造函数，可以用来在一个程序中开多个客户端。
-        /// 它没有启动公共Timer
-        /// </summary>
-        public DNClient()
-        {
-            //启动公共Timer
-            ClientTimer.Inst.Start();
-        }
-
-        /// <summary>
-        /// 工作线程
-        /// </summary>
-        private WorkThread<CwMessage> _workThread;
-
-        /// <summary>
-        /// 当前的信号量计数,防止出异常吧
-        /// </summary>
-        private int _curSemCount = 0;
-
-        /// <summary>
-        /// 服务器主机名
+        /// 服务器(远程)主机名
         /// </summary>
         private string _host; // = "127.0.0.1";//
 
@@ -51,29 +29,29 @@ namespace DNET
         private int _port; //9900
 
         /// <summary>
+        /// 工作线程
+        /// </summary>
+        private WorkThread<CwMessage> _workThread;
+
+        /// <summary>
         /// 底层的通信类
         /// </summary>
-        private PeerSocket _peerSocket = null;
+        private PeerSocket _peerSocket;
 
         /// <summary>
-        /// 发出消息处理等待警告时的时间长度，会逐级递增和递减.
+        /// 一个定时器
         /// </summary>
-        private int _warringWaitTime = 500;
-
-        /// <summary>
-        /// 当前线程是否在工作，0表示false，1表示true.
-        /// </summary>
-        private int _isThreadWorking = 0;
+        private Timer _timer;
 
         /// <summary>
         /// 这个对象是否已经被释放掉
         /// </summary>
-        private bool _disposed = false;
+        private bool _disposed;
 
         /// <summary>
         /// 这个客户端的名字
         /// </summary>
-        public string Name => _peerSocket.Name;
+        public string Name { get; set; } = "DNClient";
 
         /// <summary>
         /// 是否已经连接上了服务器
@@ -97,23 +75,11 @@ namespace DNET
         public bool IsConnecting { get; private set; }
 
         /// <summary>
-        /// 发送队列是否太长
-        /// </summary>
-        public bool SendQueueOverflow {
-            get {
-                if (_peerSocket.WaitSendMsgCount >= 64)
-                    return true;
-                return false;
-            }
-        }
-
-        /// <summary>
         /// 它的状态.
         /// </summary>
-        public PeerStatus Status => _peerSocket.peerStatus;
+        public PeerStatus Status => _peerSocket?.peerStatus;
 
-
-        #region Event
+        #region 对外Event
 
         /// <summary>
         /// 事件：连接服务器成功
@@ -142,7 +108,7 @@ namespace DNET
         /// </summary>
         public event Action<DNClient> EventSendQueueIsAvailable;
 
-        #endregion Event
+        #endregion
 
         /// <summary>
         /// 连接服务器,输入IP和端口号。如果没有初始化在第一次会初始化。
@@ -166,15 +132,25 @@ namespace DNET
                     }
                     _workThread.ClearQueue();
 
+                    // 定时检查的定时器
+                    if (_timer == null) {
+                        _timer = new Timer(state => {
+                            // 让工作线程定时检查
+                            var check = new CwMessage { type = CwMessage.Type.TimerCheckStatus };
+                            _workThread.Post(in check, this);
+                        });
+                        _timer.Change(1000, 1000); //一秒后启动
+                    }
+
                     if (_peerSocket == null) {
                         _peerSocket = new PeerSocket();
-                        _peerSocket.Name = "DNClient";
+                        _peerSocket.Name = Name;
                         _peerSocket.EventError += OnError;
                         _peerSocket.EventReceiveCompleted += OnReceiveCompleted;
                     }
 
                     // 让工作线程处理这个消息
-                    var msg = new CwMessage() { type = CwMessage.Type.Connect };
+                    var msg = new CwMessage { type = CwMessage.Type.Connect };
                     _workThread.Post(in msg, this);
                 } catch (Exception e) {
                     // 一般来说其实不会进入这个异常.因为这个函数只是吧一个Message添加到队列中，不会发生异常.
@@ -210,23 +186,35 @@ namespace DNET
             LogProxy.Log("DNClient.Close():准备关闭Socket和停止工作线程...");
             lock (this) {
                 try {
-                    if (_workThread != null) {
-                        _workThread.Stop();
-                    }
+                    _timer?.Dispose();
+                } catch (Exception e) {
+                    LogProxy.LogWarning($"DNClient.Close():停止Timer异常 {e}");
+                } finally {
+                    _timer = null;
+                }
+
+                try {
+                    _workThread?.Stop();
                 } catch (Exception e) {
                     LogProxy.LogWarning($"DNClient.Close():停止工作线程异常 {e}");
                 } finally {
                     _workThread = null;
                 }
+
                 try {
-                    if (_peerSocket != null) {
-                        _peerSocket.Dispose();
-                    }
+                    _peerSocket?.Dispose();
                 } catch (Exception e) {
                     LogProxy.LogWarning($"DNClient.Close():关闭Socket异常 {e}");
                 } finally {
                     _peerSocket = null;
                 }
+
+                // 清空事件算了
+                EventConnectSuccess = null;
+                EventReceive = null;
+                EventError = null;
+                EventSendQueueIsFull = null;
+                EventSendQueueIsAvailable = null;
             }
         }
 
@@ -264,7 +252,7 @@ namespace DNET
                     _peerSocket.TryBeginSend(); //这个函数可以直接启动
                 else {
                     // 让工作线程处理这个消息
-                    var msg = new CwMessage() { type = CwMessage.Type.Send };
+                    var msg = new CwMessage { type = CwMessage.Type.Send };
                     _workThread.Post(in msg, this);
                 }
             } catch (Exception e) {
@@ -300,6 +288,14 @@ namespace DNET
             return _peerSocket.GetReceiveMessages();
         }
 
+        /// <summary>
+        /// 发送队列是否太长
+        /// </summary>
+        public bool IsSendQueueOverflow(int queueLen = 1024)
+        {
+            return _peerSocket.WaitSendMsgCount >= queueLen;
+        }
+
         #region 工作线程
 
         /// <summary>
@@ -312,19 +308,17 @@ namespace DNET
                 case CwMessage.Type.Connect:
                     DoConnect();
                     break;
-
                 case CwMessage.Type.Send:
                     DoSend();
                     break;
-
                 case CwMessage.Type.Receive:
                     DoReceive();
                     break;
-
                 case CwMessage.Type.Close:
                     DoClose();
                     break;
-                default:
+                case CwMessage.Type.TimerCheckStatus:
+                    DoTimerCheckStatus();
                     break;
             }
         }
@@ -332,7 +326,12 @@ namespace DNET
         private void DoConnect()
         {
             try {
-                if (Config.isDebugLog)
+                // 如果已经连接上了,那么返回.,不要断开连接和重连接.因为用户那边的连接函数是异步的.
+                // 用户那边判断还没有连接上那么就连接
+                if (_peerSocket.IsConnected)
+                    return;
+
+                if (Config.IsDebugLog)
                     LogProxy.LogDebug("DNClient.DoConnect():执行Connect...");
 
                 //标记正在连接
@@ -340,7 +339,6 @@ namespace DNET
 
                 //// 断开原先连接，绑定新ip，清理状态
                 //_peerSocket.Disconnect();
-
 
                 LogProxy.Log("DNClient.DoConnect():正在连接...");
                 _peerSocket.BindRemote(_host, _port);
@@ -350,7 +348,7 @@ namespace DNET
                 IsConnecting = false;
 
                 if (!_peerSocket.IsConnected) {
-                    LogProxy.LogError($"DNClient.DoConnect():连接应该是成功的,但是IsConnected是false！");
+                    LogProxy.LogError("DNClient.DoConnect():连接应该是成功的,但是IsConnected是false！");
                 }
 
                 try {
@@ -369,7 +367,29 @@ namespace DNET
             } finally {
                 IsConnecting = false;
             }
+        }
 
+        /// <summary>
+        /// 响应Timer的执行,目前是一秒一次
+        /// </summary>
+        private void DoTimerCheckStatus()
+        {
+            if (!IsConnected || Status == null)
+                return;
+
+            if (Config.IsAutoHeartbeat) {
+                //如果时间已经超过了那么就发送心跳包
+                if (Status.TimeSinceLastSend > Config.HeartBeatSendTime) {
+                    //发送一次心跳包
+                    Send(null, 0, 0, Format.Heart); //发个心跳包
+                    LogProxy.LogDebug("DNClient.DoTimerCheckStatus()：发送 HeartBeatData ~❤");
+                }
+
+                if (Status.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
+                    LogProxy.LogWarning("ClientTimer.OnTimerTick()：长时间没有收到心跳包，判断可能已经掉线！");
+                    Disconnect(); //关闭连接?
+                }
+            }
         }
 
         private void DoSend()
@@ -411,9 +431,9 @@ namespace DNET
             }
         }
 
-        #endregion Thread Function
+        #endregion
 
-        #region EventHandler
+        #region Socket的EventHandler
 
         private void OnReceiveCompleted()
         {
@@ -437,7 +457,7 @@ namespace DNET
             }
         }
 
-        #endregion EventHandler
+        #endregion
 
         /// <summary>
         /// 释放资源
@@ -451,7 +471,6 @@ namespace DNET
                 Close();
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.Dispose(): _workThread.Abort()异常" + e.Message);
-            } finally {
             }
         }
     }

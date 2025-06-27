@@ -34,6 +34,11 @@
             /// 异步的关闭客户端
             /// </summary>
             Close,
+
+            /// <summary>
+            /// 定时检查
+            /// </summary>
+            TimerCheckStatus,
         }
 
         /// <summary>

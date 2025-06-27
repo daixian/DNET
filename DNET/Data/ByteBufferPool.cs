@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Threading;
 
 namespace DNET
 {
@@ -17,22 +16,22 @@ namespace DNET
         /// <summary>
         /// 默认的块大小
         /// </summary>
-        private int _blockSize;
+        private readonly int _blockSize;
 
         /// <summary>
         /// 最大的容量个数
         /// </summary>
-        private int _capacityLimit;
+        private readonly int _capacityLimit;
 
         /// <summary>
         /// 已分配总个数
         /// </summary>
-        private int _totalAllocated = 0;
+        private int _totalAllocated;
 
         /// <summary>
         /// 成功复用的次数
         /// </summary>
-        private long _reusedCount = 0;
+        private long _reusedCount;
 
         /// <summary>
         /// 创建一个 ByteBuffer 池
@@ -115,9 +114,7 @@ namespace DNET
             if (_pool.Count < _capacityLimit) {
                 _pool.Push(buffer);
             }
-            else {
-                // 超出上限丢弃
-            }
+            // 超出上限丢弃
         }
 
         /// <summary>

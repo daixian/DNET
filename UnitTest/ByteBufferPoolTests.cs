@@ -1,8 +1,10 @@
 ﻿using System.Collections.Concurrent;
 using DNET;
+using NUnit.Framework;
 
 namespace UnitTest
 {
+    [TestFixture]
     public class ByteBufferPoolTests
     {
         [Test]

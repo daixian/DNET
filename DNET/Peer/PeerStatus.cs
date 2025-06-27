@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Diagnostics;
 
 namespace DNET
 {
@@ -36,12 +32,32 @@ namespace DNET
         /// <summary>
         /// 用来记录最后一次收到这个Token发来的消息时间的Tick,创建这Token对象的时候初始化,自动发送心跳包时用
         /// </summary>
-        public long LastMsgReceTickTime { get; private set; }
+        private long LastMsgReceTickTime { get; set; }
+
+        /// <summary>
+        /// 上一个消息接收到现在的时间(ms)
+        /// </summary>
+        public double TimeSinceLastReceived {
+            get {
+                double ms = (Stopwatch.GetTimestamp() - LastMsgReceTickTime) * 1000.0 / Stopwatch.Frequency; // Frequency 是每秒 tick 数
+                return ms;
+            }
+        }
 
         /// <summary>
         /// 用来记录最后一次向这个Token发送的消息时间的Tick,创建这Token对象的时候初始化,自动发送心跳包时用
         /// </summary>
-        public long LastMsgSendTickTime { get; private set; }
+        private long LastMsgSendTickTime { get; set; }
+
+        /// <summary>
+        /// 上一个消息发送到现在的时间(ms)
+        /// </summary>
+        public double TimeSinceLastSend {
+            get {
+                double ms = (Stopwatch.GetTimestamp() - LastMsgSendTickTime) * 1000.0 / Stopwatch.Frequency; // Frequency 是每秒 tick 数
+                return ms;
+            }
+        }
 
         /// <summary>
         /// 重置
@@ -53,9 +69,8 @@ namespace DNET
             SendBytesCount = 0;
             ReceiveBytesCount = 0;
 
-            LastMsgSendTickTime = DateTime.Now.Ticks;
-            LastMsgReceTickTime = DateTime.Now.Ticks;
-
+            LastMsgSendTickTime = Stopwatch.GetTimestamp();
+            LastMsgReceTickTime = Stopwatch.GetTimestamp();
         }
 
         /// <summary>
@@ -68,7 +83,7 @@ namespace DNET
             SendMessageCount += msgCount;
             SendBytesCount += byteCount;
 
-            LastMsgSendTickTime = DateTime.Now.Ticks;
+            LastMsgSendTickTime = Stopwatch.GetTimestamp();
         }
 
         /// <summary>
@@ -81,9 +96,7 @@ namespace DNET
             ReceiveMessageCount += msgCount;
             ReceiveBytesCount += byteCount;
 
-            LastMsgReceTickTime = DateTime.Now.Ticks;
+            LastMsgReceTickTime = Stopwatch.GetTimestamp();
         }
-
     }
-
 }

@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Threading;
 
 namespace DNET
 {
@@ -27,7 +25,7 @@ namespace DNET
         /// <summary>
         /// 实际buffer块
         /// </summary>
-        private byte[] _buffer;
+        private readonly byte[] _buffer;
 
         /// <summary>
         /// buffer的有效的数据长度
@@ -84,7 +82,7 @@ namespace DNET
             if (_length + other._length > buffer.Length)
                 throw new InvalidOperationException("Buffer overflow");
 
-            Buffer.BlockCopy(other.buffer, 0, this.buffer, _length, other._length);
+            Buffer.BlockCopy(other.buffer, 0, buffer, _length, other._length);
             _length += other._length;
         }
 

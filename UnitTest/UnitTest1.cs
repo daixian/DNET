@@ -15,7 +15,7 @@ namespace UnitTest
         public void TestMethod_Log()
         {
             Config.IsAutoHeartbeat = false;
-            Config.isDebugLog = true;
+            Config.IsDebugLog = true;
             LogProxy.LogWarning("123");
             LogProxy.LogError("123");
 
@@ -32,7 +32,7 @@ namespace UnitTest
         public void TestMethod_SendReceDPacketNoCrc()
         {
             Config.IsAutoHeartbeat = false;
-            Config.isDebugLog = true;
+            Config.IsDebugLog = true;
 
             DNServer.Inst.EventPeerReceData += (token) => {
                 var msgs = token.GetReceiveData();
@@ -46,7 +46,7 @@ namespace UnitTest
 
                     LogProxy.LogDebug($"服务端接收到:txrId={msg.header.txrId}");
                     //直接原样回发
-                    DNServer.Inst.Send(token, msg.data);
+                    DNServer.Inst.Send(token, msg.data, 0, msg.data.Length);
 
                     //得到消息类型然后处理
                     //int pType = BitConverter.ToInt32(data, 0);
@@ -70,7 +70,7 @@ namespace UnitTest
             DNClient.Inst.Connect("127.0.0.1", 21024);
 
             while (true) {
-                Thread.Sleep(20);
+                Thread.Sleep(1);
                 if (DNClient.Inst.IsConnected) {
                     LogProxy.LogDebug("TestMethod_Send():连接成功");
                     break;
@@ -82,19 +82,19 @@ namespace UnitTest
 
             //发送n次
             //for (int count = 0; count < 200; count++) {
-            while (DNClient.Inst.SendQueueOverflow) {
-                Thread.Sleep(20);
+            while (DNClient.Inst.IsSendQueueOverflow()) {
+                Thread.Sleep(1);
             }
             //一次连发n条
             for (int i = 0; i < 16; i++) {
                 //发送sendDataLength字节的sendData
                 LogProxy.LogDebug("客户端发送:msgNum=" + sendCount);
                 Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
-                DNClient.Inst.Send(sendData, 0, sendData.Length, DNET.Protocol.Format.Raw, i, 0);
+                DNClient.Inst.Send(sendData, 0, sendData.Length, Format.Raw, i, 0);
                 sendCount++;
             }
             while (receCount != sendCount) {
-                Thread.Sleep(20);
+                Thread.Sleep(1);
                 var msgs = DNClient.Inst.GetReceiveData();
                 if (msgs != null) {
                     for (int i = 0; i < msgs.Count; i++) {
@@ -122,7 +122,6 @@ namespace UnitTest
             DNClient.Inst.Close();
             DNServer.Inst.Close();
         }
-
 
 
         ///// <summary>
@@ -232,7 +231,7 @@ namespace UnitTest
         public void TestMethod_SendRecePressure()
         {
             Config.IsAutoHeartbeat = false;
-            Config.isDebugLog = false;
+            Config.IsDebugLog = false;
 
             DNServer.Inst.EventPeerReceData += (token) => {
                 var msgs = token.GetReceiveData();
@@ -246,7 +245,7 @@ namespace UnitTest
 
                     LogProxy.LogDebug("服务端接收到:msgNum=" + BitConverter.ToInt32(msg.data, 0));
                     //直接原样回发
-                    DNServer.Inst.Send(token, msg.data);
+                    DNServer.Inst.Send(token, msg.data, 0, msg.data.Length);
 
                     //得到消息类型然后处理
                     //int pType = BitConverter.ToInt32(data, 0);
@@ -284,16 +283,16 @@ namespace UnitTest
             //发送n次
             for (int count = 0; count < 500; count++) {
                 //如果已经队列太满，那就等一下再发
-                while (DNClient.Inst.SendQueueOverflow) {
-                    Thread.Sleep(5);
+                while (DNClient.Inst.IsSendQueueOverflow()) {
+                    Thread.Sleep(1);
                 }
                 //一次连发n条
                 for (int i = 0; i < 1500; i++) {
                     //发送sendDataLength字节的sendData
                     LogProxy.LogDebug("客户端发送:msgNum=" + sendCount);
                     Buffer.BlockCopy(BitConverter.GetBytes(sendCount), 0, sendData, 0, 4);
-                    while (DNClient.Inst.SendQueueOverflow) {
-                        Thread.Sleep(5);
+                    while (DNClient.Inst.IsSendQueueOverflow()) {
+                        Thread.Sleep(1);
                     }
                     DNClient.Inst.Send(sendData);
                     sendCount++;
@@ -349,7 +348,7 @@ namespace UnitTest
                         break;
                     }
                     tryCount++;
-                    Thread.Sleep(100);
+                    Thread.Sleep(1);
                 }
             }
 

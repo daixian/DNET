@@ -17,9 +17,9 @@ namespace DNET
         public DQueue(int maxCapacity)
         {
             if (maxCapacity < 1024)
-                this._queue = new Queue<T>(maxCapacity); //直接申请最大容量
+                _queue = new Queue<T>(maxCapacity); //直接申请最大容量
             else
-                this._queue = new Queue<T>(1024); //直接申请最大容量
+                _queue = new Queue<T>(1024); //直接申请最大容量
             maxCount = maxCapacity;
         }
 
@@ -31,7 +31,7 @@ namespace DNET
         /// <param name="initSize">初始分配长度</param>
         public DQueue(int maxCapacity, int initSize)
         {
-            this._queue = new Queue<T>(initSize);
+            _queue = new Queue<T>(initSize);
             maxCount = maxCapacity;
         }
 
@@ -40,13 +40,8 @@ namespace DNET
         /// </summary>
         public Queue<T> _queue;
 
-        /// <summary>
-        /// 队列的最大长度
-        /// </summary>
-        private int _maxCount = int.MaxValue;
-
         /// <summary> 队列的最大数量. </summary>
-        public int maxCount { get { return _maxCount; } set { _maxCount = value; } }
+        public int maxCount { get; set; } = int.MaxValue;
 
         /// <summary>
         /// 队列的当前数据个数
@@ -61,9 +56,7 @@ namespace DNET
                 if (_queue.Count >= maxCount) {
                     return true;
                 }
-                else {
-                    return false;
-                }
+                return false;
             }
         }
 
@@ -73,13 +66,11 @@ namespace DNET
         /// <returns>返回的条目</returns>
         public T Dequeue()
         {
-            lock (this._queue) {
-                if (this._queue.Count > 0) {
-                    return this._queue.Dequeue();
+            lock (_queue) {
+                if (_queue.Count > 0) {
+                    return _queue.Dequeue();
                 }
-                else {
-                    return default(T);
-                }
+                return default(T);
             }
         }
 
@@ -89,12 +80,10 @@ namespace DNET
         /// <returns></returns>
         public T Peek()
         {
-            if (this._queue.Count > 0) {
-                return this._queue.Peek();
+            if (_queue.Count > 0) {
+                return _queue.Peek();
             }
-            else {
-                return default(T);
-            }
+            return default(T);
         }
 
         /// <summary>
@@ -106,8 +95,8 @@ namespace DNET
             if (item == null) {
                 throw new ArgumentNullException("Items null");
             }
-            lock (this._queue) {
-                this._queue.Enqueue(item);
+            lock (_queue) {
+                _queue.Enqueue(item);
             }
         }
 
@@ -124,7 +113,7 @@ namespace DNET
                 throw new ArgumentNullException("DQueue.EnqueueMaxLimit():输入参数为null"); //注意其实下面的队列支持null
             }
 
-            lock (this._queue) {
+            lock (_queue) {
                 if (_queue.Count < maxCount) {
                     _queue.Enqueue(item);
                 }
@@ -152,7 +141,7 @@ namespace DNET
                 throw new ArgumentNullException("DQueue.EnqueueMaxLimit():输入参数为null"); //注意其实下面的队列支持null
             }
 
-            lock (this._queue) {
+            lock (_queue) {
                 if (_queue.Count < maxCount) {
                     _queue.Enqueue(item);
                 }
@@ -171,7 +160,7 @@ namespace DNET
         /// <returns>队列的数组拷贝</returns>
         public T[] ToArray()
         {
-            lock (this._queue) {
+            lock (_queue) {
                 return _queue.ToArray();
             }
         }
@@ -181,8 +170,8 @@ namespace DNET
         /// </summary>
         public void Clear()
         {
-            lock (this._queue) {
-                this._queue.Clear();
+            lock (_queue) {
+                _queue.Clear();
             }
         }
 
@@ -196,16 +185,14 @@ namespace DNET
                 return null;
             }
 
-            if (Monitor.TryEnter(this._queue)) {
+            if (Monitor.TryEnter(_queue)) {
                 T[] data = _queue.ToArray();
-                this._queue.Clear();
-                Monitor.Exit(this._queue);
+                _queue.Clear();
+                Monitor.Exit(_queue);
 
                 return data;
             }
-            else {
-                return null;
-            }
+            return null;
         }
 
         /// <summary>
@@ -220,7 +207,7 @@ namespace DNET
                 return 0;
             }
 
-            if (Monitor.TryEnter(this._queue)) {
+            if (Monitor.TryEnter(_queue)) {
                 int curIndex = 0;
                 while (offset + curIndex < output.Length) {
                     if (_queue.Count > 0)
@@ -230,13 +217,11 @@ namespace DNET
                     curIndex++;
                 }
 
-                Monitor.Exit(this._queue);
+                Monitor.Exit(_queue);
 
                 return curIndex;
             }
-            else {
-                return 0;
-            }
+            return 0;
         }
 
         /// <summary>
@@ -247,7 +232,7 @@ namespace DNET
         /// <returns>成功取出的条数</returns>
         public int GetData(T[] output, int offset)
         {
-            lock (this._queue) {
+            lock (_queue) {
                 if (_queue.Count == 0) {
                     return 0;
                 }
@@ -270,13 +255,13 @@ namespace DNET
         /// <returns>队列的数据数组</returns>
         public T[] GetData()
         {
-            lock (this._queue) {
+            lock (_queue) {
                 if (_queue.Count == 0) {
                     return null;
                 }
 
                 T[] data = _queue.ToArray();
-                this._queue.Clear();
+                _queue.Clear();
                 return data;
             }
         }
@@ -286,8 +271,8 @@ namespace DNET
         /// </summary>
         public void TrimExcess()
         {
-            lock (this._queue) {
-                this._queue.TrimExcess();
+            lock (_queue) {
+                _queue.TrimExcess();
             }
         }
 
@@ -296,7 +281,7 @@ namespace DNET
         /// </summary>
         public void LockEnter()
         {
-            Monitor.Enter(this._queue);
+            Monitor.Enter(_queue);
         }
 
         /// <summary>
@@ -304,7 +289,7 @@ namespace DNET
         /// </summary>
         public void LockExit()
         {
-            Monitor.Exit(this._queue);
+            Monitor.Exit(_queue);
         }
     }
 }

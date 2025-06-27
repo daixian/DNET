@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Threading;
-using DNET.Protocol;
 
 namespace DNET
 {
@@ -37,42 +35,42 @@ namespace DNET
         /// <summary>
         /// 信号量，通知等待的线程已经发生了事件.这个是用来确保连接先成功后再开始发送数据
         /// </summary>
-        private AutoResetEvent _areConnectDone = null;
+        private AutoResetEvent _areConnectDone;
 
         /// <summary>
         /// 发送数据时使用的SocketAsyncEventArgs
         /// </summary>
-        private SocketAsyncEventArgs _sendArgs = null;
+        private SocketAsyncEventArgs _sendArgs;
 
         /// <summary>
         /// 这个接收始终是异步自动开启的.不需要主动调用
         /// </summary>
-        private SocketAsyncEventArgs _receiveArgs = null;
+        private SocketAsyncEventArgs _receiveArgs;
 
         /// <summary>
         /// 带数据管理的新打包器
         /// </summary>
-        private IPacket3 _packet;
+        private readonly IPacket3 _packet;
 
         /// <summary>
         /// 缓存一次发送失败的数据,要重发
         /// </summary>
-        private ByteBuffer _sendFailData = null;
+        private ByteBuffer _sendFailData;
 
         /// <summary>
         /// 待发送数据队列
         /// </summary>
-        ConcurrentQueue<ByteBuffer> _sendQueue = new ConcurrentQueue<ByteBuffer>();
+        readonly ConcurrentQueue<ByteBuffer> _sendQueue = new ConcurrentQueue<ByteBuffer>();
 
         /// <summary>
         /// 待提取的接收数据队列
         /// </summary>
-        ConcurrentQueue<Message> _receQueue = new ConcurrentQueue<Message>();
+        readonly ConcurrentQueue<Message> _receQueue = new ConcurrentQueue<Message>();
 
         /// <summary>
         /// 是否正在发送数据,同时只能发送一个数据
         /// </summary>
-        private int _isSending = 0;
+        private int _isSending;
 
         /// <summary>
         /// 调试用的名字
@@ -97,7 +95,7 @@ namespace DNET
         /// <summary>
         /// 状态统计
         /// </summary>
-        public PeerStatus peerStatus { get; private set; } = new PeerStatus();
+        public PeerStatus peerStatus { get; } = new PeerStatus();
 
         /// <summary>
         /// Remote的IP
@@ -185,11 +183,11 @@ namespace DNET
         public void SetAcceptSocket(Socket acceptSocket)
         {
             socket?.Close();
-            this.socket = acceptSocket;
+            socket = acceptSocket;
 
             try {
                 // 记录客户端远程终结点（IP+端口）
-                this._remoteEndPoint = acceptSocket.RemoteEndPoint;
+                _remoteEndPoint = acceptSocket.RemoteEndPoint;
 
                 // 这里可以根据需要设置超时等属性
                 socket.SendTimeout = 8 * 1000;
@@ -226,18 +224,18 @@ namespace DNET
                     }
 
                     IPAddress address = new IPAddress(ipadr);
-                    this._remoteEndPoint = new IPEndPoint(address, port);
+                    _remoteEndPoint = new IPEndPoint(address, port);
                 }
                 else {
                     IPHostEntry host = Dns.GetHostEntry(hostName);
                     IPAddress[] addressList = host.AddressList;
 
                     // 重新记录连接目标
-                    this._remoteEndPoint = new IPEndPoint(addressList[addressList.Length - 1], port);
+                    _remoteEndPoint = new IPEndPoint(addressList[addressList.Length - 1], port);
                 }
 
                 socket?.Close();
-                this.socket = new Socket(this._remoteEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                socket = new Socket(_remoteEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
                 //设置这个Timeout应该是无效的(是有效的，必须设置为0，否则自动断线)
                 socket.SendTimeout = 8 * 1000;
@@ -258,11 +256,11 @@ namespace DNET
 
             SocketAsyncEventArgs connectArgs = new SocketAsyncEventArgs(); //创建一个SocketAsyncEventArgs类型
             connectArgs.UserToken = new ConnectionContext {
-                socket = this.socket,
+                socket = socket,
                 sendBuffer = null,
                 recvBuffer = null,
             };
-            connectArgs.RemoteEndPoint = this._remoteEndPoint;
+            connectArgs.RemoteEndPoint = _remoteEndPoint;
             connectArgs.Completed += OnConnectCompleted; //加一个OnConnect来通知这个线程已经完成了
 
             if (!socket.ConnectAsync(connectArgs)) {
@@ -370,9 +368,7 @@ namespace DNET
 
                 return true;
             }
-            else {
-                LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 还未连接,不能发送数据!");
-            }
+            LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 还未连接,不能发送数据!");
             return false;
         }
 
@@ -430,7 +426,7 @@ namespace DNET
 
             try {
                 if (args.SocketError != SocketError.Success) {
-                    this.ProcessError(args);
+                    ProcessError(args);
                 }
                 ConnectionContext context = args.GetConnectionContext();
 
@@ -446,7 +442,7 @@ namespace DNET
                     context.sendBuffer.Recycle();
                     context.sendBuffer = null;
 
-                    if (Config.isDebugLog)
+                    if (Config.IsDebugLog)
                         LogProxy.LogDebug($"SocketClient.OnSendCompleted():[{Name}] 发送成功 发送数据字节数 {args.BytesTransferred}");
                     // 这是多条消息合并发送的,所以这里要记录
                     peerStatus.RecordSentMessage(context.curSendMsgCount, args.BytesTransferred);
@@ -477,13 +473,13 @@ namespace DNET
                 // 不能在这里PrepareReceive().它会递归调用OnReceiveCompleted()
 
                 if (args.SocketError != SocketError.Success) {
-                    this.ProcessError(args);
+                    ProcessError(args);
                 }
                 //有可能会出现接收到的数据长度为0的情形，如当服务器关闭连接的时候
                 if (args.BytesTransferred == 0) {
                     // 这个应该是看不同平台,可能不同
                     LogProxy.LogWarning($"PeerSocket.OnReceiveCompleted():[{Name}] BytesTransferred函数返回了零，说明远程可能已经关闭了连接 ");
-                    this.ProcessError(args);
+                    ProcessError(args);
                 }
 
                 // 确定接收成功之后
@@ -492,7 +488,7 @@ namespace DNET
                 int offset = args.Offset;
                 int length = args.BytesTransferred;
 
-                if (Config.isDebugLog)
+                if (Config.IsDebugLog)
                     LogProxy.LogDebug($"SocketClient.OnReceiveCompleted():[{Name}] 接收成功 接收数据字节数 {length}");
 
                 // 写入当前接收的数据(这里等于说是由.net线程池的接收线程进行了解包)
@@ -529,25 +525,25 @@ namespace DNET
             if (_sendArgs == null) {
                 _sendArgs = new SocketAsyncEventArgs();
                 _sendArgs.UserToken = new ConnectionContext {
-                    socket = this.socket,
+                    socket = socket,
                     sendBuffer = null,
                     recvBuffer = null,
                 };
                 _sendArgs.Completed += OnSendCompleted;
             }
-            _sendArgs.GetConnectionContext().socket = this.socket; // 考虑到这个socket可能会改变
+            _sendArgs.GetConnectionContext().socket = socket; // 考虑到这个socket可能会改变
 
             if (_receiveArgs == null) {
                 _receiveArgs = new SocketAsyncEventArgs();
                 ConnectionContext context = new ConnectionContext {
-                    socket = this.socket,
+                    socket = socket,
                     sendBuffer = null,
                     recvBuffer = GlobalBuffer.Inst.Get(RECE_BUFFER_SIZE),
                 };
                 _receiveArgs.UserToken = context;
                 _receiveArgs.Completed += OnReceiveCompleted;
             }
-            _receiveArgs.GetConnectionContext().socket = this.socket; // 考虑到这个socket可能会改变
+            _receiveArgs.GetConnectionContext().socket = socket; // 考虑到这个socket可能会改变
         }
 
 
@@ -636,7 +632,7 @@ namespace DNET
 
         #region IDisposable
 
-        private bool _disposed = false;
+        private bool _disposed;
 
         /// <summary>
         /// 释放资源
@@ -660,12 +656,12 @@ namespace DNET
                 EventSendCompleted = null;
                 EventError = null;
 
-                if (this._sendArgs != null) {
+                if (_sendArgs != null) {
                     // dx: 这里不要置空，因为可能此时还有异步回调没有进入
                     //_sendArgs.UserToken = null;
                     _sendArgs.Dispose();
                 }
-                if (this._receiveArgs != null) {
+                if (_receiveArgs != null) {
                     // dx: 这里不要置空，因为可能此时还有异步回调没有进入
                     //_receiveArgs.UserToken = null;
                     _receiveArgs.Dispose();

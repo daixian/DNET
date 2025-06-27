@@ -1,11 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace DNET.Protocol
+namespace DNET
 {
     /// <summary>
     /// 通用消息头定义（确保结构体大小固定且字段顺序一致）

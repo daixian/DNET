@@ -2,7 +2,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace DNET
 {
@@ -42,7 +41,7 @@ namespace DNET
         /// <summary>
         /// 是否启用自动采样回调（默认关闭）
         /// </summary>
-        public bool AutoSampleEnabled { get; set; } = false;
+        public bool AutoSampleEnabled { get; set; }
 
         /// <summary>
         /// 自动采样周期，毫秒（默认1000ms）

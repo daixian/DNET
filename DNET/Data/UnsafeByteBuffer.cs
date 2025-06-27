@@ -8,29 +8,25 @@ namespace DNET
     /// </summary>
     public unsafe class UnsafeByteBuffer : IDisposable
     {
-        private byte* _buffer;
-        private int _capacity;
-        private int _position;
-
         /// <summary>
         /// 也是当前有效数据的长度
         /// </summary>
-        public int Position => _position;
+        public int Position { get; private set; }
 
         /// <summary>
         /// 当前有效数据的长度
         /// </summary>
-        public int Count => _position;
+        public int Count => Position;
 
         /// <summary>
         /// 实际缓冲区容量
         /// </summary>
-        public int Capacity => _capacity;
+        public int Capacity { get; private set; }
 
         /// <summary>
         /// 缓冲区指针
         /// </summary>
-        public byte* Ptr => _buffer;
+        public byte* Ptr { get; private set; }
 
         /// <summary>
         /// 构造函数
@@ -41,9 +37,9 @@ namespace DNET
         {
             if (initialCapacity <= 0) throw new ArgumentOutOfRangeException(nameof(initialCapacity));
 
-            _capacity = initialCapacity;
-            _buffer = (byte*)Marshal.AllocHGlobal(_capacity).ToPointer();
-            _position = 0;
+            Capacity = initialCapacity;
+            Ptr = (byte*)Marshal.AllocHGlobal(Capacity).ToPointer();
+            Position = 0;
         }
 
         /// <summary>
@@ -57,7 +53,7 @@ namespace DNET
         /// <summary>
         /// 清空所有内容，重置写入位置。
         /// </summary>
-        public void Clear() => _position = 0;
+        public void Clear() => Position = 0;
 
         /// <summary>
         /// 设置写入位置。
@@ -66,8 +62,8 @@ namespace DNET
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         public void Seek(int pos)
         {
-            if (pos < 0 || pos > _capacity) throw new ArgumentOutOfRangeException(nameof(pos));
-            _position = pos;
+            if (pos < 0 || pos > Capacity) throw new ArgumentOutOfRangeException(nameof(pos));
+            Position = pos;
         }
 
         /// <summary>
@@ -76,19 +72,19 @@ namespace DNET
         /// <param name="minSize"></param>
         public void EnsureCapacity(int minSize)
         {
-            if (minSize <= _capacity) return;
+            if (minSize <= Capacity) return;
 
-            int newCapacity = _capacity;
+            int newCapacity = Capacity;
             while (newCapacity < minSize) {
                 newCapacity *= 2;
             }
 
             byte* newBuffer = (byte*)Marshal.AllocHGlobal(newCapacity).ToPointer();
-            Buffer.MemoryCopy(_buffer, newBuffer, newCapacity, _position); // 只复制已有内容
-            Marshal.FreeHGlobal((IntPtr)_buffer);
+            Buffer.MemoryCopy(Ptr, newBuffer, newCapacity, Position); // 只复制已有内容
+            Marshal.FreeHGlobal((IntPtr)Ptr);
 
-            _buffer = newBuffer;
-            _capacity = newCapacity;
+            Ptr = newBuffer;
+            Capacity = newCapacity;
         }
 
         /// <summary>
@@ -105,11 +101,11 @@ namespace DNET
             if (offset < 0 || count < 0 || offset + count > data.Length)
                 throw new ArgumentOutOfRangeException("offset or count is invalid");
 
-            EnsureCapacity(_position + count);
+            EnsureCapacity(Position + count);
 
             fixed (byte* src = &data[offset]) {
-                Buffer.MemoryCopy(src, _buffer + _position, _capacity - _position, count);
-                _position += count;
+                Buffer.MemoryCopy(src, Ptr + Position, Capacity - Position, count);
+                Position += count;
             }
         }
 
@@ -131,17 +127,17 @@ namespace DNET
         /// <param name="count">要移除的字节数</param>
         public void Erase(int offset, int count)
         {
-            if (offset < 0 || count < 0 || offset + count > _position)
+            if (offset < 0 || count < 0 || offset + count > Position)
                 throw new ArgumentOutOfRangeException("offset 或 count 超出有效范围");
 
-            int bytesToMove = _position - (offset + count);
+            int bytesToMove = Position - (offset + count);
             if (bytesToMove > 0) {
-                Buffer.MemoryCopy(_buffer + offset + count, _buffer + offset,
-                    _capacity - offset,
+                Buffer.MemoryCopy(Ptr + offset + count, Ptr + offset,
+                    Capacity - offset,
                     bytesToMove);
             }
 
-            _position -= count;
+            Position -= count;
         }
 
         /// <summary>
@@ -150,10 +146,10 @@ namespace DNET
         public void Write<T>(T value) where T : unmanaged
         {
             int size = sizeof(T);
-            EnsureCapacity(_position + size);
+            EnsureCapacity(Position + size);
 
-            *(T*)(_buffer + _position) = value;
-            _position += size;
+            *(T*)(Ptr + Position) = value;
+            Position += size;
         }
 
         /// <summary>
@@ -166,8 +162,8 @@ namespace DNET
         public T Read<T>(int offset = 0) where T : unmanaged
         {
             int pos = offset < 0 ? 0 : offset;
-            if (pos + sizeof(T) > _position) throw new InvalidOperationException("Buffer overflow");
-            return *(T*)(_buffer + pos);
+            if (pos + sizeof(T) > Position) throw new InvalidOperationException("Buffer overflow");
+            return *(T*)(Ptr + pos);
         }
 
         /// <summary>
@@ -179,14 +175,11 @@ namespace DNET
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         public byte[] ToArray(int offset, int count)
         {
-            if (offset < 0 || count < 0 || offset + count > _position)
+            if (offset < 0 || count < 0 || offset + count > Position)
                 throw new ArgumentOutOfRangeException("Invalid offset or count.");
 
             byte[] result = new byte[count];
-            unsafe {
-                Marshal.Copy(new IntPtr(_buffer + offset), result, 0, count);
-
-            }
+            Marshal.Copy(new IntPtr(Ptr + offset), result, 0, count);
             return result;
         }
 
@@ -197,8 +190,8 @@ namespace DNET
         /// <returns></returns>
         public byte[] ToArray()
         {
-            byte[] result = new byte[_position];
-            Marshal.Copy((IntPtr)_buffer, result, 0, _position);
+            byte[] result = new byte[Position];
+            Marshal.Copy((IntPtr)Ptr, result, 0, Position);
             return result;
         }
 
@@ -207,11 +200,11 @@ namespace DNET
         /// </summary>
         public void Dispose()
         {
-            if (_buffer != null) {
-                Marshal.FreeHGlobal((IntPtr)_buffer);
-                _buffer = null;
-                _capacity = 0;
-                _position = 0;
+            if (Ptr != null) {
+                Marshal.FreeHGlobal((IntPtr)Ptr);
+                Ptr = null;
+                Capacity = 0;
+                Position = 0;
             }
             // 不需要再调用析构函数了
             GC.SuppressFinalize(this);

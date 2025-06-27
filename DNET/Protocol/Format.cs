@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace DNET.Protocol
+﻿namespace DNET
 {
     /// <summary>
     /// 消息格式
     /// </summary>
-    public enum Format : int
+    public enum Format
     {
         None = 0,
         Text,
@@ -29,5 +23,5 @@ namespace DNET.Protocol
         /// 心跳包
         /// </summary>
         Heart = 100
-    };
+    }
 }

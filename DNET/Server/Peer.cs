@@ -1,16 +1,8 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-using DNET.Protocol;
 
 namespace DNET
 {
-    //delegate void ProcessData(SocketAsyncEventArgs args);
-
     /// <summary>
     /// 用户对象,也就是一个TCP连接的一个端点.Peer里面起码要封装一个Socket对象.
     /// 它最主要的就是有一个ID.
@@ -20,7 +12,7 @@ namespace DNET
         /// <summary>
         /// 标记是否已经被disposed
         /// </summary>
-        private bool _disposed = false;
+        private bool _disposed;
 
         /// <summary>
         /// 现在由于在客户端也添加了一个Token，用于在协议事件的时候方便统一逻辑，当初始化客户端的token的时候调用这个构造方法
@@ -29,6 +21,7 @@ namespace DNET
         {
             peerSocket = new PeerSocket();
         }
+
         /// <summary>
         /// 它的ID，这个ID会一直递增的被分配
         /// </summary>
@@ -55,12 +48,9 @@ namespace DNET
         /// <summary>
         /// 发送队列是否太长
         /// </summary>
-        public bool SendQueueOverflow {
-            get {
-                if (peerSocket.WaitSendMsgCount >= 64)
-                    return true;
-                return false;
-            }
+        public bool IsSendQueueOverflow(int queueLen = 1024)
+        {
+            return peerSocket.WaitSendMsgCount >= queueLen;
         }
 
         /// <summary>
@@ -79,14 +69,9 @@ namespace DNET
             int txrId = 0,
             int eventType = 0)
         {
-            if (data == null) {
-                LogProxy.LogWarning("DNClient.Send(data,offset,count):要发送的数据为null！");
-            }
-
             // 这里其实已经开始打包了.
             peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
             peerSocket.TryBeginSend(); //这个函数可以直接启动
-
         }
 
         /// <summary>
@@ -96,7 +81,7 @@ namespace DNET
         public List<Message> GetReceiveData() => peerSocket?.GetReceiveMessages();
 
         /// <summary>
-        /// 释放 
+        /// 释放
         /// </summary>
         public void Dispose()
         {

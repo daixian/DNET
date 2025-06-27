@@ -17,8 +17,8 @@ namespace DNET
         /// <param name="maxCapacity">队列的最大长度</param>
         public BytesQueue(int maxCapacity)
         {
-            this._queue = new Queue<byte[]>(maxCapacity);
-            this.maxCount = maxCapacity;
+            _queue = new Queue<byte[]>(maxCapacity);
+            maxCount = maxCapacity;
         }
 
         /// <summary>
@@ -29,9 +29,9 @@ namespace DNET
         /// <param name="byteSize">最大bytes大小</param>
         public BytesQueue(int maxCapacity, int byteSize)
         {
-            this._queue = new Queue<byte[]>(maxCapacity);
-            this.maxCount = maxCapacity;
-            this.maxByteSize = byteSize;
+            _queue = new Queue<byte[]>(maxCapacity);
+            maxCount = maxCapacity;
+            maxByteSize = byteSize;
         }
 
         /// <summary>
@@ -43,30 +43,30 @@ namespace DNET
         /// <param name="initCapacity">队列初始大小</param>
         public BytesQueue(int maxCapacity, int byteSize, int initCapacity)
         {
-            this._queue = new Queue<byte[]>(initCapacity);
-            this.maxCount = maxCapacity;
-            this.maxByteSize = byteSize;
+            _queue = new Queue<byte[]>(initCapacity);
+            maxCount = maxCapacity;
+            maxByteSize = byteSize;
         }
 
         /// <summary>
         /// byte数据的队列
         /// </summary>
-        private Queue<byte[]> _queue;
+        private readonly Queue<byte[]> _queue;
 
         /// <summary>
         /// 队列的最大长度
         /// </summary>
-        private int maxCount;
+        private readonly int maxCount;
 
         /// <summary>
         /// 队列的最大字节数，默认4M
         /// </summary>
-        private int maxByteSize = 4 * 1024 * 1024; //4m
+        private readonly int maxByteSize = 4 * 1024 * 1024; //4m
 
         /// <summary>
         /// 当前的队列中数据的总大小
         /// </summary>
-        private int _curByteSize = 0;
+        private int _curByteSize;
 
         /// <summary>
         /// 当前这个队列是否已经过大
@@ -79,9 +79,7 @@ namespace DNET
                 if (_queue.Count > maxCount) {
                     return true;
                 }
-                else {
-                    return false;
-                }
+                return false;
             }
         }
 
@@ -91,15 +89,13 @@ namespace DNET
         /// <returns>一个byte数据，没有则返回null</returns>
         public byte[] Dequeue()
         {
-            lock (this._queue) {
-                if (this._queue.Count > 0) {
-                    byte[] data = this._queue.Dequeue();
+            lock (_queue) {
+                if (_queue.Count > 0) {
+                    byte[] data = _queue.Dequeue();
                     _curByteSize -= data.Length;
                     return data;
                 }
-                else {
-                    return null;
-                }
+                return null;
             }
         }
 
@@ -112,8 +108,8 @@ namespace DNET
             if (item == null) {
                 throw new ArgumentNullException("Items null");
             }
-            lock (this._queue) {
-                this._queue.Enqueue(item);
+            lock (_queue) {
+                _queue.Enqueue(item);
                 _curByteSize += item.Length;
             }
         }
@@ -123,8 +119,8 @@ namespace DNET
         /// </summary>
         public void Clear()
         {
-            lock (this._queue) {
-                this._queue.Clear();
+            lock (_queue) {
+                _queue.Clear();
                 _curByteSize = 0;
             }
         }
@@ -134,8 +130,8 @@ namespace DNET
         /// </summary>
         public void TrimExcess()
         {
-            lock (this._queue) {
-                this._queue.TrimExcess();
+            lock (_queue) {
+                _queue.TrimExcess();
             }
         }
 
@@ -150,9 +146,9 @@ namespace DNET
         /// <returns>byte[]数据，没有则返回null</returns>
         public byte[][] GetData()
         {
-            lock (this._queue) {
-                if (this._queue.Count > 0) {
-                    int count = this._queue.Count;
+            lock (_queue) {
+                if (_queue.Count > 0) {
+                    int count = _queue.Count;
 
                     byte[][] data = new byte[count][];
                     for (int i = 0; i < count; i++) {
@@ -161,9 +157,7 @@ namespace DNET
                     }
                     return data;
                 }
-                else {
-                    return null;
-                }
+                return null;
             }
         }
 
@@ -173,9 +167,9 @@ namespace DNET
         /// <returns>UTF8 解码后的字符串数组，没有则返回 null</returns>
         public string[] GetText()
         {
-            lock (this._queue) {
-                if (this._queue.Count > 0) {
-                    int count = this._queue.Count;
+            lock (_queue) {
+                if (_queue.Count > 0) {
+                    int count = _queue.Count;
                     string[] texts = new string[count];
                     for (int i = 0; i < count; i++) {
                         byte[] data = _queue.Dequeue();
@@ -184,9 +178,7 @@ namespace DNET
                     }
                     return texts;
                 }
-                else {
-                    return null;
-                }
+                return null;
             }
         }
 
@@ -196,32 +188,28 @@ namespace DNET
         /// <returns>结果数据</returns>
         public byte[] GetDataOnce()
         {
-            if (this._queue.Count > 0) {
-                lock (this._queue) {
-                    if (this._queue.Count == 1) //如果队列里只有一条数据，那么不需要整合复制
+            if (_queue.Count > 0) {
+                lock (_queue) {
+                    if (_queue.Count == 1) //如果队列里只有一条数据，那么不需要整合复制
                     {
-                        byte[] data = this._queue.Dequeue();
+                        byte[] data = _queue.Dequeue();
                         _curByteSize -= data.Length; //空间大小
                         return data;
                     }
-                    else {
-                        byte[] alldata = new byte[_curByteSize];
-                        int count = this._queue.Count;
-                        int index = 0;
-                        for (int i = 0; i < count; i++) {
-                            byte[] data = this._queue.Dequeue();
-                            _curByteSize -= data.Length; //空间大小
-                            Buffer.BlockCopy(data, 0, alldata, index, data.Length);
-                            index += data.Length;
-                        }
-
-                        return alldata;
+                    byte[] alldata = new byte[_curByteSize];
+                    int count = _queue.Count;
+                    int index = 0;
+                    for (int i = 0; i < count; i++) {
+                        byte[] data = _queue.Dequeue();
+                        _curByteSize -= data.Length; //空间大小
+                        Buffer.BlockCopy(data, 0, alldata, index, data.Length);
+                        index += data.Length;
                     }
+
+                    return alldata;
                 }
             }
-            else {
-                return null;
-            }
+            return null;
         }
 
         /// <summary>
@@ -236,16 +224,16 @@ namespace DNET
                 return GetDataOnce();
             }
 
-            if (this._queue.Count > 0) {
-                lock (this._queue) {
+            if (_queue.Count > 0) {
+                lock (_queue) {
                     byte[] alldata = new byte[_curByteSize + frontData.Length];
-                    int count = this._queue.Count;
+                    int count = _queue.Count;
                     int index = 0;
                     //先拼上最前面的数据
                     Buffer.BlockCopy(frontData, 0, alldata, index, frontData.Length);
                     index += frontData.Length;
                     for (int i = 0; i < count; i++) {
-                        byte[] data = this._queue.Dequeue();
+                        byte[] data = _queue.Dequeue();
                         _curByteSize -= data.Length; //空间大小
                         Buffer.BlockCopy(data, 0, alldata, index, data.Length);
                         index += data.Length;
@@ -253,9 +241,7 @@ namespace DNET
                     return alldata;
                 }
             }
-            else {
-                return frontData;
-            }
+            return frontData;
         }
 
         /// <summary>
@@ -271,10 +257,10 @@ namespace DNET
             if (item == null) {
                 throw new ArgumentNullException("BytesQueue.EnqueueMaxLimit():输入参数为null"); //注意其实下面的队列支持null
             }
-            else if (item.Length >= maxByteSize) {
+            if (item.Length >= maxByteSize) {
                 throw new OutOfMemoryException("BytesQueue.EnqueueMaxLimit():加入的数组过大，超出了该队列的maxByteSize");
             }
-            lock (this._queue) {
+            lock (_queue) {
                 if (_queue.Count < maxCount) {
                     _queue.Enqueue(item);
                     _curByteSize += item.Length; //空间大小
@@ -309,19 +295,17 @@ namespace DNET
             {
                 return dataArr[0];
             }
-            else {
-                int length = 0;
-                for (int i = 0; i < dataArr.Length; i++) {
-                    length += dataArr[i].Length;
-                }
-                byte[] alldata = new byte[length];
-                int index = 0;
-                for (int i = 0; i < dataArr.Length; i++) {
-                    Buffer.BlockCopy(dataArr[i], 0, alldata, index, dataArr[i].Length);
-                    index += dataArr[i].Length;
-                }
-                return alldata;
+            int length = 0;
+            for (int i = 0; i < dataArr.Length; i++) {
+                length += dataArr[i].Length;
             }
+            byte[] alldata = new byte[length];
+            int index = 0;
+            for (int i = 0; i < dataArr.Length; i++) {
+                Buffer.BlockCopy(dataArr[i], 0, alldata, index, dataArr[i].Length);
+                index += dataArr[i].Length;
+            }
+            return alldata;
         }
     }
 }

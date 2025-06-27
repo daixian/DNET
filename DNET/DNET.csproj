@@ -42,25 +42,27 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Client\ClientTimer.cs" />
     <Compile Include="Client\CwMessage.cs" />
     <Compile Include="Peer\ConnectionContext.cs" />
     <Compile Include="Client\DNClient.cs" />
     <Compile Include="Client\ErrorType.cs" />
     <Compile Include="Peer\PeerStatus.cs" />
     <Compile Include="Peer\PeerSocket.cs" />
-    <Compile Include="Common\DNETExt.cs" />
+    <Compile Include="Common\DNETExtension.cs" />
     <Compile Include="Data\ByteBuffer.cs" />
     <Compile Include="Data\ByteBufferPool.cs" />
     <Compile Include="Common\BytesQueue.cs" />
     <Compile Include="Common\Config.cs" />
     <Compile Include="Common\DQueue.cs" />
+    <Compile Include="Protocol\Format.cs" />
+    <Compile Include="Protocol\Header.cs" />
+    <Compile Include="Protocol\IPacket3.cs" />
+    <Compile Include="Protocol\Message.cs" />
+    <Compile Include="Protocol\SimplePacket.cs" />
     <Compile Include="Server\SwMessage.cs" />
     <Compile Include="Thread\ThreadAnalyzer.cs" />
     <Compile Include="Common\LogProxy.cs" />
     <Compile Include="Common\GZip.cs" />
-    <Compile Include="Common\IWorkMsg.cs" />
-    <Compile Include="Common\NetWorkTaskArgs.cs" />
     <Compile Include="Thread\ThreadSampler.cs" />
     <Compile Include="Thread\WorkThread.cs" />
     <Compile Include="Data\GlobalBuffer.cs" />
@@ -68,24 +70,12 @@
     <Compile Include="Data\UnsafeByteBuffer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Protocol\Crc32.cs" />
-    <Compile Include="Protocol\FastPacket.cs" />
-    <Compile Include="Protocol\FastPacket2.cs" />
-    <Compile Include="Protocol\IPacket.cs" />
-    <Compile Include="Protocol\IPacket2.cs" />
-    <Compile Include="Protocol\Message\IPacket3.cs" />
-    <Compile Include="Protocol\Message\Message.cs" />
-    <Compile Include="Protocol\Message\Format.cs" />
-    <Compile Include="Protocol\Message\Header.cs" />
-    <Compile Include="Protocol\Message\SimplePacket.cs" />
-    <Compile Include="Server\ServerStatus.cs" />
     <Compile Include="Server\PeerErrorType.cs" />
-    <Compile Include="Server\ServerTimer.cs" />
     <Compile Include="Server\DNServer.cs" />
     <Compile Include="Server\ServerListenerSocket.cs" />
     <Compile Include="Server\Peer.cs" />
     <Compile Include="Server\PeerManager.cs" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>

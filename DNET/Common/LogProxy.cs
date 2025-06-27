@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Threading;
 
 namespace DNET
 {
@@ -75,10 +73,10 @@ namespace DNET
         /// </summary>
         public static void SetupLogToConsole()
         {
-            actionLog = (s) => { Console.WriteLine($"[INFO] {s}"); };
-            actionLogWarning = (s) => { Console.WriteLine($"[WARN] {s}"); };
-            actionLogError = (s) => { Console.WriteLine($"[ERROR] {s}"); };
-            actionLogDebug = (s) => { Console.WriteLine($"[DEBUG] {s}"); };
+            actionLog = s => { Console.WriteLine($"[INFO] {s}"); };
+            actionLogWarning = s => { Console.WriteLine($"[WARN] {s}"); };
+            actionLogError = s => { Console.WriteLine($"[ERROR] {s}"); };
+            actionLogDebug = s => { Console.WriteLine($"[DEBUG] {s}"); };
         }
     }
 }

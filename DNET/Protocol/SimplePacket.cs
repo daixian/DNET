@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-namespace DNET.Protocol
+namespace DNET
 {
     /// <summary>
     /// 简单协议,这个在C++版本中采用.UDP和TCP共用.
@@ -17,7 +16,7 @@ namespace DNET.Protocol
         private const int MAX_ALLOWED_SIZE = 10 * 1024 * 1024;
 
         // 接收缓冲区
-        private readonly UnsafeByteBuffer _unpackBuff = new UnsafeByteBuffer(4096);
+        private readonly UnsafeByteBuffer _unpackBuff = new UnsafeByteBuffer();
 
         ///// <summary>
         ///// 由于Pack接口的传出都是ByteBuffer，所以这里用一个池存起来
@@ -29,7 +28,7 @@ namespace DNET.Protocol
         /// </summary>
         /// <param name="data">要打包的数据</param>
         /// <param name="offset"></param>
-        /// <param name="length">数据长度</param> 
+        /// <param name="length">数据长度</param>
         /// <param name="format">数据实际格式</param>
         /// <param name="txrId">事务ID，用于标识本次通信的事务序号</param>
         /// <param name="eventType">事件类型，表示当前通信事件的类别</param>
@@ -56,7 +55,7 @@ namespace DNET.Protocol
         /// <summary>
         /// 直接打包一个 Message
         /// </summary>
-        /// <param name="msg">Message 本身</param> 
+        /// <param name="msg">Message 本身</param>
         /// <returns>协议打包结果</returns>
         public ByteBuffer Pack(Message msg)
         {
@@ -72,7 +71,7 @@ namespace DNET.Protocol
         /// </summary>
         /// <param name="receBuff">接收数据缓冲区</param>
         /// <param name="offset">接收数据缓冲区起始</param>
-        /// <param name="length">数据长度</param> 
+        /// <param name="length">数据长度</param>
         /// <returns>解析到的完整数据包数量</returns>
         public List<Message> Unpack(byte[] receBuff, int offset, int length)
         {
@@ -82,7 +81,7 @@ namespace DNET.Protocol
             List<Message> messages = new List<Message>();
 
 
-            // 添加数据到缓存（兼容.NET 4.6.2） 
+            // 添加数据到缓存（兼容.NET 4.6.2）
             _unpackBuff.Append(receBuff, offset, length);
 
             int headerSize = Marshal.SizeOf<Header>();
@@ -94,7 +93,7 @@ namespace DNET.Protocol
                 if (_unpackBuff.Count < headerSize)
                     break;
 
-                Header header = _unpackBuff.Read<Header>(0);
+                Header header = _unpackBuff.Read<Header>();
 
                 if (header.magic != MAGIC) {
                     // 魔数错，清空缓存避免死循环
