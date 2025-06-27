@@ -5,6 +5,9 @@
     /// </summary>
     public struct CtMessage
     {
+        /// <summary>
+        /// 消息类型
+        /// </summary>
         public enum Type
         {
             /// <summary>
@@ -25,7 +28,7 @@
             /// <summary>
             /// 接收事件消息
             /// </summary>
-            Receive, //将接收到缓存的数据进行处理
+            Receive, // 将接收到缓存的数据进行处理
 
             /// <summary>
             /// 异步的关闭客户端

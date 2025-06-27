@@ -30,6 +30,11 @@ namespace DNET
         private int _totalAllocated = 0;
 
         /// <summary>
+        /// 成功复用的次数
+        /// </summary>
+        private long _reusedCount = 0;
+
+        /// <summary>
         /// 创建一个 ByteBuffer 池
         /// </summary>
         /// <param name="blockSize"></param>
@@ -37,8 +42,10 @@ namespace DNET
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         public ByteBufferPool(int blockSize, int capacityLimit = 512)
         {
-            if (blockSize <= 0) throw new ArgumentOutOfRangeException(nameof(blockSize));
-            if (capacityLimit <= 0 || capacityLimit > 1024 * 64) throw new ArgumentOutOfRangeException(nameof(capacityLimit));
+            if (blockSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(blockSize));
+            if (capacityLimit <= 0 || capacityLimit * _blockSize > 1024 * 1024 * 1024) // 大小不要太大(超过1GB)
+                throw new ArgumentOutOfRangeException(nameof(capacityLimit));
 
             _blockSize = blockSize;
             _capacityLimit = capacityLimit;
@@ -55,6 +62,11 @@ namespace DNET
         public int TotalAllocated => _totalAllocated;
 
         /// <summary>
+        /// 成功复用的次数
+        /// </summary>
+        public long ReusedCount => _reusedCount;
+
+        /// <summary>
         /// 从池中租一个ByteBuffer，如果池为空则创建新的.
         /// </summary>
         /// <param name="requestedSize"></param>
@@ -65,6 +77,10 @@ namespace DNET
                 if (buffer.Capacity < requestedSize) {
                     // 这里一定要检查容量,如果容量不够，那么就重新分配一个
                     buffer = new ByteBuffer(GetCapacityForSize(requestedSize));
+                    _totalAllocated++; // 这是allocated
+                }
+                else {
+                    _reusedCount++; // 我只是大致统计,够用了，没必要 Interlocked
                 }
 
                 buffer.Reset();
@@ -81,7 +97,7 @@ namespace DNET
                 newBuf = new ByteBuffer(_blockSize);
             }
             newBuf._bufferPool = this;
-            Interlocked.Increment(ref _totalAllocated);
+            _totalAllocated++; // 这是allocated
             return newBuf;
         }
 
