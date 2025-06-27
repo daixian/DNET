@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using DNET;
 
-namespace UnitTest
+namespace DNET.Test
 {
     [TestFixture]
     public class ByteBufferTest

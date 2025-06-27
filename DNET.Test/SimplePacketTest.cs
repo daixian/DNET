@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using DNET;
 
-namespace UnitTest
+namespace DNET.Test
 {
     [TestFixture]
     public class SimplePacketTest

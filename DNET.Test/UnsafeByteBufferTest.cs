@@ -2,7 +2,7 @@
 using System;
 using DNET;
 
-namespace UnitTest
+namespace DNET.Test
 {
     [TestFixture]
     public class UnsafeByteBufferTest
