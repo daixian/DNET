@@ -1,7 +1,5 @@
-﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using DNET;
+﻿using System.Collections.Generic;
+using NUnit.Framework;
 
 namespace DNET.Test
 {
@@ -11,11 +9,11 @@ namespace DNET.Test
         [Test]
         public unsafe void TestMethod_SimplePacket1()
         {
-            var packet = new SimplePacket();
+            SimplePacket packet = new SimplePacket();
 
             // 构造测试数据
             byte[] testData = System.Text.Encoding.UTF8.GetBytes("Hello, SimplePacket!");
-            var header = Header.CreateDefault();
+            Header header = Header.CreateDefault();
             header.format = Format.None;
             header.txrId = 123;
             header.eventType = 456;
@@ -23,7 +21,7 @@ namespace DNET.Test
 
             int headerSize = sizeof(Header);
 
-            var msg = new Message {
+            Message msg = new Message {
                 header = header,
                 data = testData
             };
@@ -35,11 +33,11 @@ namespace DNET.Test
             Assert.That(packedBuffer.Length, Is.GreaterThan(0));
 
             // 测试 Unpack
-            List<Message> unpackedMessages = packet.Unpack(packedBuffer.buffer, 0, packedBuffer.Length);
+            var unpackedMessages = packet.Unpack(packedBuffer.buffer, 0, packedBuffer.Length);
             Assert.That(unpackedMessages, Is.Not.Null);
             Assert.That(unpackedMessages.Count, Is.EqualTo(1));
 
-            var unpackedMsg = unpackedMessages[0];
+            Message unpackedMsg = unpackedMessages[0];
             Assert.That(unpackedMsg.header.magic, Is.EqualTo(header.magic));
             Assert.That(unpackedMsg.header.format, Is.EqualTo(header.format));
             Assert.That(unpackedMsg.header.txrId, Is.EqualTo(header.txrId));
@@ -57,17 +55,17 @@ namespace DNET.Test
         [Test]
         public void TestMethod_SimplePacket_IncrementalUnpack()
         {
-            var packet = new SimplePacket();
+            SimplePacket packet = new SimplePacket();
 
             // 构造测试数据
             byte[] testData = System.Text.Encoding.UTF8.GetBytes("Hello, SimplePacket!");
-            var header = Header.CreateDefault();
+            Header header = Header.CreateDefault();
             header.format = Format.None;
             header.txrId = 123;
             header.eventType = 456;
             header.dataLen = (uint)testData.Length;
 
-            var msg = new Message {
+            Message msg = new Message {
                 header = header,
                 data = testData
             };
@@ -76,7 +74,7 @@ namespace DNET.Test
             ByteBuffer packedBuffer = packet.Pack(msg);
             byte[] fullBuffer = packedBuffer.ToArray();
 
-            List<Message> totalMessages = new List<Message>();
+            var totalMessages = new List<Message>();
 
             // 模拟逐字节接收
             for (int i = 0; i < fullBuffer.Length; i++) {
@@ -86,15 +84,13 @@ namespace DNET.Test
                 // Unpack 返回可能的消息集合（可能空，因为数据不完整）
                 var msgs = packet.Unpack(oneByte, 0, 1);
 
-                if (msgs != null && msgs.Count > 0) {
-                    totalMessages.AddRange(msgs);
-                }
+                if (msgs != null && msgs.Count > 0) totalMessages.AddRange(msgs);
             }
 
             // 断言最终收到了1条完整消息
             Assert.That(totalMessages.Count, Is.EqualTo(1));
 
-            var unpackedMsg = totalMessages[0];
+            Message unpackedMsg = totalMessages[0];
             Assert.That(unpackedMsg.header.magic, Is.EqualTo(header.magic));
             Assert.That(unpackedMsg.header.format, Is.EqualTo(header.format));
             Assert.That(unpackedMsg.header.txrId, Is.EqualTo(header.txrId));

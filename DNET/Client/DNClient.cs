@@ -181,7 +181,8 @@ namespace DNET
         /// <summary>
         /// 直接关闭,不会等待所有数据发送完成.
         /// </summary>
-        public void Close()
+        /// <param name="clearEvent">是否清空事件</param>
+        public void Close(bool clearEvent = true)
         {
             LogProxy.Log("DNClient.Close():准备关闭Socket和停止工作线程...");
             lock (this) {
@@ -210,11 +211,14 @@ namespace DNET
                 }
 
                 // 清空事件算了
-                EventConnectSuccess = null;
-                EventReceive = null;
-                EventError = null;
-                EventSendQueueIsFull = null;
-                EventSendQueueIsAvailable = null;
+                if (clearEvent) {
+                    LogProxy.Log("DNClient.Close():清空了所有绑定事件...");
+                    EventConnectSuccess = null;
+                    EventReceive = null;
+                    EventError = null;
+                    EventSendQueueIsFull = null;
+                    EventSendQueueIsAvailable = null;
+                }
             }
         }
 

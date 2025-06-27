@@ -63,9 +63,8 @@ namespace DNET
         /// </summary>
         public event Action<Peer> EventPeerReceData;
 
-
         /// <summary>
-        /// 启动服务器，会开启工作线程然后释放一个DoStart信号量。
+        /// 启动服务器，会开启工作线程.
         /// </summary>
         /// <param name="port">端口号</param>
         /// <param name="hostName">服务器的主机IP,一般使用Any表示所有的可能IP</param>
@@ -104,6 +103,10 @@ namespace DNET
                     // msg.text1是服务器的主机IP,一般使用Any表示所有的可能IP
                     _listenerSocket.Start(hostName, port);
                 }
+                if (!_listenerSocket.IsStarted) {
+                    LogProxy.LogError("DNServer.Start():启动监听失败");
+                    return;
+                }
                 LogProxy.Log($"DNServer.Start():服务器启动成功,端口:{_port}");
             } catch (Exception e) {
                 LogProxy.LogError("DNServer.Start():异常 " + e.Message);
@@ -113,7 +116,8 @@ namespace DNET
         /// <summary>
         /// 关闭服务器
         /// </summary>
-        public void Close()
+        /// <param name="clearEvent">是否清除事件绑定</param>
+        public void Close(bool clearEvent = true)
         {
             LogProxy.Log("DNServer.Close():准备关闭Socket和停止工作线程...");
             lock (this) {
@@ -147,8 +151,11 @@ namespace DNET
                     _listenerSocket = null;
                 }
 
-                EventPeerError = null;
-                EventPeerReceData = null;
+                if (clearEvent) {
+                    LogProxy.Log("DNServer.Close():清空了所有绑定事件...");
+                    EventPeerError = null;
+                    EventPeerReceData = null;
+                }
             }
         }
 
@@ -163,7 +170,11 @@ namespace DNET
         /// <param name="txrId">事务id</param>
         /// <param name="eventType">消息类型</param>
         /// <param name="immediately">是否立刻发送</param>
-        public void Send(int peerId, byte[] data, int offset, int count, Format format = Format.Raw, int txrId = 0, int eventType = 0, bool immediately = true)
+        public void Send(int peerId, byte[] data, int offset, int count,
+            Format format = Format.Raw,
+            int txrId = 0,
+            int eventType = 0,
+            bool immediately = true)
         {
             Peer peer = PeerManager.Inst.GetPeer(peerId);
             Send(peer, data, offset, count, format, txrId, eventType, immediately);

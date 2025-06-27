@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
-using DNET;
 using NUnit.Framework;
 
 namespace DNET.Test
@@ -17,7 +16,7 @@ namespace DNET.Test
             int blockSize = 256;
             int capacityLimit = 128;
 
-            var pool = new ByteBufferPool(blockSize, capacityLimit);
+            ByteBufferPool pool = new ByteBufferPool(blockSize, capacityLimit);
 
             // 用于记录是否出异常
             var exceptions = new ConcurrentQueue<Exception>();
@@ -26,7 +25,7 @@ namespace DNET.Test
                 try {
                     for (int i = 0; i < iterationsPerThread; i++) {
                         // 模拟不同大小的请求
-                        int size = (i % 4 == 0) ? blockSize * 2 : blockSize;
+                        int size = i % 4 == 0 ? blockSize * 2 : blockSize;
 
                         ByteBuffer buf = pool.Get(size);
 
