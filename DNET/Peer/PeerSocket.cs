@@ -135,7 +135,7 @@ namespace DNET
 
         #endregion Event
 
-        #region Exposed Function
+        #region 对外函数
 
         /// <summary>
         /// 使用数据打包,然后添加到发送队列.
@@ -388,9 +388,9 @@ namespace DNET
             Interlocked.Exchange(ref _isSending, 0);
         }
 
-        #endregion Exposed Function
+        #endregion
 
-        #region Callback
+        #region Socket Callback
 
         private void OnConnectCompleted(object sender, SocketAsyncEventArgs args)
         {
@@ -513,9 +513,7 @@ namespace DNET
             }
         }
 
-        #endregion Callback
-
-        #region Private Function
+        #endregion
 
         /// <summary>
         /// 初始化的时候准备SocketAsyncEventArgs
@@ -628,8 +626,6 @@ namespace DNET
             }
         }
 
-        #endregion BuiltIn Function
-
         #region IDisposable
 
         private bool _disposed;
@@ -662,8 +658,6 @@ namespace DNET
                     _sendArgs.Dispose();
                 }
                 if (_receiveArgs != null) {
-                    // dx: 这里不要置空，因为可能此时还有异步回调没有进入
-                    //_receiveArgs.UserToken = null;
                     _receiveArgs.Dispose();
                 }
                 if (socket != null) {

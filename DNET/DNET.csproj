@@ -53,7 +53,6 @@
     <Compile Include="Data\ByteBufferPool.cs" />
     <Compile Include="Common\BytesQueue.cs" />
     <Compile Include="Common\Config.cs" />
-    <Compile Include="Common\DQueue.cs" />
     <Compile Include="Protocol\Format.cs" />
     <Compile Include="Protocol\Header.cs" />
     <Compile Include="Protocol\IPacket3.cs" />

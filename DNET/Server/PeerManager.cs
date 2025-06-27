@@ -73,12 +73,10 @@ namespace DNET
         /// </summary>
         /// <param name="id"></param>
         /// <param name="type"></param>
-        private void ClosePeer(int id, PeerErrorType type)
+        private void DisposePeer(int id, PeerErrorType type)
         {
             var peer = GetPeer(id);
-            if (peer != null) {
-                peer.Dispose();
-            }
+            peer?.Dispose();
         }
 
         /// <summary>
@@ -88,7 +86,7 @@ namespace DNET
         /// <param name="errorType">关闭的错误原因</param>
         public void DeletePeer(int id, PeerErrorType errorType = PeerErrorType.UserManualDelete)
         {
-            ClosePeer(id, errorType);
+            DisposePeer(id, errorType);
 
             // 字典中移除
             if (_dictPeer.TryRemove(id, out _)) {
@@ -160,10 +158,13 @@ namespace DNET
             }
         }
 
-        #region IDisposable Support
+        #region IDisposable
 
         private bool _disposed;
 
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         public void Dispose()
         {
             if (_disposed) return;
