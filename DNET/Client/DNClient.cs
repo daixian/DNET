@@ -11,7 +11,7 @@ namespace DNET
     /// 通信传输的客户端类.
     /// 主要就是再加上一层工作线程的异步封装
     /// </summary>
-    public class DNClient : IWorkHandler<CtMessage>
+    public class DNClient : IWorkHandler<CwMessage>
     {
         private static readonly Lazy<DNClient> _instance = new Lazy<DNClient>(() => new DNClient());
 
@@ -33,7 +33,7 @@ namespace DNET
         /// <summary>
         /// 工作线程
         /// </summary>
-        private WorkThread<CtMessage> _workThread;
+        private WorkThread<CwMessage> _workThread;
 
         /// <summary>
         /// 当前的信号量计数,防止出异常吧
@@ -69,7 +69,6 @@ namespace DNET
         /// 这个对象是否已经被释放掉
         /// </summary>
         private bool _disposed = false;
-
 
         /// <summary>
         /// 这个客户端的名字
@@ -163,7 +162,7 @@ namespace DNET
 
                     // 工作线程总是启动
                     if (_workThread == null) {
-                        _workThread = new WorkThread<CtMessage>("DNClientWorkThread");
+                        _workThread = new WorkThread<CwMessage>("DNClientWorkThread");
                     }
                     _workThread.ClearQueue();
 
@@ -175,7 +174,7 @@ namespace DNET
                     }
 
                     // 让工作线程处理这个消息
-                    var msg = new CtMessage() { type = CtMessage.Type.Connect };
+                    var msg = new CwMessage() { type = CwMessage.Type.Connect };
                     _workThread.Post(in msg, this);
                 } catch (Exception e) {
                     // 一般来说其实不会进入这个异常.因为这个函数只是吧一个Message添加到队列中，不会发生异常.
@@ -258,9 +257,6 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
-            if (data == null) {
-                LogProxy.LogWarning("DNClient.Send(data,offset,count):要发送的数据为null！");
-            }
             try {
                 // 这里其实已经开始打包了.
                 _peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
@@ -268,7 +264,7 @@ namespace DNET
                     _peerSocket.TryBeginSend(); //这个函数可以直接启动
                 else {
                     // 让工作线程处理这个消息
-                    var msg = new CtMessage() { type = CtMessage.Type.Send };
+                    var msg = new CwMessage() { type = CwMessage.Type.Send };
                     _workThread.Post(in msg, this);
                 }
             } catch (Exception e) {
@@ -310,22 +306,22 @@ namespace DNET
         /// 处理消息
         /// </summary>
         /// <param name="msg"></param>
-        public void Handle(ref CtMessage msg)
+        public void Handle(ref CwMessage msg)
         {
             switch (msg.type) {
-                case CtMessage.Type.Connect:
+                case CwMessage.Type.Connect:
                     DoConnect();
                     break;
 
-                case CtMessage.Type.Send:
+                case CwMessage.Type.Send:
                     DoSend();
                     break;
 
-                case CtMessage.Type.Receive:
+                case CwMessage.Type.Receive:
                     DoReceive();
                     break;
 
-                case CtMessage.Type.Close:
+                case CwMessage.Type.Close:
                     DoClose();
                     break;
                 default:
@@ -342,18 +338,21 @@ namespace DNET
                 //标记正在连接
                 IsConnecting = true;
 
-                // 断开原先连接，绑定新ip，清理状态
-                _peerSocket.Disconnect();
+                //// 断开原先连接，绑定新ip，清理状态
+                //_peerSocket.Disconnect();
 
 
                 LogProxy.Log("DNClient.DoConnect():正在连接...");
                 _peerSocket.BindRemote(_host, _port);
                 _peerSocket.Connect(); //这个函数连接失败会异常
                 LogProxy.Log($"DNClient.DoConnect():连接服务器成功！{_host}:{_port}");
+                //标记已经结束了连接
+                IsConnecting = false;
 
-                if (!IsConnected) {
+                if (!_peerSocket.IsConnected) {
                     LogProxy.LogError($"DNClient.DoConnect():连接应该是成功的,但是IsConnected是false！");
                 }
+
                 try {
                     EventConnectSuccess?.Invoke(this);
                 } catch (Exception e) {
@@ -367,9 +366,10 @@ namespace DNET
                 } catch (Exception e2) {
                     LogProxy.LogError("DNClient.DoConnect():执行 EventError 事件异常：" + e2.Message);
                 }
+            } finally {
+                IsConnecting = false;
             }
-            //标记已经结束了连接
-            IsConnecting = false;
+
         }
 
         private void DoSend()

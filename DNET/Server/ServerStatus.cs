@@ -128,8 +128,8 @@ namespace DNET
 
             if (isPrintCur1s && _dnServer.IsStarted) //如果设置了打印这一秒,并且服务器在工作
             {
-                LogProxy.LogDebug(String.Format("ServerStatus.OnUpdate()：一秒内接收/发送:{0}/{2}条,总{4}/{5}条,消息队列长{6} ,{1:F1}/{3:F1}kB.",
-                    cur1sReceive, cur1sReceiveBytes / 1000.0f, cur1sSend, cur1sSendBytes / 1000.0f, CountReceive, CountSend, _dnServer.msgQueueLength));
+                // LogProxy.LogDebug(String.Format("ServerStatus.OnUpdate()：一秒内接收/发送:{0}/{2}条,总{4}/{5}条,消息队列长{6} ,{1:F1}/{3:F1}kB.",
+                //     cur1sReceiveBytes / 1000.0f, cur1sSend, cur1sSendBytes / 1000.0f, CountReceive, CountSend));
             }
         }
     }

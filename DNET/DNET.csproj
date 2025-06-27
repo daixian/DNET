@@ -43,7 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\ClientTimer.cs" />
-    <Compile Include="Client\CtMessage.cs" />
+    <Compile Include="Client\CwMessage.cs" />
     <Compile Include="Peer\ConnectionContext.cs" />
     <Compile Include="Client\DNClient.cs" />
     <Compile Include="Client\ErrorType.cs" />
@@ -55,6 +55,7 @@
     <Compile Include="Common\BytesQueue.cs" />
     <Compile Include="Common\Config.cs" />
     <Compile Include="Common\DQueue.cs" />
+    <Compile Include="Server\SwMessage.cs" />
     <Compile Include="Thread\ThreadAnalyzer.cs" />
     <Compile Include="Common\LogProxy.cs" />
     <Compile Include="Common\GZip.cs" />
@@ -80,11 +81,9 @@
     <Compile Include="Server\PeerErrorType.cs" />
     <Compile Include="Server\ServerTimer.cs" />
     <Compile Include="Server\DNServer.cs" />
-    <Compile Include="Server\SocketAsyncEventArgsPool.cs" />
     <Compile Include="Server\ServerListenerSocket.cs" />
     <Compile Include="Server\Peer.cs" />
     <Compile Include="Server\PeerManager.cs" />
-    <Compile Include="Server\UserObj.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -17,6 +17,10 @@ namespace DNET
     /// </summary>
     public sealed class Peer : IDisposable
     {
+        /// <summary>
+        /// 标记是否已经被disposed
+        /// </summary>
+        private bool _disposed = false;
 
         /// <summary>
         /// 现在由于在客户端也添加了一个Token，用于在协议事件的时候方便统一逻辑，当初始化客户端的token的时候调用这个构造方法
@@ -60,16 +64,45 @@ namespace DNET
         }
 
         /// <summary>
+        /// 发送一条数据，有起始和长度控制.这是立即发送.
+        /// </summary>
+        /// <param name="data">要发送的数据</param>
+        /// <param name="offset">数据的起始位置</param>
+        /// <param name="count">数据的长度</param>
+        /// <param name="format">数据格式</param>
+        /// <param name="txrId">事务id</param>
+        /// <param name="eventType">消息类型</param>
+        public void Send(byte[] data,
+            int offset,
+            int count,
+            Format format = Format.Raw,
+            int txrId = 0,
+            int eventType = 0)
+        {
+            if (data == null) {
+                LogProxy.LogWarning("DNClient.Send(data,offset,count):要发送的数据为null！");
+            }
+
+            // 这里其实已经开始打包了.
+            peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
+            peerSocket.TryBeginSend(); //这个函数可以直接启动
+
+        }
+
+        /// <summary>
         /// 获取这个token的接收数据
         /// </summary>
         /// <returns></returns>
-        public List<Message> GetReceiveData() => peerSocket.GetReceiveMessages();
+        public List<Message> GetReceiveData() => peerSocket?.GetReceiveMessages();
 
-
-        #region IDisposable  
-
+        /// <summary>
+        /// 释放 
+        /// </summary>
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
+
             try {
                 //执行Dispose事件
                 //if (EventDispose != null) //事件
@@ -85,10 +118,9 @@ namespace DNET
             } catch (Exception) {
                 //不要的客户端，不抛出错误，直接Close()
             } finally {
-
+                user = null;
+                peerSocket = null;
             }
         }
-
-        #endregion IDisposable Members
     }
 }

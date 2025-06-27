@@ -11,12 +11,10 @@ namespace DNET
     {
         /// <summary>
         /// 构造函数：创建一个未初始化的服务器实例。
-        /// 来开始一个监听服务， 
+        /// 来开始一个监听服务，
         /// </summary>
-
         internal ServerListenerSocket()
         {
-
         }
 
         /// <summary>
@@ -115,11 +113,9 @@ namespace DNET
 
                 _isStarted = true; //服务器启动成功
             } catch (Exception e) {
-                LogProxy.LogWarning("SocketListener.Start()：Start函数错误：" + e.Message);
+                LogProxy.LogWarning($"SocketListener.Start():异常 {e}");
             }
         }
-
-
 
         #endregion Exposed Function
 
@@ -162,15 +158,13 @@ namespace DNET
             try {
                 Socket acceptSocket = e.AcceptSocket;
                 if (acceptSocket.Connected) {
-
-                    Peer peer = new Peer(); //创建一个用户 
+                    Peer peer = new Peer(); //创建一个用户
                     peer.peerSocket.SetAcceptSocket(acceptSocket);
 
                     if (EventAccept != null) //产生认证事件
                     {
                         EventAccept(peer);
                     }
-
                 }
 
                 // 继续开始异步接收
@@ -190,7 +184,6 @@ namespace DNET
         /// </summary>
         private void StartAccept(SocketAsyncEventArgs eArg)
         {
-
             try {
                 if (eArg == null) {
                     eArg = new SocketAsyncEventArgs();
@@ -208,7 +201,6 @@ namespace DNET
                 LogProxy.LogWarning("ServerListenerSocket.StartAccept():异常：" + e.Message);
                 // throw;
             }
-
         }
 
         /// <summary>
@@ -239,7 +231,6 @@ namespace DNET
                 LogProxy.LogWarning("ServerListenerSocket.StartAccept2():异常：" + e.Message);
                 throw;
             }
-
         }
 
         #endregion BuiltIn Function
@@ -264,7 +255,6 @@ namespace DNET
 
                 // 清理托管资源
                 EventAccept = null;
-
             }
             // 清理非托管资源
             try {

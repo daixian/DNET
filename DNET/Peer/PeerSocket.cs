@@ -398,6 +398,9 @@ namespace DNET
 
         private void OnConnectCompleted(object sender, SocketAsyncEventArgs args)
         {
+            // 这个回调由线程池进来,有时候已经释放了,这里仍然会进入.
+            if (_disposed) return;
+
             try {
                 _areConnectDone.Set(); // 通知等待线程连接已完成
 
@@ -422,6 +425,9 @@ namespace DNET
 
         private void OnSendCompleted(object sender, SocketAsyncEventArgs args)
         {
+            // 这个回调由线程池进来,有时候已经释放了,这里仍然会进入.
+            if (_disposed) return;
+
             try {
                 if (args.SocketError != SocketError.Success) {
                     this.ProcessError(args);
@@ -464,6 +470,9 @@ namespace DNET
 
         private void OnReceiveCompleted(object sender, SocketAsyncEventArgs args)
         {
+            // 这个回调由线程池进来,有时候已经释放了,这里仍然会进入.
+            if (_disposed) return;
+
             try {
                 // 不能在这里PrepareReceive().它会递归调用OnReceiveCompleted()
 
@@ -598,7 +607,7 @@ namespace DNET
         {
             try {
                 // 这里是需要的，否则在断线之后仍然可能不停的接收
-                if (!socket.Connected) //如果当前没有连接上，就不接收了
+                if (socket == null || !socket.Connected) //如果当前没有连接上，就不接收了
                 {
                     return;
                 }

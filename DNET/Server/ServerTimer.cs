@@ -8,35 +8,12 @@ namespace DNET
     /// </summary>
     public class ServerTimer : IDisposable
     {
-        /// <summary>
-        /// 构造函数
-        /// </summary>
-        public ServerTimer()
-        {
-        }
+        private static readonly Lazy<ServerTimer> _instance = new Lazy<ServerTimer>(() => new ServerTimer());
 
         /// <summary>
-        /// 静态构造函数
+        /// 单例
         /// </summary>
-        private static ServerTimer _instance = new ServerTimer();
-
-        /// <summary>
-        /// 获得实例
-        /// </summary>
-        /// <returns></returns>
-        public static ServerTimer GetInstance()
-        {
-            return _instance;
-        }
-
-        /// <summary>
-        /// 获得实例
-        /// </summary>
-        /// <returns></returns>
-        public static ServerTimer GetInst()
-        {
-            return _instance;
-        }
+        public static ServerTimer Inst => _instance.Value;
 
         /// <summary>
         /// 定时器函数的事件，目前定时器的默认时间是1秒一次。

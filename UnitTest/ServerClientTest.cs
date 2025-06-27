@@ -59,7 +59,7 @@ public class ServerClientTest
             }
         }
         Random rand = new Random();
-        int sendDataLength = 100;
+        int sendDataLength = rand.Next(1, 256); //随机一个长度,不停的测
         byte[] sendData = new byte[sendDataLength];
         for (int i = 0; i < sendData.Length; i++) {
             sendData[i] = 0xFF;
@@ -69,7 +69,6 @@ public class ServerClientTest
         while (true) {
             if (DNClient.Inst.IsConnected) {
                 LogProxy.LogDebug("TestMethod_Send():连接成功");
-                Thread.Sleep(1000);
                 break;
             }
         }
@@ -178,7 +177,6 @@ public class ServerClientTest
         while (true) {
             if (DNClient.Inst.IsConnected) {
                 LogProxy.LogDebug("TestMethod_Send():连接成功");
-                Thread.Sleep(1000);
                 break;
             }
         }
