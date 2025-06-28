@@ -41,7 +41,8 @@ namespace DNET
         /// </summary>
         public PeerSocket peerSocket { get; internal set; }
 
-        /// 它的状态.
+        /// <summary>
+        /// 它的状态
         /// </summary>
         public PeerStatus Status => peerSocket.peerStatus;
 

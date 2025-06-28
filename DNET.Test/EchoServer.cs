@@ -3,23 +3,41 @@ using NUnit.Framework;
 
 namespace DNET.Test
 {
+    /// <summary>
+    /// 回显服务器测试类，用于测试服务器端的基本功能
+    /// </summary>
     public class EchoServer
     {
         private readonly DNServer server;
 
+        /// <summary>
+        /// 初始化回显服务器实例
+        /// </summary>
+        /// <param name="server">要测试的DNServer实例</param>
         public EchoServer(DNServer server)
         {
             this.server = server;
         }
 
+        /// <summary>
+        /// 获取服务器接收到并处理的消息数量
+        /// </summary>
         public int ServerReceiveCount { get; private set; }
 
+        /// <summary>
+        /// 是否立即发送
+        /// </summary>
+        public bool Immediately { get; set; } = true;
+
+        /// <summary>
+        /// 启动服务器
+        /// </summary>
+        /// <param name="port">监听的端口号</param>
         public void Start(int port)
         {
-            Config.IsAutoHeartbeat = false;
-            Config.IsDebugLog = false;
             server.Close();
 
+            // 设置接收数据事件处理
             server.EventPeerReceData += peer => {
                 var msgs = peer.GetReceiveData();
                 if (msgs == null || msgs.Count == 0) return;
@@ -28,12 +46,18 @@ namespace DNET.Test
                     while (peer.IsSendQueueOverflow())
                         Thread.Sleep(1);
 
-                    server.Send(peer, msg.data, 0, msg.data.Length, txrId: msg.TxrId);
-                    Assert.That(msg.TxrId, Is.EqualTo(ServerReceiveCount));
+                    // 回发接收到的数据
+                    server.Send(peer, msg.data, 0, msg.data.Length,
+                        txrId: msg.TxrId,
+                        immediately: Immediately);
+
+                    // 这里不需要验证了,由客户端验证好了.
+                    // Assert.That(msg.TxrId, Is.EqualTo(ServerReceiveCount));
                     ServerReceiveCount++;
                 }
             };
 
+            // 尝试启动服务器直到成功
             while (true) {
                 server.Close(false);
                 server.Start(port);
@@ -42,6 +66,9 @@ namespace DNET.Test
             }
         }
 
+        /// <summary>
+        /// 停止服务器
+        /// </summary>
         public void Stop()
         {
             server.Close();
