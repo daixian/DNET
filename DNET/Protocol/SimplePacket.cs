@@ -5,15 +5,15 @@ using System.Runtime.InteropServices;
 namespace DNET
 {
     /// <summary>
-    /// 简单协议,这个在C++版本中采用.UDP和TCP共用.
+    /// 简单协议,这个在C++版本中采用.
     /// </summary>
     public class SimplePacket : IPacket3
     {
         // 魔数定义 'XMSG' 小端顺序
         private const uint MAGIC = 0x584D5347;
 
-        // 最大允许消息大小 (10MB)
-        private const int MAX_ALLOWED_SIZE = 10 * 1024 * 1024;
+        // 最大允许消息大小 (16MB)
+        private const int MAX_ALLOWED_SIZE = 16 * 1024 * 1024;
 
         // 接收缓冲区
         private readonly UnsafeByteBuffer _unpackBuff = new UnsafeByteBuffer();
@@ -80,8 +80,7 @@ namespace DNET
 
             List<Message> messages = new List<Message>();
 
-
-            // 添加数据到缓存（兼容.NET 4.6.2）
+            // 添加数据到缓存
             _unpackBuff.Append(receBuff, offset, length);
 
             int headerSize = Marshal.SizeOf<Header>();
@@ -168,5 +167,4 @@ namespace DNET
             _unpackBuff.Clear();
         }
     }
-
 }
