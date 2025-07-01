@@ -16,6 +16,11 @@
         public byte[] data;
 
         /// <summary>
+        /// 数据格式
+        /// </summary>
+        public Format Format => header.format;
+
+        /// <summary>
         /// 事务ID
         /// </summary>
         public int TxrId => header.txrId;
@@ -29,5 +34,19 @@
         /// 数据长度
         /// </summary>
         public uint Length => header.dataLen;
+
+        /// <summary>
+        /// 文本数据
+        /// </summary>
+        public string Text {
+            get {
+                if (Format == Format.Text) {
+                    return System.Text.Encoding.UTF8.GetString(data);
+                }
+                else {
+                    return null;
+                }
+            }
+        }
     }
 }

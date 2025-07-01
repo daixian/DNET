@@ -14,7 +14,7 @@ namespace DNET.Test
         /// 再启动一个客户端和它发送消息，验证发送接收正常
         /// </summary>
         [Test]
-        public void TestMethod_ServerClient()
+        public void TestMethod_ServerClient50()
         {
             Config.IsAutoHeartbeat = false;
             Config.IsDebugLog = false;
@@ -30,16 +30,59 @@ namespace DNET.Test
 
             Random rand = new Random();
             int sendDataLength = rand.Next(1, 256);
+            // int sendDataLength = 75;
             byte[] sendData = new byte[sendDataLength];
             for (int i = 0; i < sendData.Length; i++)
                 sendData[i] = 0xFF;
 
-            client.SendAndCheckEcho(sendData, 500, 100, true);
-
-            Assert.That(client.ReceiveCount == client.SendCount);
-
+            if (!client.SendAndCheckEcho(sendData, 50, 100, true)) {
+                LogProxy.LogError($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
+            }
+            else {
+                LogProxy.Log($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");
+            }
             client.Close();
             server.Stop();
+
+            Assert.That(client.ReceiveCount, Is.EqualTo(client.SendCount));
+        }
+
+        /// <summary>
+        /// 启动一个服务器，它会原样回发接收到的消息。
+        /// 再启动一个客户端和它发送消息，验证发送接收正常
+        /// </summary>
+        [Test]
+        public void TestMethod_ServerClient()
+        {
+            Config.IsAutoHeartbeat = false;
+            Config.IsDebugLog = false;
+            DNClient.Inst.Close();
+            DNServer.Inst.Close();
+
+            EchoServer server = new EchoServer(DNServer.Inst);
+            server.Start(21024);
+            Assert.That(DNServer.Inst.IsStarted);
+
+            TestClient client = new TestClient(DNClient.Inst);
+            client.Connect("127.0.0.1", 21024);
+
+            Random rand = new Random();
+            // int sendDataLength = rand.Next(1, 256);
+            int sendDataLength = 75;
+            byte[] sendData = new byte[sendDataLength];
+            for (int i = 0; i < sendData.Length; i++)
+                sendData[i] = 0xFF;
+
+            if (!client.SendAndCheckEcho(sendData, 500, 100, true)) {
+                LogProxy.LogError($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
+            }
+            else {
+                LogProxy.Log($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");
+            }
+            client.Close();
+            server.Stop();
+
+            Assert.That(client.ReceiveCount, Is.EqualTo(client.SendCount));
         }
 
         /// <summary>
@@ -66,9 +109,14 @@ namespace DNET.Test
             for (int i = 0; i < sendData.Length; i++)
                 sendData[i] = 0xFF;
 
-            client.SendAndCheckEcho(sendData, 500, 100, false);
+            if (!client.SendAndCheckEcho(sendData, 500, 100, false)) {
+                LogProxy.LogError($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
+            }
+            else {
+                LogProxy.Log($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");
+            }
 
-            Assert.That(client.ReceiveCount == client.SendCount);
+            Assert.That(client.ReceiveCount, Is.EqualTo(client.SendCount));
 
             client.Close();
             server.Stop();

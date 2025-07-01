@@ -46,8 +46,12 @@ namespace DNET.Test
                     while (peer.IsSendQueueOverflow())
                         Thread.Sleep(1);
 
+                    if (msg.Format == Format.Text) {
+                        LogProxy.Log($"收到文本数据:{msg.Text}");
+                    }
                     // 回发接收到的数据
                     server.Send(peer, msg.data, 0, msg.data.Length,
+                        format: msg.Format,
                         txrId: msg.TxrId,
                         immediately: Immediately);
 

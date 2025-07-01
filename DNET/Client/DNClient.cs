@@ -268,16 +268,24 @@ namespace DNET
         /// 发送字符串数据
         /// </summary>
         /// <param name="text">字符串数据</param>
-        public void Send(string text)
+        /// <param name="format">数据格式</param>
+        /// <param name="txrId">事务id</param>
+        /// <param name="eventType">消息类型</param>
+        /// <param name="immediately">是否立刻尝试开始发送</param>
+        public void Send(string text,
+            Format format = Format.Text,
+            int txrId = 0,
+            int eventType = 0,
+            bool immediately = true)
         {
             try {
                 byte[] dataBytes = null;
                 if (string.IsNullOrEmpty(text)) {
-                    Send(dataBytes); //发送一个没有内容的空消息
+                    Send(dataBytes, 0, 0, format, txrId, eventType, immediately); //发送一个没有内容的空消息
                     return;
                 }
                 dataBytes = Encoding.UTF8.GetBytes(text);
-                Send(dataBytes, 0, dataBytes.Length, Format.Text);
+                Send(dataBytes, 0, dataBytes.Length, format, txrId, eventType, immediately);
             } catch (Exception e) {
                 LogProxy.LogWarning($"DNClient.Send:异常 {e}");
             }

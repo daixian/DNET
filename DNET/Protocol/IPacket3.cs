@@ -43,6 +43,6 @@ namespace DNET
         /// <summary>
         /// 当前是否有不完整的解析数据缓存着
         /// </summary>
-        bool IsUnpackCached { get; }
+        int UnpackCachedCount { get; }
     }
 }

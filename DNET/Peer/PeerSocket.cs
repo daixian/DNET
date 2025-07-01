@@ -309,6 +309,7 @@ namespace DNET
                     return false;
                 }
 
+
                 // dx: 一次同时只能发送一个数据包,这里是判断是否正在发送中
                 if (Interlocked.CompareExchange(ref _isSending, 1, 0) != 0) {
                     // 已经有发送在进行了，当前线程不执行
@@ -483,7 +484,7 @@ namespace DNET
                 }
 
                 // 确定接收成功之后
-                var curRecvBuffer = args.GetConnectionContext().recvBuffer; // 这是当前的接收缓冲区
+                // var curRecvBuffer = args.GetConnectionContext().recvBuffer; // 这是当前的接收缓冲区
                 byte[] bytes = args.Buffer;
                 int offset = args.Offset;
                 int length = args.BytesTransferred;
@@ -498,7 +499,7 @@ namespace DNET
                 }
                 int msgCount = msgs == null ? 0 : msgs.Count;
 
-                curRecvBuffer.Recycle(); //解包结束,回收接收缓存区
+                // curRecvBuffer.Recycle(); //解包结束,回收接收缓存区
 
                 // 记录接收状态
                 peerStatus.RecordReceivedMessage(msgCount, length);
@@ -536,7 +537,7 @@ namespace DNET
                 ConnectionContext context = new ConnectionContext {
                     socket = socket,
                     sendBuffer = null,
-                    recvBuffer = GlobalBuffer.Inst.Get(RECE_BUFFER_SIZE),
+                    recvBuffer = null,
                 };
                 _receiveArgs.UserToken = context;
                 _receiveArgs.Completed += OnReceiveCompleted;
@@ -603,15 +604,17 @@ namespace DNET
                 // 这里是需要的，否则在断线之后仍然可能不停的接收
                 if (socket == null || !socket.Connected) //如果当前没有连接上，就不接收了
                 {
+                    LogProxy.LogError($"PeerSocket.PrepareReceive():[{Name}] 当前已经断线，但仍尝试接收，已经忽略这条接收.");
                     return;
                 }
 
-                // 这里重新给一个接收buffer
+                // 这里确保buffer存在吧,但是不要重复分配buffer了.没有必要.
                 var context = args.GetConnectionContext();
-                context.recvBuffer = GlobalBuffer.Inst.Get(RECE_BUFFER_SIZE);
+                if (context.recvBuffer == null) {
+                    context.recvBuffer = GlobalBuffer.Inst.Get(RECE_BUFFER_SIZE);
+                }
                 byte[] buff = context.recvBuffer.buffer; // dx: 注意这里是buffer的容量
                 args.SetBuffer(buff, 0, buff.Length);
-
                 //开始接收
                 if (!socket.ReceiveAsync(args)) {
                     // 如果是同步完成,那么这里会进入递归
@@ -640,6 +643,9 @@ namespace DNET
 
             try {
                 LogProxy.Log($"PeerSocket.Dispose():[{Name}] 进入Dispose");
+                if (_packet.UnpackCachedCount != 0) {
+                    LogProxy.LogWarning($"PeerSocket.Dispose():[{Name}] 中packet有未处理数据{_packet.UnpackCachedCount}字节");
+                }
                 //快速的尝试掉线？
                 //_clientSocket.SendTimeout = 500;
                 //_clientSocket.ReceiveTimeout = 500;

@@ -1,4 +1,6 @@
-﻿using NUnit.Framework;
+﻿using System;
+using System.Threading;
+using NUnit.Framework;
 
 namespace DNET.Test
 {
@@ -10,11 +12,12 @@ namespace DNET.Test
         {
             // 在所有测试开始前执行一次
             //DNET.LogProxy.SetupLogToConsole();
+            string TimeStamp() => $"{DateTime.Now:HH:mm:ss.fff} [Thread:{Thread.CurrentThread.ManagedThreadId}]";
 
-            LogProxy.actionLog = s => TestContext.Progress.WriteLine($"[INFO] {s}");
-            LogProxy.actionLogWarning = s => TestContext.Progress.WriteLine($"[WARN] {s}");
-            LogProxy.actionLogError = s => TestContext.Progress.WriteLine($"[ERROR] {s}");
-            LogProxy.actionLogDebug = s => TestContext.Progress.WriteLine($"[DEBUG] {s}");
+            LogProxy.actionLog = s => TestContext.Progress.WriteLine($"[{TimeStamp()}] [INFO] {s}");
+            LogProxy.actionLogWarning = s => TestContext.Progress.WriteLine($"[{TimeStamp()}] [WARN] {s}");
+            LogProxy.actionLogError = s => TestContext.Progress.WriteLine($"[{TimeStamp()}] [ERROR] {s}");
+            LogProxy.actionLogDebug = s => TestContext.Progress.WriteLine($"[{TimeStamp()}] [DEBUG] {s}");
         }
 
         [OneTimeTearDown]

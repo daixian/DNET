@@ -127,7 +127,7 @@ namespace DNET
         /// <summary>
         /// 当前是否有不完整的解析数据缓存着
         /// </summary>
-        public bool IsUnpackCached => _unpackBuff.Count > 0;
+        public int UnpackCachedCount => _unpackBuff.Count;
 
         /// <summary>
         /// 同步到魔数位置

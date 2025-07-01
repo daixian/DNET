@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace DNET
 {
@@ -73,6 +74,31 @@ namespace DNET
             // 这里其实已经开始打包了.
             peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
             peerSocket.TryBeginSend(); //这个函数可以直接启动
+        }
+
+        /// <summary>
+        /// 发送字符串数据
+        /// </summary>
+        /// <param name="text">字符串数据</param>
+        /// <param name="format">数据格式</param>
+        /// <param name="txrId">事务id</param>
+        /// <param name="eventType">消息类型</param>
+        public void Send(string text,
+            Format format = Format.Text,
+            int txrId = 0,
+            int eventType = 0)
+        {
+            try {
+                byte[] dataBytes = null;
+                if (string.IsNullOrEmpty(text)) {
+                    Send(dataBytes, 0, 0, format, txrId, eventType); //发送一个没有内容的空消息
+                    return;
+                }
+                dataBytes = Encoding.UTF8.GetBytes(text);
+                Send(dataBytes, 0, dataBytes.Length, format, txrId, eventType);
+            } catch (Exception e) {
+                LogProxy.LogWarning($"Peer.Send:异常 {e}");
+            }
         }
 
         /// <summary>
