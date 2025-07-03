@@ -7,8 +7,6 @@ namespace DNET
     /// </summary>
     public class PeerStatus
     {
-        public int Id { get; set; }
-
         /// <summary>
         /// 发送消息数
         /// </summary>

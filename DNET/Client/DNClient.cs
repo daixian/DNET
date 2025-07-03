@@ -108,16 +108,6 @@ namespace DNET
         /// </summary>
         public event Action<DNClient, ErrorType, Exception> EventError;
 
-        /// <summary>
-        /// 事件：发送队列的大小已经过大
-        /// </summary>
-        public event Action<DNClient> EventSendQueueIsFull;
-
-        /// <summary>
-        /// 事件：发送队列的大小已经可以用了
-        /// </summary>
-        public event Action<DNClient> EventSendQueueIsAvailable;
-
         #endregion
 
         /// <summary>
@@ -226,8 +216,8 @@ namespace DNET
                     EventConnectSuccess = null;
                     EventReceive = null;
                     EventError = null;
-                    EventSendQueueIsFull = null;
-                    EventSendQueueIsAvailable = null;
+                    // EventSendQueueIsFull = null;
+                    // EventSendQueueIsAvailable = null;
                 }
             }
         }

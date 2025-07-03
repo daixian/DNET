@@ -244,6 +244,10 @@ namespace DNET
 
         #region 工作线程
 
+        /// <summary>
+        /// 工作线程处理函数
+        /// </summary>
+        /// <param name="msg"></param>
         public void Handle(ref SwMessage msg)
         {
             switch (msg.type) {

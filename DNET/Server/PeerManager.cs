@@ -65,7 +65,7 @@ namespace DNET
                 return peer;
             }
             throw new InvalidOperationException($"添加客户端失败，ID {peer.ID} 已存在");
-            return peer;
+            // return peer;
         }
 
         /// <summary>

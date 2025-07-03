@@ -2,6 +2,9 @@
 
 namespace DNET
 {
+    /// <summary>
+    /// DNET静态扩展方法
+    /// </summary>
     public static class DNETExtension
     {
         /// <summary>
