@@ -342,9 +342,14 @@ namespace DNET
                     LogProxy.LogWarning($"DNServer.DoTimerCheckStatus():{peer.Name}这里TryStartSend成功了,这是不太应该的");
                 }
 
-                // 如果还有未提取的消息那么就再次提醒
+                // 如果还有未提取的消息那么就再次提醒,可能需要限制 && IsFastResponse
                 if (peer.HasReceiveMsg) {
-                    EventPeerReceData?.Invoke(peer);
+                    // EventPeerReceData?.Invoke(peer);
+                    // dx: 注意这里不能直接发出事件,否则可能会导致消息的先后顺序不再是按顺序回复的.
+                    // 如果全是是线程池,那么会先发出事件等阻塞处理完了再开始下一个接收,所以永远是按顺序的.
+                    // 如果是工作线程给出接收事件,那么这里直接发出事件则有两个线程同时从消息队列中提取内容并启动异步回发,
+                    // 那么就会导致消息的先后顺序乱掉.
+                    OnReceiveCompleted(peer); //让工作线程提醒Peer有数据可处理
                 }
 
                 if (Config.IsAutoHeartbeat) {
