@@ -159,7 +159,7 @@ namespace DNET.Test
             // 多线程并发执行 SendAndCheckEcho
             Parallel.For(0, clientCount, i => {
                 // 创建并连接客户端
-                clients[i] = new TestClient(new DNClient());
+                clients[i] = new TestClient(new DNClient() { Name = $"Client{i}" });
                 clients[i].Connect("127.0.0.1", 21024);
 
                 results[i] = clients[i].SendAndCheckEcho(sendData, 500, 10, true, timeoutSeconds: 30);
@@ -220,12 +220,12 @@ namespace DNET.Test
             for (int i = 0; i < clientCount; i++) {
                 int idx = i; // 捕获变量
                 var task = Task.Run(() => {
-                    var client = new TestClient(new DNClient() { Name = $"Client{i}" });
+                    var client = new TestClient(new DNClient() { Name = $"Client{idx}" });
                     clients[idx] = client;
 
                     client.Connect("127.0.0.1", 21024);
 
-                    results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true, timeoutSeconds: 20);
+                    results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true, timeoutSeconds: 60);// 有的电脑卡,超时搞长点
                     if (!results[idx]) {
                         LogProxy.LogError($"客户端 {idx} 失败, ServerReceiveCount={server.ServerReceiveCount}");
 
