@@ -42,6 +42,11 @@ namespace DNET
         }
 
         /// <summary>
+        /// 名字主要是调试用
+        /// </summary>
+        public string Name => peerSocket.Name;
+
+        /// <summary>
         /// 用户自定义的绑定对象，用于简单的绑定关联一个对象
         /// </summary>
         public object user { get; set; }
@@ -108,6 +113,31 @@ namespace DNET
             } catch (Exception e) {
                 LogProxy.LogWarning($"Peer.Send:异常 {e}");
             }
+        }
+
+
+        /// <summary>
+        /// 使用数据打包,然后添加到发送队列.
+        /// </summary>
+        /// <param name="data">要发送的数据</param>
+        /// <param name="offset">数据的起始位置</param>
+        /// <param name="count">数据的长度</param>
+        /// <param name="format">数据格式</param>
+        /// <param name="txrId">事务id</param>
+        /// <param name="eventType">消息类型</param>
+        public void AddSendData(byte[] data, int offset, int count,
+            Format format = Format.Raw, int txrId = 0, int eventType = 0)
+        {
+            peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
+        }
+
+        /// <summary>
+        /// 尝试开始启动发送
+        /// </summary>
+        /// <returns>true表示确实启动了一个发送</returns>
+        public bool TryStartSend()
+        {
+            return peerSocket.TryStartSend();
         }
 
         /// <summary>

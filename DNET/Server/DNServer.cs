@@ -235,6 +235,32 @@ namespace DNET
         }
 
         /// <summary>
+        /// 使用数据打包,然后添加到发送队列.
+        /// </summary>
+        /// <param name="peer">某个peer</param>
+        /// <param name="data">要发送的数据</param>
+        /// <param name="offset">数据的起始位置</param>
+        /// <param name="count">数据的长度</param>
+        /// <param name="format">数据格式</param>
+        /// <param name="txrId">事务id</param>
+        /// <param name="eventType">消息类型</param>
+        public void AddSendData(Peer peer, byte[] data, int offset, int count,
+            Format format = Format.Raw, int txrId = 0, int eventType = 0)
+        {
+            peer.peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
+        }
+
+        /// <summary>
+        /// 尝试开始启动发送
+        /// </summary>
+        /// <param name="peer"></param>
+        /// <returns>true表示确实启动了一个发送</returns>
+        public bool TryStartSend(Peer peer)
+        {
+            return peer.peerSocket.TryStartSend();
+        }
+
+        /// <summary>
         /// 向所有的Token发送它们的待发送消息。
         /// </summary>
         public void SendAll()
@@ -297,21 +323,26 @@ namespace DNET
         /// </summary>
         private void DoTimerCheckStatus()
         {
-            if (Config.IsAutoHeartbeat) {
-                Peer[] tokens = PeerManager.Inst.GetAllPeer();
-                if (tokens != null) {
-                    for (int i = 0; i < tokens.Length; i++) {
-                        Peer peer = tokens[i];
-                        if (peer?.Status?.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
-                            LogProxy.LogDebug($"ServerTimer.DoTimerCheckStatus():用户 [{peer.ID}] 长时间没有收到心跳包，被删除!");
-                            PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
-                        }
-                        if (peer?.Status?.TimeSinceLastSend > Config.HeartBeatSendTime) {
-                            peer.Send(null, 0, 0, Format.Heart); //发个心跳包
-                        }
+            var peers = PeerManager.Inst.GetAllPeer();
+            for (int i = 0; i < peers.Count; i++) {
+                Peer peer = peers[i];
+
+                // 驱动一下未发送的数据,按理这里不需要,这是最后一道保险.
+                if (peer.TryStartSend()) {
+                    LogProxy.LogWarning($"DNServer.DoTimerCheckStatus():{peer.Name}这里TryStartSend成功了,这是不太应该的");
+                }
+
+                if (Config.IsAutoHeartbeat) {
+                    if (peer?.Status?.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
+                        LogProxy.LogDebug($"DNServer.DoTimerCheckStatus():用户 [{peer.ID}] 长时间没有收到心跳包，被删除!");
+                        PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
+                    }
+                    if (peer?.Status?.TimeSinceLastSend > Config.HeartBeatSendTime) {
+                        peer.Send(null, 0, 0, Format.Heart); //发个心跳包
                     }
                 }
             }
+            ListPool<Peer>.Shared.Recycle(peers);
         }
 
         /// <summary>
@@ -343,14 +374,12 @@ namespace DNET
         private void DoSendAll(SwMessage args)
         {
             try {
-                Peer[] tokens = PeerManager.Inst.GetAllPeer();
-                if (tokens == null) {
-                    return;
-                }
-                for (int i = 0; i < tokens.Length; i++) {
-                    Peer peer = tokens[i];
+                var peers = PeerManager.Inst.GetAllPeer();
+                for (int i = 0; i < peers.Count; i++) {
+                    Peer peer = peers[i];
                     peer.peerSocket.TryStartSend();
                 }
+                ListPool<Peer>.Shared.Recycle(peers);
             } catch (Exception e) {
                 LogProxy.LogWarning("DNServer.DoSendAll()：异常 " + e.Message);
             }

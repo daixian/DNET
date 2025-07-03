@@ -397,8 +397,7 @@ namespace DNET
                 return;
 
             // 驱动一下未发送的数据,按理这里不需要
-            if (_peerSocket.TryStartSend()) //这个函数可以直接启动
-            {
+            if (_peerSocket.TryStartSend()) {
                 LogProxy.LogWarning($"DNClient.DoTimerCheckStatus():{Name}这里TryStartSend成功了,这是不太应该的");
             }
             if (Config.IsAutoHeartbeat) {
@@ -410,7 +409,7 @@ namespace DNET
                 }
 
                 if (Status.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
-                    LogProxy.LogWarning($"ClientTimer.OnTimerTick():{Name}长时间没有收到心跳包，判断可能已经掉线！");
+                    LogProxy.LogWarning($"DNClient.DoTimerCheckStatus():{Name}长时间没有收到心跳包，判断可能已经掉线！");
                     Disconnect(); //关闭连接?
                 }
             }

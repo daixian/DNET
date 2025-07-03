@@ -43,22 +43,21 @@ namespace DNET.Test
                 if (msgs == null || msgs.Count == 0) return;
 
                 foreach (Message msg in msgs) {
-                    while (peer.IsSendQueueOverflow())
-                        Thread.Sleep(1);
+                    // 这是小线程的回调事件,server不应该sleep
+                    // while (peer.IsSendQueueOverflow())
+                    //     Thread.Sleep(1);
 
                     if (msg.Format == Format.Text) {
                         LogProxy.Log($"收到文本数据:{msg.Text}");
                     }
                     // 回发接收到的数据
-                    server.Send(peer, msg.data, 0, msg.data.Length,
+                    peer.AddSendData(msg.data, 0, msg.data.Length,
                         format: msg.Format,
-                        txrId: msg.TxrId,
-                        immediately: Immediately);
+                        txrId: msg.TxrId);
 
-                    // 这里不需要验证了,由客户端验证好了.
-                    // Assert.That(msg.TxrId, Is.EqualTo(ServerReceiveCount));
                     ServerReceiveCount++;
                 }
+                peer.TryStartSend(); // 此时再合并发送.
                 ListPool<Message>.Shared.Recycle(msgs);
             };
 

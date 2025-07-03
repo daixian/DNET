@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
@@ -114,6 +115,7 @@ namespace DNET
             foreach (var peer in peers) {
                 DeletePeer(peer.ID, PeerErrorType.ClearAllToken);
             }
+            ListPool<Peer>.Shared.Recycle(peers);
         }
 
         /// <summary>
@@ -128,12 +130,14 @@ namespace DNET
         }
 
         /// <summary>
-        /// 获取所有peer数组
+        /// 获取所有peer的列表.这个结果可以归还到ListPool中.
         /// </summary>
         /// <returns></returns>
-        public Peer[] GetAllPeer()
+        public List<Peer> GetAllPeer()
         {
-            return _dictPeer.Values.ToArray();
+            var peers = ListPool<Peer>.Shared.Get();
+            peers.AddRange(_dictPeer.Values);
+            return peers;
         }
 
         /// <summary>
