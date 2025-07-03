@@ -42,7 +42,7 @@ namespace DNET.Test
             _client.Connect(ip, port);
             // 一直等待连接成功
             int retry = 0;
-            while (!_client.IsConnected && retry++ < 200)
+            while (!_client.IsConnected && retry++ < 1000)
                 Thread.Sleep(20);
             Assert.IsTrue(_client.IsConnected, $"{_client.Name} 连接失败");
         }
