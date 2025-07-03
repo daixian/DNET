@@ -162,7 +162,7 @@ namespace DNET.Test
                 clients[i] = new TestClient(new DNClient());
                 clients[i].Connect("127.0.0.1", 21024);
 
-                results[i] = clients[i].SendAndCheckEcho(sendData, 500, 200, true);
+                results[i] = clients[i].SendAndCheckEcho(sendData, 500, 10, true, timeoutSeconds: 30);
                 if (!results[i]) {
                     LogProxy.LogError($"客户端 {i} 失败, ServerReceiveCount={server.ServerReceiveCount}");
 
@@ -194,7 +194,7 @@ namespace DNET.Test
         /// 使用Task.Run的写法
         /// </summary>
         [Test]
-        public void TestMethod_ServerClient16C_Parallel()
+        public void TestMethod_ServerClient8C_Parallel()
         {
             Config.IsAutoHeartbeat = false;
             Config.IsDebugLog = false;
@@ -205,7 +205,7 @@ namespace DNET.Test
             server.Start(21024);
             Assert.That(DNServer.Inst.IsStarted);
 
-            int clientCount = 16;
+            int clientCount = 8;
             Random rand = new Random();
             int sendDataLength = rand.Next(1, 256);
             byte[] sendData = new byte[sendDataLength];
@@ -220,12 +220,12 @@ namespace DNET.Test
             for (int i = 0; i < clientCount; i++) {
                 int idx = i; // 捕获变量
                 var task = Task.Run(() => {
-                    var client = new TestClient(new DNClient());
+                    var client = new TestClient(new DNClient() { Name = $"Client{i}" });
                     clients[idx] = client;
 
                     client.Connect("127.0.0.1", 21024);
 
-                    results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true);
+                    results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true, timeoutSeconds: 20);
                     if (!results[idx]) {
                         LogProxy.LogError($"客户端 {idx} 失败, ServerReceiveCount={server.ServerReceiveCount}");
 

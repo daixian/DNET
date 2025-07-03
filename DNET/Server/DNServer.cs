@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 
@@ -369,16 +370,19 @@ namespace DNET
 
         #region EventHandler
 
-        private void OnListenerSocketAccept(Peer peer)
+        private void OnListenerSocketAccept(Socket acceptSocket)
         {
+            Peer peer = new Peer(); //创建一个用户
+            PeerManager.Inst.AddPeer(peer); //把这个用户加入TokenManager,分配一个ID
+
+            // 这里会初始化args,会使用name
+            peer.peerSocket.SetAcceptSocket(acceptSocket);
             peer.peerSocket.EventError += eventError => {
                 EventPeerError?.Invoke(peer, PeerErrorType.SocketError);
                 LogProxy.Log($"客户端{peer.ID}发生错误,删除它");
                 PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.SocketError); //关闭Token
             };
             peer.peerSocket.EventReceiveCompleted += () => { EventPeerReceData?.Invoke(peer); };
-
-            PeerManager.Inst.AddPeer(peer); //把这个用户加入TokenManager,分配一个ID
         }
 
         private void OnReceive(Peer peer)

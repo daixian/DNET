@@ -36,7 +36,7 @@ namespace DNET
         /// <summary>
         /// 接受认证完成
         /// </summary>
-        internal event Action<Peer> EventAccept;
+        internal event Action<Socket> EventAccept;
 
         #endregion
 
@@ -129,12 +129,10 @@ namespace DNET
             try {
                 Socket acceptSocket = args.AcceptSocket;
                 if (acceptSocket.Connected) {
-                    Peer peer = new Peer(); //创建一个用户
-                    peer.peerSocket.SetAcceptSocket(acceptSocket);
 
-                    //产生认证事件,这是一个内部使用的,所以没有try catch
+                    // 产生认证事件,这是一个内部使用的,所以没有try catch
                     if (EventAccept != null) {
-                        EventAccept(peer);
+                        EventAccept(acceptSocket);
                     }
                 }
 

@@ -24,6 +24,15 @@ namespace DNET
         }
 
         /// <summary>
+        /// 创建一个Peer对象
+        /// </summary>
+        /// <param name="name"></param>
+        internal Peer(string name)
+        {
+            peerSocket = new PeerSocket() { Name = name };
+        }
+
+        /// <summary>
         /// 它的ID，这个ID会一直递增的被分配
         /// </summary>
         public int ID {

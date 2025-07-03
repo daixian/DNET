@@ -54,10 +54,10 @@ namespace DNET.Test
         /// <param name="batchCount">每个批次发送的消息数量</param>
         /// <param name="repeatCount">重复发送的次数</param>
         /// <param name="immediately">是否立即发送</param>
-        public bool SendAndCheckEcho(byte[] sendData, int batchCount, int repeatCount, bool immediately)
+        public bool SendAndCheckEcho(byte[] sendData, int batchCount, int repeatCount, bool immediately, float timeoutSeconds = 5f)
         {
             LogProxy.Log($"{_client.Name} 发送数据并验证结果,数据长度:{sendData.Length}, 一批发送消息数:{batchCount}, 重复次数={repeatCount}, 立刻发送:{immediately}");
-            _client.Send("客户端准备开始发送数据...", Format.Text, SendCount, 0, true);
+            _client.Send($"客户端{_client.Name}准备开始发送数据...", Format.Text, SendCount, 0, true);
 
             for (int c = 0; c < repeatCount; c++) {
                 for (int i = 0; i < batchCount; i++) {
@@ -70,13 +70,13 @@ namespace DNET.Test
 
                 // 5秒超时
                 DateTime startTime = DateTime.UtcNow;
-                TimeSpan timeout = TimeSpan.FromSeconds(5);
+                TimeSpan timeout = TimeSpan.FromSeconds(timeoutSeconds);
 
                 while (ReceiveCount != SendCount) {
                     if (DateTime.UtcNow - startTime > timeout) {
-                        LogProxy.LogDebug($"{_client.Name} 超时未收到全部消息：已收到 {ReceiveCount} 条,预期 {SendCount} 条,上次接收到现在:{_client.Status.TimeSinceLastReceived} ms");
+                        LogProxy.LogError($"{_client.Name} 超时未收到全部消息：已收到 {ReceiveCount} 条,预期 {SendCount} 条,上次接收到现在:{_client.Status.TimeSinceLastReceived} ms");
                         LogProxy.LogDebug($"{_client.Name} 待发送队列{_client.WaitSendMsgCount}");
-                        _client.Send("客户端发生错误", Format.Text, SendCount, 0, true);
+                        _client.Send($"客户端{_client.Name}发生错误", Format.Text, SendCount, 0, true);
                         Thread.Sleep(1000); //这里等待一下看看现在服务器能否收到数据
                         var texts = _client.GetReceiveData();
                         if (texts != null && texts.Count > 0)
