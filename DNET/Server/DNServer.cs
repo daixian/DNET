@@ -55,6 +55,13 @@ namespace DNET
         }
 
         /// <summary>
+        /// 快速响应,如果为true，则会直接在.net小线程进入接收回调的时候直接进入响应事件。
+        /// 如果服务器压力特别大,则应该使用false.
+        /// 默认为true.
+        /// </summary>
+        public bool IsFastResponse { get; set; } = true;
+
+        /// <summary>
         /// 事件：某个Peer发生了错误后，会自动调用关闭，这是错误及关闭事件
         /// </summary>
         public event Action<Peer, PeerErrorType> EventPeerError;
@@ -157,6 +164,9 @@ namespace DNET
                     EventPeerError = null;
                     EventPeerReceData = null;
                 }
+
+                // 重置设置
+                IsFastResponse = true;
             }
         }
 
@@ -291,7 +301,7 @@ namespace DNET
                     DoSendAll(msg);
                     break;
                 case SwMessage.Type.TimerCheckStatus:
-                    DoTimerCheckStatus();
+                    DoTimerCheckStatus(msg);
                     break;
             }
         }
@@ -321,7 +331,7 @@ namespace DNET
         /// <summary>
         /// 响应Timer的执行,目前是一秒一次
         /// </summary>
-        private void DoTimerCheckStatus()
+        private void DoTimerCheckStatus(SwMessage msg)
         {
             var peers = PeerManager.Inst.GetAllPeer();
             for (int i = 0; i < peers.Count; i++) {
@@ -330,6 +340,11 @@ namespace DNET
                 // 驱动一下未发送的数据,按理这里不需要,这是最后一道保险.
                 if (peer.TryStartSend()) {
                     LogProxy.LogWarning($"DNServer.DoTimerCheckStatus():{peer.Name}这里TryStartSend成功了,这是不太应该的");
+                }
+
+                // 如果还有未提取的消息那么就再次提醒
+                if (peer.HasReceiveMsg) {
+                    EventPeerReceData?.Invoke(peer);
                 }
 
                 if (Config.IsAutoHeartbeat) {
@@ -348,17 +363,17 @@ namespace DNET
         /// <summary>
         /// 线程函数：发送
         /// </summary>
-        /// <param name="args">这个消息参数的arg1为tokenID</param>
-        private void DoSend(SwMessage args)
+        /// <param name="msg">这个消息参数的arg1为tokenID</param>
+        private void DoSend(SwMessage msg)
         {
             try {
-                Peer peer = args.peer;
+                Peer peer = msg.peer;
                 if (peer == null) {
                     return;
                 }
                 // 添加该条数据,但是发送空数据呢?,这里这个判断将来去掉吧
-                if (args.data != null) {
-                    peer.peerSocket.AddSendData(args.data, 0, args.data.Length);
+                if (msg.data != null) {
+                    peer.peerSocket.AddSendData(msg.data, 0, msg.data.Length);
                 }
                 // 尝试驱动一下
                 peer.peerSocket.TryStartSend();
@@ -370,8 +385,8 @@ namespace DNET
         /// <summary>
         /// 线程函数，向所有Token发送他们的待发送数据
         /// </summary>
-        /// <param name="args"></param>
-        private void DoSendAll(SwMessage args)
+        /// <param name="msg"></param>
+        private void DoSendAll(SwMessage msg)
         {
             try {
                 var peers = PeerManager.Inst.GetAllPeer();
@@ -385,11 +400,17 @@ namespace DNET
             }
         }
 
-        private void DoReceive(SwMessage args)
+        /// <summary>
+        /// 线程函数,发出事件.
+        /// </summary>
+        /// <param name="msg"></param>
+        private void DoReceive(SwMessage msg)
         {
             try {
-                Peer peer = args.peer;
+                Peer peer = msg.peer;
                 // 现在没有线程的解包,所以不需要工作
+                // 发出数据事件(这里是否要去判断一下有没有未处理消息才发送?)
+                EventPeerReceData?.Invoke(peer);
             } catch (Exception e) {
                 LogProxy.LogWarning($"DNServer.DoReceive()：异常 {e}");
             }
@@ -411,15 +432,27 @@ namespace DNET
                 LogProxy.Log($"客户端{peer.ID}发生错误,删除它");
                 PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.SocketError); //关闭Token
             };
-            peer.peerSocket.EventReceiveCompleted += () => { EventPeerReceData?.Invoke(peer); };
+            peer.peerSocket.EventReceiveCompleted += () => {
+                // dx: 注意这里给它挂上这个事件,这样可以第一时间响应发出事件.
+                // 但是注意这样的做法在数据量特别大的时候是有一定线程的压力的.
+                // 即有多少条消息那么就会有多少个事件传出.
+                if (IsFastResponse)
+                    EventPeerReceData?.Invoke(peer);
+                else
+                    OnReceiveCompleted(peer);
+            };
         }
 
-        private void OnReceive(Peer peer)
+        /// <summary>
+        /// PeerSocket的接收成功的事件,发出消息让工作线程去给出对外事件.
+        /// </summary>
+        /// <param name="peer"></param>
+        private void OnReceiveCompleted(Peer peer)
         {
-            //DxDebug.Log("信号量： 接收");
-
-            var msg = new SwMessage { type = SwMessage.Type.Receive };
+            // 让工作线程处理
+            var msg = new SwMessage { type = SwMessage.Type.Receive, peer = peer };
             _workThread.Post(in msg, this);
+
             //DoReceive(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
         }
 

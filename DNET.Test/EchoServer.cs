@@ -37,6 +37,8 @@ namespace DNET.Test
         {
             server.Close();
 
+            server.IsFastResponse = false; // 这个服务器压力很大,用工作线程处理每个消息吧
+
             // 设置接收数据事件处理
             server.EventPeerReceData += peer => {
                 var msgs = peer.GetReceiveData();

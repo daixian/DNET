@@ -62,6 +62,21 @@ namespace DNET
         public PeerStatus Status => peerSocket.peerStatus;
 
         /// <summary>
+        /// 等待发送消息队列长度
+        /// </summary>
+        public int WaitSendMsgCount => peerSocket.WaitSendMsgCount;
+
+        /// <summary>
+        /// 等待提取的消息队列长度
+        /// </summary>
+        public int WaitReceMsgCount => peerSocket.WaitReceMsgCount;
+
+        /// <summary>
+        /// 有等待提取的消息.
+        /// </summary>
+        public bool HasReceiveMsg => WaitReceMsgCount > 0;
+
+        /// <summary>
         /// 发送队列是否太长
         /// </summary>
         public bool IsSendQueueOverflow(int queueLen = 1024)
