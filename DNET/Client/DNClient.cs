@@ -79,6 +79,16 @@ namespace DNET
         /// </summary>
         public PeerStatus Status => _peerSocket?.peerStatus;
 
+        /// <summary>
+        /// 等待发送的消息数量
+        /// </summary>
+        public int WaitSendMsgCount => _peerSocket.WaitSendMsgCount;
+
+        /// <summary>
+        /// 等待提取的消息队列长度
+        /// </summary>
+        public int WaitReceMsgCount => _peerSocket.WaitReceMsgCount;
+
         #region 对外Event
 
         /// <summary>
@@ -111,7 +121,7 @@ namespace DNET
         #endregion
 
         /// <summary>
-        /// 连接服务器,输入IP和端口号。如果没有初始化在第一次会初始化。
+        /// 连接服务器,输入IP和端口号。如果没有初始化在第一次会初始化。这是异步函数。
         /// </summary>
         /// <param name="host">主机IP</param>
         /// <param name="port">端口号</param>
@@ -122,7 +132,7 @@ namespace DNET
                 IsConnecting = true;
 
                 try {
-                    LogProxy.LogDebug("DNClient.Connect():连接服务器 主机：" + host + "  端口:" + port);
+                    LogProxy.LogDebug("DNClient.Connect():连接服务器 主机:" + host + "  端口:" + port);
                     _host = host;
                     _port = port;
 
@@ -173,7 +183,7 @@ namespace DNET
                         _peerSocket.Disconnect();
                     }
                 } catch (Exception e) {
-                    LogProxy.LogWarning("DNClient.DisConnect():执行DisConnect异常：" + e.Message);
+                    LogProxy.LogWarning($"DNClient.DisConnect():执行DisConnect异常 {e}");
                 }
             }
         }
@@ -253,7 +263,7 @@ namespace DNET
                 // 这里其实已经开始打包了.
                 _peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
                 if (immediately)
-                    _peerSocket.TryBeginSend(); //这个函数可以直接启动
+                    _peerSocket.TryStartSend(); //这个函数可以直接启动
                 else {
                     // 让工作线程处理这个消息
                     var msg = new CwMessage { type = CwMessage.Type.Send };
@@ -292,9 +302,16 @@ namespace DNET
         }
 
         /// <summary>
-        /// 获取目前所有的已接收的数据.
+        /// 获取目前所有的已接收的数据.返回的结果是从ListPool中取的.处理完了之后可以送回ListPool.
         /// </summary>
-        /// <returns>所有的byte[]数据,没有则返回null</returns>
+        /// <returns>所有的收到的数据,没有则返回null</returns>
+        /// <example>
+        /// 使用示例：
+        /// <code>
+        /// // 使用完毕后将其归还
+        /// ListPool&lt;Message&gt;.Shared.Recycle(msgs);
+        /// </code>
+        /// </example>
         public List<Message> GetReceiveData()
         {
             return _peerSocket.GetReceiveMessages();
@@ -366,7 +383,7 @@ namespace DNET
                 try {
                     EventConnectSuccess?.Invoke(this);
                 } catch (Exception e) {
-                    LogProxy.LogError($"DNClient.DoConnect():执行 EventConnectSuccess 事件异常：{e}");
+                    LogProxy.LogError($"DNClient.DoConnect():执行 EventConnectSuccess 事件异常 {e}");
                 }
             } catch (Exception e) {
                 LogProxy.Log($"DNClient.DoConnect():连接服务器失败！{e.Message}");
@@ -374,7 +391,7 @@ namespace DNET
                 try {
                     EventError?.Invoke(this, ErrorType.ConnectError, e); //事件类型：ConnectError
                 } catch (Exception e2) {
-                    LogProxy.LogError("DNClient.DoConnect():执行 EventError 事件异常：" + e2.Message);
+                    LogProxy.LogError($"DNClient.DoConnect():执行 EventError 事件异常 {e2}");
                 }
             } finally {
                 IsConnecting = false;
@@ -389,16 +406,21 @@ namespace DNET
             if (!IsConnected || Status == null)
                 return;
 
+            // 驱动一下未发送的数据,按理这里不需要
+            if (_peerSocket.TryStartSend()) //这个函数可以直接启动
+            {
+                LogProxy.LogWarning("DNClient.DoTimerCheckStatus():这里居然TryBeginSend成功了,这是不应该的");
+            }
             if (Config.IsAutoHeartbeat) {
                 //如果时间已经超过了那么就发送心跳包
                 if (Status.TimeSinceLastSend > Config.HeartBeatSendTime) {
                     //发送一次心跳包
                     Send(null, 0, 0, Format.Heart); //发个心跳包
-                    LogProxy.LogDebug("DNClient.DoTimerCheckStatus()：发送 HeartBeatData ~❤");
+                    LogProxy.LogDebug("DNClient.DoTimerCheckStatus():发送 HeartBeatData ~❤");
                 }
 
                 if (Status.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
-                    LogProxy.LogWarning("ClientTimer.OnTimerTick()：长时间没有收到心跳包，判断可能已经掉线！");
+                    LogProxy.LogWarning("ClientTimer.OnTimerTick():长时间没有收到心跳包，判断可能已经掉线！");
                     Disconnect(); //关闭连接?
                 }
             }
@@ -408,11 +430,11 @@ namespace DNET
         {
             try {
                 if (IsConnected == false) {
-                    LogProxy.LogWarning("DNClient.DoSend：当前还未连接到一个主机！ ");
+                    LogProxy.LogWarning("DNClient.DoSend:当前还未连接到一个主机！ ");
                     return;
                 }
                 // 尝试驱动一次,之后PeerSocket会一直发送直到没有数据
-                _peerSocket.TryBeginSend();
+                _peerSocket.TryStartSend();
             } catch (Exception e) {
                 LogProxy.LogWarning("DNClient.DoSend():异常: " + e.Message);
             }
@@ -452,7 +474,7 @@ namespace DNET
             try {
                 EventReceive?.Invoke(this); //发出事件：接收到了数据
             } catch (Exception e) {
-                LogProxy.LogWarning($"DNClient.OnReceiveCompleted()：执行外部事件 EventReceive 异常: {e}");
+                LogProxy.LogWarning($"DNClient.OnReceiveCompleted():执行外部事件 EventReceive 异常 {e}");
             }
         }
 
@@ -465,7 +487,7 @@ namespace DNET
             try {
                 EventError?.Invoke(this, errorType, null);
             } catch (Exception e) {
-                LogProxy.LogWarning("DNClient.OnError()：执行 EventError 事件异常:" + e.Message);
+                LogProxy.LogWarning($"DNClient.OnError():执行 EventError 事件异常 {e}");
             }
         }
 
@@ -482,7 +504,7 @@ namespace DNET
             try {
                 Close();
             } catch (Exception e) {
-                LogProxy.LogWarning("DNClient.Dispose(): _workThread.Abort()异常" + e.Message);
+                LogProxy.LogWarning($"DNClient.Dispose():异常 {e}");
             }
         }
     }

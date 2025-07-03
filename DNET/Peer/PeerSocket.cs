@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
@@ -73,6 +74,11 @@ namespace DNET
         private int _isSending;
 
         /// <summary>
+        /// 上次启动发送的时间戳
+        /// </summary>
+        private Stopwatch _sendWatch = new Stopwatch();
+
+        /// <summary>
         /// 调试用的名字
         /// </summary>
         public string Name { get; set; } = "unnamed";
@@ -91,6 +97,11 @@ namespace DNET
         /// 等待发送消息队列长度
         /// </summary>
         public int WaitSendMsgCount => _sendQueue.Count;
+
+        /// <summary>
+        /// 等待提取的消息队列长度
+        /// </summary>
+        public int WaitReceMsgCount => _receQueue.Count;
 
         /// <summary>
         /// 状态统计
@@ -161,15 +172,22 @@ namespace DNET
         }
 
         /// <summary>
-        /// 从接收队列中提取所有数据包
+        /// 从接收队列中提取所有数据包,返回的结果是从ListPool中取的.处理完了之后可以送回ListPool.
         /// </summary>
         /// <returns>如果没有那么返回null</returns>
+        /// <example>
+        /// 使用示例：
+        /// <code>
+        /// // 使用完毕后将其归还
+        /// ListPool&lt;Message&gt;.Shared.Recycle(msgs);
+        /// </code>
+        /// </example>
         public List<Message> GetReceiveMessages()
         {
             if (_receQueue.IsEmpty)
                 return null;
 
-            List<Message> messages = new List<Message>();
+            List<Message> messages = ListPool<Message>.Shared.Get();
             while (_receQueue.TryDequeue(out Message msg)) {
                 messages.Add(msg);
             }
@@ -277,7 +295,7 @@ namespace DNET
             }
 
             // 自动开始一次发送吧,在等待连接切换线程的这段时间可能外面已经有添加发送队列进来了.
-            TryBeginSend();
+            TryStartSend();
         }
 
         /// <summary>
@@ -297,18 +315,22 @@ namespace DNET
         }
 
         /// <summary>
-        /// 从队列中取出数据包发送,可以每帧不停的驱动
+        /// 线程安全的从队列中取出数据包发送,可以每帧不停的驱动.
         /// </summary>
-        /// <returns></returns>
-        /// <exception cref="SocketException"></exception>
-        public bool TryBeginSend()
+        /// <returns>true表示确实启动了一个发送</returns>
+        public bool TryStartSend()
         {
             if (IsConnected) {
-                // 尝试获取要发送的,这里应该对所有的数据进行整合然后一次性发送
-                if (_sendQueue.Count == 0) {
-                    return false;
-                }
-
+                // dx: 这一段是测试时候测试的代码,或许以后可以扩展某种重发机制.但是如何确认发送失败,这也是一个问题.
+                // if (Volatile.Read(ref _isSending) == 1 && _sendWatch.ElapsedMilliseconds > 2000) {
+                //     LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 检测到发送卡死，已超时2秒，重发?");
+                //     PrepareSocketAsyncEventArgs();
+                //     ConnectionContext ctx = _sendArgs.GetConnectionContext();
+                //     // 缓存最后发送失败数据
+                //     _sendFailData = ctx.sendBuffer;
+                //     Interlocked.Exchange(ref _isSending, 0);// 标记发送结束
+                //     return TryBeginSend();
+                // }
 
                 // dx: 一次同时只能发送一个数据包,这里是判断是否正在发送中
                 if (Interlocked.CompareExchange(ref _isSending, 1, 0) != 0) {
@@ -316,11 +338,17 @@ namespace DNET
                     return false;
                 }
 
+                // 尝试获取要发送的,这里应该对所有的数据进行整合然后一次性发送
+                if (_sendQueue.Count == 0 && _sendFailData == null) {
+                    Interlocked.Exchange(ref _isSending, 0); // 标记发送结束
+                    return false; // 注意返回false前要释放锁
+                }
+
                 // 注意这里一定要全部整合一次性发送.
                 int totalLength = 0;
-                List<ByteBuffer> buffers = new List<ByteBuffer>();
+                List<ByteBuffer> buffers = ListPool<ByteBuffer>.Shared.Get();
                 if (_sendFailData != null) {
-                    LogProxy.LogWarning($"SocketClient.TryBeginSend():[{Name}] 有一个发送失败的数据,接上重发");
+                    LogProxy.LogWarning($"SocketClient.TryStartSend():[{Name}] 有一个发送失败的数据,接上重发");
                     buffers.Add(_sendFailData);
                     totalLength += _sendFailData.Length;
                     _sendFailData = null;
@@ -329,7 +357,7 @@ namespace DNET
                 while (_sendQueue.TryDequeue(out ByteBuffer item)) {
                     buffers.Add(item);
                     if (item.Length == 0) {
-                        LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 发送item数据长度不应该为0!");
+                        LogProxy.LogError($"SocketClient.TryStartSend():[{Name}] 发送item数据长度不应该为0!");
                     }
                     // 统计总长度
                     totalLength += item.Length;
@@ -341,6 +369,7 @@ namespace DNET
 
                 // 没有要发送的数据,那么直接返回吧
                 if (buffers.Count == 0) {
+                    Interlocked.Exchange(ref _isSending, 0); // 标记发送结束
                     return false;
                 }
 
@@ -356,20 +385,29 @@ namespace DNET
                 }
 
                 if (sendBuffer.Length == 0) {
-                    LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 发送数据长度不应该为0!");
+                    LogProxy.LogError($"SocketClient.TryStartSend():[{Name}] 发送数据长度不应该为0!");
                 }
 
+                PrepareSocketAsyncEventArgs();
                 ConnectionContext context = _sendArgs.GetConnectionContext();
+
+                // 回收上一次发送缓冲区,专门留到这个地方才回收,防止某些地方空指针吧.
+                context.sendBuffer?.Recycle();
                 context.sendBuffer = sendBuffer;
-                context.curSendMsgCount = buffers.Count;
+                context.curSendMsgCount = buffers.Count; // 发送消息的个数
                 // dx: 注意这里是发送的实际数据长度
                 _sendArgs.SetBuffer(context.sendBuffer.buffer, 0, context.sendBuffer.Length);
 
-                PrepareSend(socket, _sendArgs);
+                ListPool<ByteBuffer>.Shared.Recycle(buffers); // 这是最后使用的地方了归还.
 
-                return true;
+                if (PrepareSend(socket, _sendArgs)) {
+                    return true;
+                }
+
+                Interlocked.Exchange(ref _isSending, 0); // 这里确保是解除计数的
+                return false;
             }
-            LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 还未连接,不能发送数据!");
+            LogProxy.LogError($"SocketClient.TryStartSend():[{Name}] 还未连接,不能发送数据!");
             return false;
         }
 
@@ -439,10 +477,6 @@ namespace DNET
                     _sendFailData = context.sendBuffer;
                 }
                 else {
-                    // 回收发送缓冲区
-                    context.sendBuffer.Recycle();
-                    context.sendBuffer = null;
-
                     if (Config.IsDebugLog)
                         LogProxy.LogDebug($"SocketClient.OnSendCompleted():[{Name}] 发送成功 发送数据字节数 {args.BytesTransferred}");
                     // 这是多条消息合并发送的,所以这里要记录
@@ -459,7 +493,7 @@ namespace DNET
 
                 // 继续发送下一条数据
                 if (_sendQueue.Count > 0 || _sendFailData != null)
-                    TryBeginSend();
+                    TryStartSend();
             } catch (Exception e) {
                 LogProxy.LogWarning($"PeerSocket.OnSendCompleted():[{Name}]  {e}");
             }
@@ -522,25 +556,32 @@ namespace DNET
         private void PrepareSocketAsyncEventArgs()
         {
             if (_sendArgs == null) {
+                LogProxy.Log($"PeerSocket.PrepareSocketAsyncEventArgs():[{Name}] sendArgs为null,构造新的args");
                 _sendArgs = new SocketAsyncEventArgs();
+                _sendArgs.Completed += OnSendCompleted;
+            }
+            if (_sendArgs.UserToken == null) {
+                LogProxy.Log($"PeerSocket.PrepareSocketAsyncEventArgs():[{Name}] sendArgs.UserToken为null,构造新的UserToken");
                 _sendArgs.UserToken = new ConnectionContext {
                     socket = socket,
                     sendBuffer = null,
                     recvBuffer = null,
                 };
-                _sendArgs.Completed += OnSendCompleted;
             }
             _sendArgs.GetConnectionContext().socket = socket; // 考虑到这个socket可能会改变
 
             if (_receiveArgs == null) {
+                LogProxy.Log($"PeerSocket.PrepareSocketAsyncEventArgs():[{Name}] receiveArgs为null,构造新的args");
                 _receiveArgs = new SocketAsyncEventArgs();
-                ConnectionContext context = new ConnectionContext {
+                _receiveArgs.Completed += OnReceiveCompleted;
+            }
+            if (_receiveArgs.UserToken == null) {
+                LogProxy.Log($"PeerSocket.PrepareSocketAsyncEventArgs():[{Name}] receiveArgs.UserToken为null,构造新的UserToken");
+                _receiveArgs.UserToken = new ConnectionContext {
                     socket = socket,
                     sendBuffer = null,
                     recvBuffer = null,
                 };
-                _receiveArgs.UserToken = context;
-                _receiveArgs.Completed += OnReceiveCompleted;
             }
             _receiveArgs.GetConnectionContext().socket = socket; // 考虑到这个socket可能会改变
         }
@@ -562,6 +603,12 @@ namespace DNET
                     LogProxy.LogWarning($"PeerSocket.ProcessError():[{Name}] Shutdown()异常 {ex}");
                 } finally {
                     context.socket.Close();
+
+                    // 上面Shutdown了,这里标记发送结束算了
+                    if (_isSending != 0) {
+                        LogProxy.LogWarning($"PeerSocket.ProcessError():[{Name}] _isSending={_isSending}");
+                        Interlocked.Exchange(ref _isSending, 0);
+                    }
                 }
             }
             //产生错误事件，这是一个很重要的事件，处理服务器连接断开等
@@ -573,26 +620,28 @@ namespace DNET
         /// </summary>
         /// <param name="s"></param>
         /// <param name="args"></param>
-        private void PrepareSend(Socket s, SocketAsyncEventArgs args)
+        private bool PrepareSend(Socket s, SocketAsyncEventArgs args)
         {
             try {
-                // 这个判断不严谨
-                if (!s.Connected) //如果当前没有连接上，就不发送
-                {
+                //如果当前没有连接上，就不发送
+                if (!s.Connected) {
                     LogProxy.LogWarning($"PeerSocket.PrepareSend():[{Name}] 当前已经断线，但仍尝试发送，已经忽略这条发送.");
-                    return;
+                    return false;
                 }
+                _sendWatch.Restart(); //开始计时
                 // 开始发送,这里作异常处理
                 if (!s.SendAsync(args)) {
                     // 这个本机上立刻返回十分频繁
                     // LogProxy.Log("PeerSocket.PrepareSend(): SendAsync立刻返回了!");
                     OnSendCompleted(this, args); //如果立即返回
                 }
+                return true;
             } catch (Exception e) {
                 LogProxy.LogWarning($"PeerSocket.PrepareSend():[{Name}] 异常{e}");
                 // 这里捕获过的异常有：
                 // Thread creation failed.
             }
+            return false;
         }
 
         /// <summary>
@@ -642,9 +691,16 @@ namespace DNET
             _disposed = true;
 
             try {
-                LogProxy.Log($"PeerSocket.Dispose():[{Name}] 进入Dispose");
+                LogProxy.Log($"PeerSocket.Dispose():[{Name}] 进入Dispose, isSending={_isSending}");
+                // 最好不要有任何的残留数据
                 if (_packet.UnpackCachedCount != 0) {
                     LogProxy.LogWarning($"PeerSocket.Dispose():[{Name}] 中packet有未处理数据{_packet.UnpackCachedCount}字节");
+                }
+                if (WaitSendMsgCount != 0) {
+                    LogProxy.LogWarning($"PeerSocket.Dispose():[{Name}] 中待发送数据{WaitSendMsgCount}条");
+                }
+                if (WaitReceMsgCount != 0) {
+                    LogProxy.LogWarning($"PeerSocket.Dispose():[{Name}] 中待接收数据{WaitReceMsgCount}条");
                 }
                 //快速的尝试掉线？
                 //_clientSocket.SendTimeout = 500;

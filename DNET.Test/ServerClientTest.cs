@@ -75,6 +75,14 @@ namespace DNET.Test
 
             if (!client.SendAndCheckEcho(sendData, 500, 100, true)) {
                 LogProxy.LogError($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
+
+                // 失败之后重新连接个看看
+                client.Close();
+                client.Connect("127.0.0.1", 21024);
+                client.Client.Send("这是失败之后重新创建一个客户端连接尝试发个消息");
+                Thread.Sleep(1);
+                var msgs = client.Client.GetReceiveData();
+                LogProxy.Log($"Client.GetReceiveData()的Count={msgs?.Count}");
             }
             else {
                 LogProxy.Log($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");

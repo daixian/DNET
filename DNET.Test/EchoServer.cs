@@ -59,6 +59,7 @@ namespace DNET.Test
                     // Assert.That(msg.TxrId, Is.EqualTo(ServerReceiveCount));
                     ServerReceiveCount++;
                 }
+                ListPool<Message>.Shared.Recycle(msgs);
             };
 
             // 尝试启动服务器直到成功

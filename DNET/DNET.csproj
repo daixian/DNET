@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\CwMessage.cs" />
+    <Compile Include="Data\ListPool.cs" />
     <Compile Include="Peer\ConnectionContext.cs" />
     <Compile Include="Client\DNClient.cs" />
     <Compile Include="Client\ErrorType.cs" />

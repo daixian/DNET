@@ -27,6 +27,11 @@ namespace DNET.Test
         public int SendCount { get; private set; }
 
         /// <summary>
+        /// 实际客户端
+        /// </summary>
+        public DNClient Client => _client;
+
+        /// <summary>
         /// 连接到指定的服务器
         /// </summary>
         /// <param name="ip">服务器IP地址</param>
@@ -35,9 +40,10 @@ namespace DNET.Test
         {
             _client.Close();
             _client.Connect(ip, port);
-            // 等待连接成功
+            // 一直等待连接成功
             int retry = 0;
-            while (!_client.IsConnected && retry++ < 200) Thread.Sleep(20);
+            while (!_client.IsConnected && retry++ < 200)
+                Thread.Sleep(20);
             Assert.IsTrue(_client.IsConnected, $"{_client.Name} 连接失败");
         }
 
@@ -68,8 +74,8 @@ namespace DNET.Test
 
                 while (ReceiveCount != SendCount) {
                     if (DateTime.UtcNow - startTime > timeout) {
-                        LogProxy.LogDebug($"{_client.Name} 超时未收到全部消息：已收到 {ReceiveCount} 条，预期 {SendCount} 条, 上次接收到现在:{_client.Status.TimeSinceLastReceived} ms");
-
+                        LogProxy.LogDebug($"{_client.Name} 超时未收到全部消息：已收到 {ReceiveCount} 条,预期 {SendCount} 条,上次接收到现在:{_client.Status.TimeSinceLastReceived} ms");
+                        LogProxy.LogDebug($"{_client.Name} 待发送队列{_client.WaitSendMsgCount}");
                         _client.Send("客户端发生错误", Format.Text, SendCount, 0, true);
                         Thread.Sleep(1000); //这里等待一下看看现在服务器能否收到数据
                         var texts = _client.GetReceiveData();
@@ -77,6 +83,7 @@ namespace DNET.Test
                             foreach (Message msg in texts) {
                                 LogProxy.LogDebug($"收到回复文本:{msg.Text}");
                             }
+                        ListPool<Message>.Shared.Recycle(texts);
                         return false;
                         //Assert.Fail($"超时未收到全部消息：已收到 {ReceiveCount} 条，预期 {SendCount} 条");
                     }
@@ -97,6 +104,7 @@ namespace DNET.Test
 
                             ReceiveCount++;
                         }
+                        ListPool<Message>.Shared.Recycle(datas);
                     }
                     else {
                         Thread.Sleep(1);

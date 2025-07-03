@@ -73,7 +73,7 @@ namespace DNET
         {
             // 这里其实已经开始打包了.
             peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
-            peerSocket.TryBeginSend(); //这个函数可以直接启动
+            peerSocket.TryStartSend(); //这个函数可以直接启动
         }
 
         /// <summary>
@@ -102,9 +102,16 @@ namespace DNET
         }
 
         /// <summary>
-        /// 获取这个token的接收数据
+        /// 获取这个token的接收数据,,返回的结果是从ListPool中取的.处理完了之后可以送回ListPool.
         /// </summary>
         /// <returns></returns>
+        /// <example>
+        /// 使用示例：
+        /// <code>
+        /// // 使用完毕后将其归还
+        /// ListPool&lt;Message&gt;.Shared.Recycle(msgs);
+        /// </code>
+        /// </example>
         public List<Message> GetReceiveData() => peerSocket?.GetReceiveMessages();
 
         /// <summary>

@@ -82,7 +82,7 @@ namespace DNET
                     _reusedCount++; // 我只是大致统计,够用了，没必要 Interlocked
                 }
 
-                buffer.Reset();
+                // buffer.Reset();
                 buffer._bufferPool = this;
                 return buffer;
             }
@@ -107,9 +107,8 @@ namespace DNET
         public void Recycle(ByteBuffer buffer)
         {
             if (buffer == null) return;
-            // dx: 一定要注意这里由于线程安全，所以不能Reset().
-            // 我考虑对象池中对象的清理Reset()应该由Get()的线程负责，而不是Recycle()的线程负责。
-            // buffer.Reset();
+            // dx: 下面的Push是原子的,所以这里可以Reset();
+            buffer.Reset();
 
             if (_pool.Count < _capacityLimit) {
                 _pool.Push(buffer);

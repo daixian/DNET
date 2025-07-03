@@ -199,7 +199,7 @@ namespace DNET
         {
             peer.peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
             if (immediately)
-                peer.peerSocket.TryBeginSend();
+                peer.peerSocket.TryStartSend();
             else {
                 var msg = new SwMessage { type = SwMessage.Type.Send, peer = peer };
                 _workThread.Post(in msg, this);
@@ -325,7 +325,7 @@ namespace DNET
                     peer.peerSocket.AddSendData(args.data, 0, args.data.Length);
                 }
                 // 尝试驱动一下
-                peer.peerSocket.TryBeginSend();
+                peer.peerSocket.TryStartSend();
             } catch (Exception e) {
                 LogProxy.LogWarning("DNServer.DoSend()：异常 " + e.Message);
             }
@@ -344,7 +344,7 @@ namespace DNET
                 }
                 for (int i = 0; i < tokens.Length; i++) {
                     Peer peer = tokens[i];
-                    peer.peerSocket.TryBeginSend();
+                    peer.peerSocket.TryStartSend();
                 }
             } catch (Exception e) {
                 LogProxy.LogWarning("DNServer.DoSendAll()：异常 " + e.Message);
