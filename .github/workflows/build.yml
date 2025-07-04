@@ -27,6 +27,7 @@ jobs:
         run: msbuild DNet.sln /p:Configuration=Release
 
       - name: Run NUnit Tests
+        shell: pwsh
         run: |
           $testDll = "DNET.Test\bin\Release\DNET.Test.dll"
           if (-Not (Test-Path $testDll)) {
@@ -34,13 +35,13 @@ jobs:
             exit 1
           }
 
-          # 查找 vstest.console.exe
+          # 查找 vstest.console.exe，只取第一条结果
           $vsTestPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" `
             -latest -products * -requires Microsoft.VisualStudio.PackageGroup.TestTools.Core `
-            -find **\vstest.console.exe
+            -find **\vstest.console.exe | Select-Object -First 1
 
           if (-not (Test-Path $vsTestPath)) {
-            Write-Error "vstest.console.exe not found"
+            Write-Error "vstest.console.exe not found at: $vsTestPath"
             exit 1
           }
 
