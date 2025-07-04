@@ -13,7 +13,7 @@
         /// <summary>
         /// 数据
         /// </summary>
-        public byte[] data;
+        public ByteBuffer data;
 
         /// <summary>
         /// 数据格式
@@ -33,7 +33,7 @@
         /// <summary>
         /// 数据长度
         /// </summary>
-        public uint Length => header.dataLen;
+        public int Length => header.dataLen;
 
         /// <summary>
         /// 文本数据
@@ -41,12 +41,39 @@
         public string Text {
             get {
                 if (Format == Format.Text) {
-                    return System.Text.Encoding.UTF8.GetString(data);
+                    return System.Text.Encoding.UTF8.GetString(data.buffer, 0, data.Length);
                 }
                 else {
                     return null;
                 }
             }
+        }
+
+        /// <summary>
+        /// 如果有对象池,那么可以使用这个函数来重置.
+        /// </summary>
+        public void Reset()
+        {
+            data?.Recycle();
+        }
+
+        /// <summary>
+        /// 获取一个对象
+        /// </summary>
+        /// <returns></returns>
+        public static Message Rent()
+        {
+            return Pool<Message>.Shared.Get();
+        }
+
+        /// <summary>
+        /// 回收自己.
+        /// </summary>
+        /// <returns></returns>
+        public void Recycle()
+        {
+            Reset();
+            Pool<Message>.Shared.Recycle(this);
         }
     }
 }

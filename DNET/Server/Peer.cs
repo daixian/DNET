@@ -16,11 +16,21 @@ namespace DNET
         private bool _disposed;
 
         /// <summary>
+        /// 这个id十分重要.
+        /// </summary>
+        private int _id;
+
+        /// <summary>
+        /// 关联的PeerSocket
+        /// </summary>
+        private PeerSocket _peerSocket;
+
+        /// <summary>
         /// 现在由于在客户端也添加了一个Token，用于在协议事件的时候方便统一逻辑，当初始化客户端的token的时候调用这个构造方法
         /// </summary>
         internal Peer()
         {
-            peerSocket = new PeerSocket();
+            _peerSocket = new PeerSocket();
         }
 
         /// <summary>
@@ -33,12 +43,14 @@ namespace DNET
         }
 
         /// <summary>
-        /// 它的ID，这个ID会一直递增的被分配
+        /// 它的ID
         /// </summary>
         public int ID {
-            get;
-            //这个ID由于是在DNET库中被分配，所以考虑应该设置为internal
-            internal set;
+            get => _id;
+            set {
+                _id = value;
+                peerSocket.ID = value;// 同步设置它的ID
+            }
         }
 
         /// <summary>
@@ -49,12 +61,19 @@ namespace DNET
         /// <summary>
         /// 用户自定义的绑定对象，用于简单的绑定关联一个对象
         /// </summary>
-        public object user { get; set; }
+        public object User { get; set; }
 
         /// <summary>
         /// 拥有这个token的DNClient对象。
         /// </summary>
-        public PeerSocket peerSocket { get; internal set; }
+        public PeerSocket peerSocket {
+            get => _peerSocket;
+            set {
+                _peerSocket = value;
+                if (_peerSocket != null)
+                    _peerSocket.ID = ID;// 同步设置ID
+            }
+        }
 
         /// <summary>
         /// 它的状态
@@ -100,6 +119,8 @@ namespace DNET
             int txrId = 0,
             int eventType = 0)
         {
+            if (_disposed) return;
+
             // 这里其实已经开始打包了.
             peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
             peerSocket.TryStartSend(); //这个函数可以直接启动
@@ -117,6 +138,8 @@ namespace DNET
             int txrId = 0,
             int eventType = 0)
         {
+            if (_disposed) return;
+
             try {
                 byte[] dataBytes = null;
                 if (string.IsNullOrEmpty(text)) {
@@ -143,6 +166,8 @@ namespace DNET
         public void AddSendData(byte[] data, int offset, int count,
             Format format = Format.Raw, int txrId = 0, int eventType = 0)
         {
+            if (_disposed) return;
+
             peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
         }
 
@@ -152,6 +177,8 @@ namespace DNET
         /// <returns>true表示确实启动了一个发送</returns>
         public bool TryStartSend()
         {
+            if (_disposed) return false;
+
             return peerSocket.TryStartSend();
         }
 
@@ -191,7 +218,7 @@ namespace DNET
             } catch (Exception) {
                 //不要的客户端，不抛出错误，直接Close()
             } finally {
-                user = null;
+                User = null;
                 peerSocket = null;
             }
         }

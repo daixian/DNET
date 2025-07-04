@@ -33,14 +33,15 @@ namespace DNET.Test
         /// 启动服务器
         /// </summary>
         /// <param name="port">监听的端口号</param>
-        public void Start(int port)
+        public void Start(int port, bool isFastResponse = true)
         {
             server.Close();
 
-            server.IsFastResponse = false; // 这个服务器压力很大,用工作线程处理每个消息吧
+            // 这个服务器压力很大,用工作线程处理每个消息吧isFastResponse=false
+            server.IsFastResponse = isFastResponse;
 
             // 设置接收数据事件处理
-            server.EventPeerReceData += peer => {
+            server.EventPeerReceData += (s, peer) => {
                 var msgs = peer.GetReceiveData();
                 if (msgs == null || msgs.Count == 0) return;
 
@@ -53,14 +54,15 @@ namespace DNET.Test
                         LogProxy.Log($"收到文本数据:{msg.Text}");
                     }
                     // 回发接收到的数据
-                    peer.AddSendData(msg.data, 0, msg.data.Length,
+                    peer.AddSendData(msg.data.buffer, 0, msg.data.Length,
                         format: msg.Format,
                         txrId: msg.TxrId);
 
                     ServerReceiveCount++;
+                    msg.Recycle();
                 }
-                peer.TryStartSend(); // 此时再合并发送.
-                ListPool<Message>.Shared.Recycle(msgs);
+                s.TryStartSend(peer); // 此时再合并发送.
+                msgs.Recycle();
             };
 
             // 尝试启动服务器直到成功

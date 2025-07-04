@@ -43,12 +43,12 @@ namespace DNET
 
             // 构造头
             Header header = Header.CreateDefault();
-            header.dataLen = (uint)length;
+            header.dataLen = length;
             header.format = format;
             header.txrId = txrId;
             header.eventType = eventType;
             header.WriteToByteBuffer(result);
-            result.Append(data, offset, data.Length);
+            result.Append(data, offset, length);
             return result;
         }
 
@@ -62,7 +62,7 @@ namespace DNET
             int headerSize = Marshal.SizeOf<Header>();
             ByteBuffer result = GlobalBuffer.Inst.Get(headerSize + (int)msg.header.dataLen);
             msg.header.WriteToByteBuffer(result);
-            result.Append(msg.data, 0, msg.data.Length);
+            result.Append(msg.data.buffer, 0, msg.data.Length);
             return result;
         }
 
@@ -78,7 +78,7 @@ namespace DNET
             if (receBuff == null || length < 0 || offset + length > receBuff.Length)
                 throw new ArgumentException("Invalid data length");
 
-            List<Message> messages = new List<Message>();
+            List<Message> messages = ListPool<Message>.Shared.Get();
 
             // 添加数据到缓存
             _unpackBuff.Append(receBuff, offset, length);
@@ -109,12 +109,11 @@ namespace DNET
                 if (_unpackBuff.Count < totalLen)
                     break; // 数据不够完整
 
-                // 解析数据体
-                Message msg = new Message {
-                    header = header,
-                    data = _unpackBuff.ToArray(headerSize, (int)header.dataLen)
-                };
-
+                // 使用池创建Message
+                Message msg = Message.Rent();
+                msg.header = header;
+                //data = _unpackBuff.ToArray(headerSize, (int)header.dataLen)
+                msg.data = _unpackBuff.ToByteBuffer(headerSize, header.dataLen);
                 messages.Add(msg);
 
                 // 移除已消费数据

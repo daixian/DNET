@@ -10,9 +10,9 @@ namespace DNET
     public class ListPool<T>
     {
         /// <summary>
-        /// 内部使用的对象池，使用 ConcurrentStack 保证线程安全。
+        /// 内部使用的对象池，使用 ConcurrentBag 保证线程安全。
         /// </summary>
-        private readonly ConcurrentStack<List<T>> _pool = new ConcurrentStack<List<T>>();
+        private readonly ConcurrentBag<List<T>> _pool = new ConcurrentBag<List<T>>();
 
         /// <summary>
         /// 池的最大容量，控制最多缓存多少个 List 实例。
@@ -20,10 +20,15 @@ namespace DNET
         private readonly int _maxCapacity;
 
         /// <summary>
+        /// 池的大约计数.使用这个性能比_pool.Count性能高
+        /// </summary>
+        private int _count = 0;
+
+        /// <summary>
         /// 初始化一个新的 ListPool 实例，并指定最大缓存容量。
         /// </summary>
-        /// <param name="maxCapacity">池的最大容量，默认为256。</param>
-        public ListPool(int maxCapacity = 256)
+        /// <param name="maxCapacity">池的最大容量，默认为4096。</param>
+        public ListPool(int maxCapacity = 4096)
         {
             _maxCapacity = maxCapacity;
         }
@@ -34,7 +39,8 @@ namespace DNET
         /// <returns>一个 List 实例。</returns>
         public List<T> Get()
         {
-            if (_pool.TryPop(out var list)) {
+            if (_pool.TryTake(out var list)) {
+                _count--;
                 return list;
             }
             return new List<T>();
@@ -52,8 +58,9 @@ namespace DNET
             list.Clear(); // 清空列表内容，确保下次使用时是干净的
 
             // 如果当前池中的对象数量未达到上限，则将该列表推入池中
-            if (_pool.Count < _maxCapacity) {
-                _pool.Push(list);
+            if (_count < _maxCapacity) {
+                _pool.Add(list);
+                _count++;
             }
             // 超过最大容量就丢弃，避免池无限膨胀
         }
@@ -61,6 +68,7 @@ namespace DNET
         /// <summary>
         /// 获取一个默认共享的 ListPool 实例，适用于大多数场景下的 List 复用。
         /// </summary>
-        public static readonly ListPool<T> Shared = new ListPool<T>();
+        public static ListPool<T> Shared { get; } = new ListPool<T>();
+
     }
 }

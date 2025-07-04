@@ -18,6 +18,16 @@ namespace DNET
         }
 
         /// <summary>
+        /// 构造，输入数据,会copy一次,一般不使用这个.
+        /// </summary>
+        /// <param name="data"></param>
+        public ByteBuffer(byte[] data)
+        {
+            _buffer = new byte[data.Length];
+            Write(data, 0, data.Length);
+        }
+
+        /// <summary>
         /// 实际数据的有效长度，即在buffer成员中实际有效的数据就是从0到validLength
         /// </summary>
         private int _length;

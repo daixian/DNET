@@ -64,12 +64,12 @@ namespace DNET
         /// <summary>
         /// 事件：某个Peer发生了错误后，会自动调用关闭，这是错误及关闭事件
         /// </summary>
-        public event Action<Peer, PeerErrorType> EventPeerError;
+        public event Action<DNServer, Peer, PeerErrorType> EventPeerError;
 
         /// <summary>
         /// 事件：某个Peer接收到了数据，可以将轻量任务加入这个事件，这是.net线程池中的小线程,这里一定要快速处理
         /// </summary>
-        public event Action<Peer> EventPeerReceData;
+        public event Action<DNServer, Peer> EventPeerReceData;
 
         /// <summary>
         /// 启动服务器，会开启工作线程.
@@ -264,10 +264,16 @@ namespace DNET
         /// 尝试开始启动发送
         /// </summary>
         /// <param name="peer"></param>
+        /// <param name="forceUseWorkThread"></param>
         /// <returns>true表示确实启动了一个发送</returns>
-        public bool TryStartSend(Peer peer)
+        public bool TryStartSend(Peer peer, bool forceUseWorkThread = true)
         {
-            return peer.peerSocket.TryStartSend();
+            if (peer.peerSocket.TryStartSend() && forceUseWorkThread == false)
+                return true;
+            // 在超高并发的时候TryStartSend()可能会漏掉一个发送,所以这里用工作线程再次尝试
+            var msg = new SwMessage { type = SwMessage.Type.Send, peer = peer };
+            _workThread.Post(in msg, this);
+            return false;
         }
 
         /// <summary>
@@ -339,7 +345,8 @@ namespace DNET
 
                 // 驱动一下未发送的数据,按理这里不需要,这是最后一道保险.
                 if (peer.TryStartSend()) {
-                    LogProxy.LogWarning($"DNServer.DoTimerCheckStatus():{peer.Name}这里TryStartSend成功了,这是不太应该的");
+                    // dx: 有的时候似乎是服务器正在合并发送的时候,刚好的部分触发了.所以这里也不需要打日志
+                    //LogProxy.LogWarning($"DNServer.DoTimerCheckStatus():{peer.Name}这里TryStartSend成功了,这是不太应该的");
                 }
 
                 // 如果还有未提取的消息那么就再次提醒,可能需要限制 && IsFastResponse
@@ -349,6 +356,7 @@ namespace DNET
                     // 如果全是是线程池,那么会先发出事件等阻塞处理完了再开始下一个接收,所以永远是按顺序的.
                     // 如果是工作线程给出接收事件,那么这里直接发出事件则有两个线程同时从消息队列中提取内容并启动异步回发,
                     // 那么就会导致消息的先后顺序乱掉.
+                    // 如果所有的GetReceiveData()方法都由一个工作线程调用,那么不应该有先后顺序的问题啊
                     OnReceiveCompleted(peer); //让工作线程提醒Peer有数据可处理
                 }
 
@@ -368,7 +376,7 @@ namespace DNET
         /// <summary>
         /// 线程函数：发送
         /// </summary>
-        /// <param name="msg">这个消息参数的arg1为tokenID</param>
+        /// <param name="msg">这个消息参数带一个peer</param>
         private void DoSend(SwMessage msg)
         {
             try {
@@ -415,7 +423,7 @@ namespace DNET
                 Peer peer = msg.peer;
                 // 现在没有线程的解包,所以不需要工作
                 // 发出数据事件(这里是否要去判断一下有没有未处理消息才发送?)
-                EventPeerReceData?.Invoke(peer);
+                EventPeerReceData?.Invoke(this, peer);
             } catch (Exception e) {
                 LogProxy.LogWarning($"DNServer.DoReceive()：异常 {e}");
             }
@@ -423,29 +431,42 @@ namespace DNET
 
         #endregion
 
-        #region EventHandler
+        #region Socket事件响应
 
         private void OnListenerSocketAccept(Socket acceptSocket)
         {
             Peer peer = new Peer(); //创建一个用户
             PeerManager.Inst.AddPeer(peer); //把这个用户加入TokenManager,分配一个ID
 
-            // 这里会初始化args,会使用name
-            peer.peerSocket.SetAcceptSocket(acceptSocket);
-            peer.peerSocket.EventError += eventError => {
-                EventPeerError?.Invoke(peer, PeerErrorType.SocketError);
-                LogProxy.Log($"客户端{peer.ID}发生错误,删除它");
-                PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.SocketError); //关闭Token
+            peer.peerSocket.SetAcceptSocket(acceptSocket);// 这里会初始化args,会使用name
+            peer.peerSocket.EventError += (ps, eventError) => {
+                Peer p = PeerManager.Inst.GetPeer(ps.ID);
+                if (p == null)
+                    return;
+                EventPeerError?.Invoke(this, p, PeerErrorType.SocketError);
+                LogProxy.Log($"客户端{p.ID}发生错误,删除它");
+                PeerManager.Inst.DeletePeer(p.ID, PeerErrorType.SocketError); //关闭Token
+
             };
-            peer.peerSocket.EventReceiveCompleted += () => {
+            peer.peerSocket.EventReceiveCompleted += (ps) => {
                 // dx: 注意这里给它挂上这个事件,这样可以第一时间响应发出事件.
                 // 但是注意这样的做法在数据量特别大的时候是有一定线程的压力的.
-                // 即有多少条消息那么就会有多少个事件传出.
-                if (IsFastResponse)
-                    EventPeerReceData?.Invoke(peer);
-                else
-                    OnReceiveCompleted(peer);
+                // 如果走这里,那么不执行完事件函数不会开启下一次接收.
+                Peer p = PeerManager.Inst.GetPeer(ps.ID);
+                if (p == null)
+                    return;
+                if (IsFastResponse) {
+                    EventPeerReceData?.Invoke(this, p);
+                }
+                else {
+                    // 这是之前的发出消息让工作线程发出对外的事件.
+                    // TODO: 目前实测发现这里如果这样使用会存在一个echo服务器返回消息顺序不一致的问题...
+                    // 如果所有的GetReceiveData()方法都由一个工作线程调用,那么不应该有先后顺序的问题啊,
+                    // 想不出来是为什么
+                    OnReceiveCompleted(p);
+                }
             };
+
         }
 
         /// <summary>
@@ -461,7 +482,7 @@ namespace DNET
             //DoReceive(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
         }
 
-        private void OnSend(Peer peer)
+        private void OnSendSendCompleted(Peer peer)
         {
             if (peer.peerSocket.WaitSendMsgCount > 0) //如果待发送队列里有消息这里应该不需要这个判断了token.SendingCount < MAX_TOKEN_SENDING_COUNT &&
             {

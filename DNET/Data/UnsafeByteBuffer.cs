@@ -167,10 +167,10 @@ namespace DNET
         }
 
         /// <summary>
-        /// 读取数据
+        /// 读取一部分数据
         /// </summary>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
+        /// <param name="offset">要读取的数据的起始offset</param>
+        /// <param name="count">要读取的数据长度</param>
         /// <returns></returns>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         public byte[] ToArray(int offset, int count)
@@ -183,7 +183,6 @@ namespace DNET
             return result;
         }
 
-
         /// <summary>
         /// 拷贝数据到新的byte[]
         /// </summary>
@@ -193,6 +192,23 @@ namespace DNET
             byte[] result = new byte[Position];
             Marshal.Copy((IntPtr)Ptr, result, 0, Position);
             return result;
+        }
+
+        /// <summary>
+        /// 从全局池中获取一个ByteBuffer.然后拷贝数据到指定的ByteBuffer,从头开开始拷贝.
+        /// </summary>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public ByteBuffer ToByteBuffer(int offset, int count)
+        {
+            if (offset < 0 || count < 0 || offset + count > Position)
+                throw new ArgumentOutOfRangeException("Invalid offset or count.");
+
+            ByteBuffer buffer = GlobalBuffer.Inst.Get(count);
+            buffer.Write(Ptr + offset, count);
+            return buffer;
         }
 
         /// <summary>

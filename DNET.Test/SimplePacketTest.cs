@@ -17,13 +17,13 @@ namespace DNET.Test
             header.format = Format.None;
             header.txrId = 123;
             header.eventType = 456;
-            header.dataLen = (uint)testData.Length;
+            header.dataLen = testData.Length;
 
             int headerSize = sizeof(Header);
 
             Message msg = new Message {
                 header = header,
-                data = testData
+                data = new ByteBuffer(testData)
             };
 
             // 测试 Pack
@@ -44,7 +44,7 @@ namespace DNET.Test
             Assert.That(unpackedMsg.header.eventType, Is.EqualTo(header.eventType));
             Assert.That(unpackedMsg.header.dataLen, Is.EqualTo(header.dataLen));
 
-            string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data);
+            string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data.buffer, 0, unpackedMsg.data.Length);
             Assert.That(unpackedString, Is.EqualTo("Hello, SimplePacket!"));
 
             // 释放 ByteBuffer 资源（如果需要）
@@ -63,11 +63,11 @@ namespace DNET.Test
             header.format = Format.None;
             header.txrId = 123;
             header.eventType = 456;
-            header.dataLen = (uint)testData.Length;
+            header.dataLen = testData.Length;
 
             Message msg = new Message {
                 header = header,
-                data = testData
+                data = new ByteBuffer(testData)
             };
 
             // 先一次性Pack，得到完整数据包
@@ -97,7 +97,7 @@ namespace DNET.Test
             Assert.That(unpackedMsg.header.eventType, Is.EqualTo(header.eventType));
             Assert.That(unpackedMsg.header.dataLen, Is.EqualTo(header.dataLen));
 
-            string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data);
+            string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data.buffer, 0, unpackedMsg.data.Length);
             Assert.That(unpackedString, Is.EqualTo("Hello, SimplePacket!"));
 
             packedBuffer.Recycle();

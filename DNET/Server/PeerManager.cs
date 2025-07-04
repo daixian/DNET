@@ -57,12 +57,13 @@ namespace DNET
             peer.peerSocket.Name = $"Peer[{peer.ID}]";
             if (_dictPeer.TryAdd(peer.ID, peer)) {
                 try {
+                    // 这个事件,但是注意此时Socket还没有好.
                     EventAddPeer?.Invoke(peer.ID);
                 } catch (Exception e) {
-                    LogProxy.LogWarning($"PeerManager.AddPeer(): 执行事件EventAddToken异常: {e.Message}");
+                    LogProxy.LogWarning($"PeerManager.AddPeer():执行事件EventAddToken异常: {e.Message}");
                 }
 
-                LogProxy.LogDebug($"PeerManager.AddPeer(): 添加了一个客户端. 当前服务器上有 {_dictPeer.Count} 个客户端; ip: {peer.peerSocket.RemoteIP}");
+                LogProxy.LogDebug($"PeerManager.AddPeer():添加了一个客户端,当前服务器上有{_dictPeer.Count}个客户端");
                 return peer;
             }
             throw new InvalidOperationException($"添加客户端失败，ID {peer.ID} 已存在");
@@ -126,6 +127,8 @@ namespace DNET
         public Peer GetPeer(int id)
         {
             _dictPeer.TryGetValue(id, out var peer);
+            if (peer == null)
+                LogProxy.LogError($"PeerManager.GetPeer():不存在id为{id}的Peer!");
             return peer;
         }
 

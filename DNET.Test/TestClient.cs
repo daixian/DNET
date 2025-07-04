@@ -83,7 +83,6 @@ namespace DNET.Test
                             foreach (Message msg in texts) {
                                 LogProxy.LogDebug($"收到回复文本:{msg.Text}");
                             }
-                        ListPool<Message>.Shared.Recycle(texts);
                         return false;
                         //Assert.Fail($"超时未收到全部消息：已收到 {ReceiveCount} 条，预期 {SendCount} 条");
                     }
@@ -96,15 +95,17 @@ namespace DNET.Test
                             Assert.That(msg.data.Length == sendData.Length);
 
                             // 验证事务id号是不是按照自己发送的顺序递增的
-                            Assert.That(msg.TxrId, Is.EqualTo(ReceiveCount));
+                            Assert.That(msg.TxrId, Is.EqualTo(ReceiveCount),
+                                 $"[ASSERT FAILED] 客户端{_client.Name}检查TxrId错误: actual = {msg.TxrId}, expected = {ReceiveCount}");
 
                             for (int j = 0; j < msg.data.Length; j++)
-                                Assert.That(msg.data[j] == sendData[j]);
+                                Assert.That(msg.data.buffer[j] == sendData[j]);
 
 
                             ReceiveCount++;
+                            msg.Recycle();
                         }
-                        ListPool<Message>.Shared.Recycle(datas);
+                        datas.Recycle();
                     }
                     else {
                         Thread.Sleep(1);

@@ -44,7 +44,7 @@ namespace SimpleSever
                 if (isReSend) //如果CheckBox选择了要回发
                 {
                     //直接回发
-                    DNServer.Inst.Send(peer, msg.data, 0, msg.data.Length);
+                    DNServer.Inst.Send(peer, msg.data.buffer, 0, msg.data.Length);
                 }
                 //得到消息类型然后处理
                 //int pType = BitConverter.ToInt32(data, 0);

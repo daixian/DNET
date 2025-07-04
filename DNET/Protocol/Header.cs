@@ -31,7 +31,7 @@ namespace DNET
         /// 数据长度（不包含头部长度）
         /// </summary>
         [FieldOffset(8)]
-        public uint dataLen;
+        public int dataLen;
 
         /// <summary>
         /// 消息格式

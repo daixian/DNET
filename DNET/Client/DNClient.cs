@@ -89,7 +89,7 @@ namespace DNET
         /// </summary>
         public int WaitReceMsgCount => _peerSocket.WaitReceMsgCount;
 
-        #region 对外Event
+        #region 对外事件
 
         /// <summary>
         /// 事件：连接服务器成功
@@ -106,7 +106,7 @@ namespace DNET
         /// <summary>
         /// 事件：错误,可以用来通知服务器断线，关闭等。当进入这个事件的时候，此时与服务器的连接肯定已经断开了
         /// </summary>
-        public event Action<DNClient, ErrorType, Exception> EventError;
+        public event Action<DNClient, ErrorType> EventError;
 
         #endregion
 
@@ -379,7 +379,7 @@ namespace DNET
                 LogProxy.Log($"DNClient.DoConnect():{Name}连接服务器失败！{e.Message}");
 
                 try {
-                    EventError?.Invoke(this, ErrorType.ConnectError, e); //事件类型：ConnectError
+                    EventError?.Invoke(this, ErrorType.ConnectError); //事件类型：ConnectError
                 } catch (Exception e2) {
                     LogProxy.LogError($"DNClient.DoConnect():{Name}执行 EventError 事件异常 {e2}");
                 }
@@ -398,7 +398,8 @@ namespace DNET
 
             // 驱动一下未发送的数据,按理这里不需要
             if (_peerSocket.TryStartSend()) {
-                LogProxy.LogWarning($"DNClient.DoTimerCheckStatus():{Name}这里TryStartSend成功了,这是不太应该的");
+                // dx: 如果有时候正在合并发送数据,那么会刚好触发,提起发送一部分出去.这是正常的
+                //LogProxy.LogWarning($"DNClient.DoTimerCheckStatus():{Name}这里TryStartSend成功了,这是不太应该的");
             }
             if (Config.IsAutoHeartbeat) {
                 //如果时间已经超过了那么就发送心跳包
@@ -432,6 +433,7 @@ namespace DNET
         private void DoReceive()
         {
             // 原来这里是使用工作线程解包,现在省略了这些设计
+            // 考虑在这里发出接收事件吗
         }
 
         /// <summary>
@@ -456,14 +458,15 @@ namespace DNET
 
         #endregion
 
-        #region Socket的EventHandler
+        #region PeerSocket的完成事件
 
-        private void OnReceiveCompleted()
+        private void OnReceiveCompleted(PeerSocket sender)
         {
             try {
+                // dx: 这里也是立刻响应事件处理.不处理完不会开启下一个接收.
                 EventReceive?.Invoke(this); //发出事件：接收到了数据
             } catch (Exception e) {
-                LogProxy.LogWarning($"DNClient.OnReceiveCompleted():执行外部事件 EventReceive 异常 {e}");
+                LogProxy.LogWarning($"DNClient.OnReceiveCompleted():{Name}执行外部事件 EventReceive 异常 {e}");
             }
         }
 
@@ -471,10 +474,10 @@ namespace DNET
         {
         }
 
-        private void OnError(ErrorType errorType)
+        private void OnError(PeerSocket sender, ErrorType errorType)
         {
             try {
-                EventError?.Invoke(this, errorType, null);
+                EventError?.Invoke(this, errorType);
             } catch (Exception e) {
                 LogProxy.LogWarning($"DNClient.OnError():{Name}执行 EventError 事件异常 {e}");
             }
