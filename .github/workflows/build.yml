@@ -29,8 +29,20 @@ jobs:
       - name: Run NUnit Tests
         run: |
           $testDll = "DNET.Test\bin\Release\DNET.Test.dll"
-          if (Test-Path $testDll) {
-            vstest.console.exe $testDll
-          } else {
+          if (-Not (Test-Path $testDll)) {
             Write-Error "Test DLL not found: $testDll"
+            exit 1
           }
+
+          # 查找 vstest.console.exe
+          $vsTestPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -products * -requires Microsoft.VisualStudio.PackageGroup.TestTools.Core `
+            -find **\vstest.console.exe
+
+          if (-not (Test-Path $vsTestPath)) {
+            Write-Error "vstest.console.exe not found"
+            exit 1
+          }
+
+          & "$vsTestPath" "$testDll"
+
