@@ -12,12 +12,12 @@ namespace DNET.Test
         {
             // 在所有测试开始前执行一次
             //DNET.LogProxy.SetupLogToConsole();
-            string TimeStamp() => $"{DateTime.Now:HH:mm:ss.fff} [Thread:{Thread.CurrentThread.ManagedThreadId}]";
+            string TimeStamp() => $"[{DateTime.Now:HH:mm:ss.fff}] [Thread:{Thread.CurrentThread.ManagedThreadId}]";
 
-            LogProxy.actionLog = s => TestContext.Progress.WriteLine($"[{TimeStamp()}] [INFO] {s}");
-            LogProxy.actionLogWarning = s => TestContext.Progress.WriteLine($"[{TimeStamp()}] [WARN] {s}");
-            LogProxy.actionLogError = s => TestContext.Progress.WriteLine($"[{TimeStamp()}] [ERROR] {s}");
-            LogProxy.actionLogDebug = s => TestContext.Progress.WriteLine($"[{TimeStamp()}] [DEBUG] {s}");
+            LogProxy.actionLog = s => TestContext.Progress.WriteLine($"{TimeStamp()} [INFO] {s}");
+            LogProxy.actionLogWarning = s => TestContext.Progress.WriteLine($"{TimeStamp()} [WARN] {s}");
+            LogProxy.actionLogError = s => TestContext.Progress.WriteLine($"{TimeStamp()} [ERROR] {s}");
+            LogProxy.actionLogDebug = s => TestContext.Progress.WriteLine($"{TimeStamp()} [DEBUG] {s}");
         }
 
         [OneTimeTearDown]

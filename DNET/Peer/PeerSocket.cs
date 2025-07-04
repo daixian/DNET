@@ -39,6 +39,11 @@ namespace DNET
         private AutoResetEvent _areConnectDone;
 
         /// <summary>
+        /// 连接的时候使用的SocketAsyncEventArgs
+        /// </summary>
+        private SocketAsyncEventArgs _connectArgs;
+
+        /// <summary>
         /// 发送数据时使用的SocketAsyncEventArgs
         /// </summary>
         private SocketAsyncEventArgs _sendArgs;
@@ -161,7 +166,7 @@ namespace DNET
         /// </summary>
         internal event Action<PeerSocket> EventReceiveCompleted;
 
-        #endregion 
+        #endregion
 
         #region 对外函数
 
@@ -184,7 +189,7 @@ namespace DNET
                 ByteBuffer packedData = _packet.Pack(data, offset, count, format, txrId, eventType);
                 _sendQueue.Enqueue(packedData);
                 if (Config.EnableRttStatistics && txrId != 0) {
-                    RttStatis.RecordSent(txrId);//记录发送
+                    RttStatis.RecordSent(txrId); //记录发送
                 }
             } catch (Exception e) {
                 LogProxy.LogWarning($"PeerSocket.AddSendData:[{Name}] 异常 {e}");
@@ -292,27 +297,33 @@ namespace DNET
 
             Status.Reset();
 
-            SocketAsyncEventArgs connectArgs = new SocketAsyncEventArgs(); //创建一个SocketAsyncEventArgs类型
-            connectArgs.UserToken = new ConnectionContext {
+            _connectArgs = new SocketAsyncEventArgs(); //创建一个SocketAsyncEventArgs类型
+            _connectArgs.UserToken = new ConnectionContext {
                 socket = socket,
                 sendBuffer = null,
                 recvBuffer = null,
             };
-            connectArgs.RemoteEndPoint = _remoteEndPoint;
-            connectArgs.Completed += OnConnectCompleted; //加一个OnConnect来通知这个线程已经完成了
+            _connectArgs.RemoteEndPoint = _remoteEndPoint;
+            _connectArgs.Completed += OnConnectCompleted; //加一个OnConnect来通知这个线程已经完成了
 
-            if (!socket.ConnectAsync(connectArgs)) {
-                OnConnectCompleted(this, connectArgs);
+            if (!socket.ConnectAsync(_connectArgs)) {
+                OnConnectCompleted(this, _connectArgs);
             }
 
             // 这里阻塞吧.
             _areConnectDone.WaitOne();
+            if (_disposed) // 有可能线程在这里才恢复,就直接返回了.
+                return;
 
             // dx: 注意这里这样发出异常
-            SocketError errorCode = connectArgs.SocketError;
+            SocketError errorCode = _connectArgs.SocketError;
             if (errorCode != SocketError.Success) {
                 throw new SocketException((int)errorCode);
             }
+
+            // 此时成功了,不用了
+            _connectArgs.Dispose();
+            _connectArgs = null;
 
             // 自动开始一次发送吧,在等待连接切换线程的这段时间可能外面已经有添加发送队列进来了.
             TryStartSend();
@@ -328,6 +339,14 @@ namespace DNET
                     socket.Shutdown(SocketShutdown.Both);
                     socket.Disconnect(false); //不允许重用套接字
                     Clear(); //清空数据
+                }
+                else {
+                    if (_connectArgs != null) {
+                        // 如果是正在连接了
+                        // Socket.CancelConnectAsync(_connectArgs);
+                        socket.Close();
+                        _areConnectDone.Set(); //随便释放一下
+                    }
                 }
             } catch (Exception e) {
                 LogProxy.LogWarning($"PeerSocket.Disconnect():[{Name}] 异常 " + e.Message);
@@ -424,7 +443,7 @@ namespace DNET
             context.sendBuffer?.Recycle();
             context.sendBuffer = sendBuffer;
             context.curSendMsgCount = buffers.Count; // 发送消息的个数
-                                                     // dx: 注意这里是发送的实际数据长度
+            // dx: 注意这里是发送的实际数据长度
             _sendArgs.SetBuffer(context.sendBuffer.buffer, 0, context.sendBuffer.Length);
 
             ListPool<ByteBuffer>.Shared.Recycle(buffers); // 这是最后使用的地方了归还.
@@ -561,12 +580,12 @@ namespace DNET
                         _receQueue.Enqueue(msg);
                         // 这里解析到了消息, 执行RTT统计
                         if (Config.EnableRttStatistics && msg.TxrId != 0) {
-                            RttStatis.RecordReceived(msg.TxrId);//记录响应
+                            RttStatis.RecordReceived(msg.TxrId); //记录响应
                         }
                     });
                 }
                 int msgCount = msgList == null ? 0 : msgList.Count;
-                msgList.Recycle();// list列表可以回收
+                msgList.Recycle(); // list列表可以回收
                 // curRecvBuffer.Recycle(); //解包结束,回收接收缓存区
 
                 // 记录接收状态

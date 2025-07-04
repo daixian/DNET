@@ -119,7 +119,7 @@ namespace DNET
         /// </summary>
         public double SendBytesPerSecond { get; private set; }
 
-        // <summary>
+        /// <summary>
         /// 接收速度,字节/秒
         /// </summary>
         public double ReceiveBytesPerSecond { get; private set; }
@@ -171,7 +171,5 @@ namespace DNET
             if (bps > 1024) return $"{bps / 1024:F2} KB/s";
             return $"{bps:F2} B/s";
         }
-
-
     }
 }

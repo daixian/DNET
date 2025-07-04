@@ -174,8 +174,10 @@ namespace DNET
             lock (this) {
                 try {
                     _workThread.ClearQueue();
+                    // 中断连接必须要释放socket,必须要Close().
                     if (_peerSocket != null) {
-                        _peerSocket.Disconnect();
+                        _peerSocket.Dispose(); // 这样可以保证正在连接中的也直接异常掉
+                        _peerSocket = null;
                     }
                 } catch (Exception e) {
                     LogProxy.LogWarning($"DNClient.DisConnect():{Name}执行DisConnect异常 {e}");
@@ -298,7 +300,7 @@ namespace DNET
 
         /// <summary>
         /// 使用数据打包,然后添加到发送队列,用于合并一些消息一起发送,客户端一般不使用.
-        /// </summary> 
+        /// </summary>
         /// <param name="data">要发送的数据</param>
         /// <param name="offset">数据的起始位置</param>
         /// <param name="count">数据的长度</param>
@@ -315,7 +317,7 @@ namespace DNET
 
         /// <summary>
         /// 尝试开始启动发送
-        /// </summary> 
+        /// </summary>
         /// <param name="forceUseWorkThread"></param>
         /// <returns>true表示确实启动了一个发送</returns>
         public bool TryStartSend(bool forceUseWorkThread = true)
@@ -335,7 +337,7 @@ namespace DNET
         {
             // 让工作线程处理这个消息
             var msg = new CwMessage { type = CwMessage.Type.Send };
-            _workThread.Post(in msg, this); ;
+            _workThread.Post(in msg, this);
         }
 
         /// <summary>
@@ -409,18 +411,20 @@ namespace DNET
                 LogProxy.Log($"DNClient.DoConnect():{Name}正在连接...");
                 _peerSocket.BindRemote(_host, _port);
                 _peerSocket.Connect(); //这个函数连接失败会异常
-                LogProxy.Log($"DNClient.DoConnect():{Name}连接服务器成功！{_host}:{_port}");
+
                 //标记已经结束了连接
                 IsConnecting = false;
 
-                if (!_peerSocket.IsConnected) {
-                    LogProxy.LogError($"DNClient.DoConnect():{Name}连接应该是成功的,但是IsConnected是false！");
+                if (_peerSocket.IsConnected) {
+                    LogProxy.Log($"DNClient.DoConnect():{Name}连接服务器成功！{_host}:{_port}");
+                    try {
+                        EventConnectSuccess?.Invoke(this);
+                    } catch (Exception e) {
+                        LogProxy.LogError($"DNClient.DoConnect():{Name}执行 EventConnectSuccess 事件异常 {e}");
+                    }
                 }
-
-                try {
-                    EventConnectSuccess?.Invoke(this);
-                } catch (Exception e) {
-                    LogProxy.LogError($"DNClient.DoConnect():{Name}执行 EventConnectSuccess 事件异常 {e}");
+                else {
+                    throw new Exception("连接失败,异常或取消了..");
                 }
             } catch (Exception e) {
                 LogProxy.Log($"DNClient.DoConnect():{Name}连接服务器失败！{e.Message}");

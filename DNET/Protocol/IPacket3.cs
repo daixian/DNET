@@ -32,7 +32,7 @@ namespace DNET
         /// <param name="receBuff">接收数据缓冲区</param>
         /// <param name="offset">接收数据缓冲区起始</param>
         /// <param name="length">数据长度</param>
-        /// <returns>解析到的完整数据包数量</returns>
+        /// <returns>解析到的完整数据包列表,可以为null</returns>
         List<Message> Unpack(byte[] receBuff, int offset, int length);
 
         /// <summary>

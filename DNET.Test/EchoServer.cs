@@ -33,7 +33,8 @@ namespace DNET.Test
         /// 启动服务器
         /// </summary>
         /// <param name="port">监听的端口号</param>
-        public void Start(int port, bool isFastResponse = true)
+        /// <param name="isFastResponse"></param>
+        public void Start(int port, bool isFastResponse = false)
         {
             server.Close();
 
@@ -60,7 +61,7 @@ namespace DNET.Test
 
                     ServerReceiveCount++;
                 }
-                s.TryStartSend(peer); // 此时再合并发送.
+                s.TryStartSend(peer, forceUseWorkThread: true); // 此时再合并发送.
                 msgList.RecycleAllItems();
             };
 

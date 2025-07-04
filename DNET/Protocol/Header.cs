@@ -68,6 +68,20 @@ namespace DNET
         }
 
         /// <summary>
+        /// 重置一下吧
+        /// </summary>
+        public void Reset()
+        {
+            magic = 0x584D5347; // 'XMSG' 小端序
+            version = 1;
+            reserved = 0;
+            dataLen = 0;
+            format = Format.None;
+            txrId = 0;
+            eventType = 0;
+        }
+
+        /// <summary>
         /// 写入到一个ByteBuffer的起始位置
         /// </summary>
         /// <param name="buff"></param>

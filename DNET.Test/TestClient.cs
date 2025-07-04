@@ -42,8 +42,14 @@ namespace DNET.Test
             _client.Connect(ip, port);
             // 一直等待连接成功
             int retry = 0;
-            while (!_client.IsConnected && retry++ < 1000)
+            while (!_client.IsConnected && retry++ < 1000) {
                 Thread.Sleep(20);
+                if (retry % (1000 / 20) == 0) {
+                    LogProxy.Log($"{_client.Name} 尝试重连...");
+                    _client.Disconnect();
+                    _client.Connect(ip, port); //重连一次
+                }
+            }
             Assert.IsTrue(_client.IsConnected, $"{_client.Name} 连接失败");
         }
 
@@ -97,7 +103,7 @@ namespace DNET.Test
 
                             // 验证事务id号是不是按照自己发送的顺序递增的
                             Assert.That(msg.TxrId, Is.EqualTo(ReceiveCount),
-                                 $"[ASSERT FAILED] 客户端{_client.Name}检查TxrId错误: actual = {msg.TxrId}, expected = {ReceiveCount}");
+                                $"[ASSERT FAILED] 客户端{_client.Name}检查TxrId错误: actual = {msg.TxrId}, expected = {ReceiveCount},总的SendCount={SendCount},msgList.Count={msgList.Count},待发送队列{_client.WaitSendMsgCount}");
 
                             for (int j = 0; j < msg.data.Length; j++)
                                 Assert.That(msg.data.buffer[j] == sendData[j]);

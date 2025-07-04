@@ -370,7 +370,7 @@ namespace DNET
                     }
                 }
                 if (Config.EnablePeerStatistics) {
-                    peer.Status.UpdateStatus();
+                    peer.Status?.UpdateStatus();
                 }
             }
             ListPool<Peer>.Shared.Recycle(peers);
@@ -441,7 +441,7 @@ namespace DNET
             Peer peer = new Peer(); //创建一个用户
             PeerManager.Inst.AddPeer(peer); //把这个用户加入TokenManager,分配一个ID
 
-            peer.peerSocket.SetAcceptSocket(acceptSocket);// 这里会初始化args,会使用name
+            peer.peerSocket.SetAcceptSocket(acceptSocket); // 这里会初始化args,会使用name
             peer.peerSocket.EventError += (ps, eventError) => {
                 Peer p = PeerManager.Inst.GetPeer(ps.ID);
                 if (p == null)
@@ -449,7 +449,6 @@ namespace DNET
                 EventPeerError?.Invoke(this, p, PeerErrorType.SocketError);
                 LogProxy.Log($"客户端{p.ID}发生错误,删除它");
                 PeerManager.Inst.DeletePeer(p.ID, PeerErrorType.SocketError); //关闭Token
-
             };
             peer.peerSocket.EventReceiveCompleted += (ps) => {
                 // dx: 注意这里给它挂上这个事件,这样可以第一时间响应发出事件.
@@ -469,7 +468,6 @@ namespace DNET
                     OnReceiveCompleted(p);
                 }
             };
-
         }
 
         /// <summary>

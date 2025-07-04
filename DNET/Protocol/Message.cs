@@ -54,6 +54,7 @@
         /// </summary>
         public void Reset()
         {
+            header.Reset();
             data?.Recycle();
         }
 

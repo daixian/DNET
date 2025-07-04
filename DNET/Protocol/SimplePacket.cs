@@ -60,7 +60,7 @@ namespace DNET
         public ByteBuffer Pack(Message msg)
         {
             int headerSize = Marshal.SizeOf<Header>();
-            ByteBuffer result = GlobalBuffer.Inst.Get(headerSize + (int)msg.header.dataLen);
+            ByteBuffer result = GlobalBuffer.Inst.Get(headerSize + msg.header.dataLen);
             msg.header.WriteToByteBuffer(result);
             result.Append(msg.data.buffer, 0, msg.data.Length);
             return result;
@@ -72,13 +72,13 @@ namespace DNET
         /// <param name="receBuff">接收数据缓冲区</param>
         /// <param name="offset">接收数据缓冲区起始</param>
         /// <param name="length">数据长度</param>
-        /// <returns>解析到的完整数据包数量</returns>
+        /// <returns>解析到的完整数据包列表,可以为null</returns>
         public List<Message> Unpack(byte[] receBuff, int offset, int length)
         {
             if (receBuff == null || length < 0 || offset + length > receBuff.Length)
                 throw new ArgumentException("Invalid data length");
 
-            List<Message> messages = ListPool<Message>.Shared.Get();
+            List<Message> result = null; // 如果没有消息就返回null
 
             // 添加数据到缓存
             _unpackBuff.Append(receBuff, offset, length);
@@ -105,22 +105,25 @@ namespace DNET
                     throw new Exception("Message length exceeds max allowed size");
                 }
 
-                int totalLen = headerSize + (int)header.dataLen;
+                int totalLen = headerSize + header.dataLen;
                 if (_unpackBuff.Count < totalLen)
                     break; // 数据不够完整
 
                 // 使用池创建Message
                 Message msg = Message.Rent();
                 msg.header = header;
-                //data = _unpackBuff.ToArray(headerSize, (int)header.dataLen)
+                //data = _unpackBuff.ToArray(headerSize, header.dataLen)
                 msg.data = _unpackBuff.ToByteBuffer(headerSize, header.dataLen);
-                messages.Add(msg);
+                if (result == null) {
+                    result = ListPool<Message>.Shared.Get();
+                }
+                result.Add(msg);
 
                 // 移除已消费数据
                 _unpackBuff.Erase(0, totalLen);
             }
 
-            return messages;
+            return result;
         }
 
         /// <summary>
@@ -156,6 +159,7 @@ namespace DNET
             // 没找到魔数，保留最后几个字节以备拼接
             int keep = Math.Min(3, _unpackBuff.Count);
             if (_unpackBuff.Count > keep) {
+                LogProxy.LogWarning($"SimplePacket.TrySyncToMagic():有丢弃数据{_unpackBuff.Count - keep}字节!");
                 _unpackBuff.Erase(0, _unpackBuff.Count - keep);
             }
             return false;
