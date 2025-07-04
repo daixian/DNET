@@ -57,9 +57,23 @@ jobs:
           name: DNET-Release-Zip
           path: DNET-Build.zip
 
+      # 🔽 添加 changelog 收集逻辑
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          git log --pretty=format:"%h %s" $(git describe --tags --abbrev=0 || echo "")..HEAD >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # 🔽 发布 Release 并附带变更日志
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: DNET-Build.zip
+          body: |
+            🚀 自动发布版本
+
+            📦 变更内容:
+            ${{ steps.changelog.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
