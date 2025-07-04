@@ -21,5 +21,18 @@ namespace DNET
             if (list == null) return;
             ListPool<T>.Shared.Recycle(list);
         }
+
+        /// <summary>
+        /// 回收到全局共享池List
+        /// </summary>
+        public static void RecycleAllItems(this List<Message> list)
+        {
+            if (list == null)
+                return;
+            foreach (var item in list) {
+                item.Recycle();
+            }
+            ListPool<Message>.Shared.Recycle(list);
+        }
     }
 }

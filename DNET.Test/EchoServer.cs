@@ -42,10 +42,10 @@ namespace DNET.Test
 
             // 设置接收数据事件处理
             server.EventPeerReceData += (s, peer) => {
-                var msgs = peer.GetReceiveData();
-                if (msgs == null || msgs.Count == 0) return;
+                var msgList = peer.GetReceiveData();
+                if (msgList == null || msgList.Count == 0) return;
 
-                foreach (Message msg in msgs) {
+                foreach (Message msg in msgList) {
                     // 这是小线程的回调事件,server不应该sleep
                     // while (peer.IsSendQueueOverflow())
                     //     Thread.Sleep(1);
@@ -59,10 +59,9 @@ namespace DNET.Test
                         txrId: msg.TxrId);
 
                     ServerReceiveCount++;
-                    msg.Recycle();
                 }
                 s.TryStartSend(peer); // 此时再合并发送.
-                msgs.Recycle();
+                msgList.RecycleAllItems();
             };
 
             // 尝试启动服务器直到成功

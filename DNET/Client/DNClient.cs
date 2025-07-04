@@ -292,6 +292,48 @@ namespace DNET
         }
 
         /// <summary>
+        /// 使用数据打包,然后添加到发送队列,用于合并一些消息一起发送,客户端一般不使用.
+        /// </summary> 
+        /// <param name="data">要发送的数据</param>
+        /// <param name="offset">数据的起始位置</param>
+        /// <param name="count">数据的长度</param>
+        /// <param name="format">数据格式</param>
+        /// <param name="txrId">事务id</param>
+        /// <param name="eventType">消息类型</param>
+        public void AddSendData(byte[] data, int offset, int count,
+            Format format = Format.Raw,
+            int txrId = 0,
+            int eventType = 0)
+        {
+            _peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
+        }
+
+        /// <summary>
+        /// 尝试开始启动发送
+        /// </summary> 
+        /// <param name="forceUseWorkThread"></param>
+        /// <returns>true表示确实启动了一个发送</returns>
+        public bool TryStartSend(bool forceUseWorkThread = true)
+        {
+            if (_peerSocket.TryStartSend() && forceUseWorkThread == false)
+                return true;
+            // 在超高并发的时候TryStartSend()可能会漏掉一个发送,所以这里用工作线程再次尝试
+            var msg = new CwMessage { type = CwMessage.Type.Send };
+            _workThread.Post(in msg, this);
+            return false;
+        }
+
+        /// <summary>
+        /// 尝试用工作线程去驱动一次发送
+        /// </summary>
+        public void TryStartSendOnWorkThread()
+        {
+            // 让工作线程处理这个消息
+            var msg = new CwMessage { type = CwMessage.Type.Send };
+            _workThread.Post(in msg, this); ;
+        }
+
+        /// <summary>
         /// 获取目前所有的已接收的数据.返回的结果是从ListPool中取的.处理完了之后可以送回ListPool.
         /// </summary>
         /// <returns>所有的收到的数据,没有则返回null</returns>

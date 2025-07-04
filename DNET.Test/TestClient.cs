@@ -67,6 +67,7 @@ namespace DNET.Test
                     _client.Send(sendData, 0, sendData.Length, Format.Raw, SendCount, 0, immediately);
                     SendCount++;
                 }
+                _client.TryStartSendOnWorkThread(); // 这里再驱动一下发送
 
                 // 5秒超时
                 DateTime startTime = DateTime.UtcNow;
@@ -87,9 +88,9 @@ namespace DNET.Test
                         //Assert.Fail($"超时未收到全部消息：已收到 {ReceiveCount} 条，预期 {SendCount} 条");
                     }
 
-                    var datas = _client.GetReceiveData();
-                    if (datas != null && datas.Count > 0) {
-                        foreach (Message msg in datas) {
+                    var msgList = _client.GetReceiveData();
+                    if (msgList != null && msgList.Count > 0) {
+                        foreach (Message msg in msgList) {
                             if (msg.Format == Format.Text)
                                 continue;
                             Assert.That(msg.data.Length == sendData.Length);
@@ -103,9 +104,8 @@ namespace DNET.Test
 
 
                             ReceiveCount++;
-                            msg.Recycle();
                         }
-                        datas.Recycle();
+                        msgList.RecycleAllItems();
                     }
                     else {
                         Thread.Sleep(1);

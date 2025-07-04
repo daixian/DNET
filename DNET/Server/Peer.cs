@@ -26,7 +26,7 @@ namespace DNET
         private PeerSocket _peerSocket;
 
         /// <summary>
-        /// 现在由于在客户端也添加了一个Token，用于在协议事件的时候方便统一逻辑，当初始化客户端的token的时候调用这个构造方法
+        /// 构造.
         /// </summary>
         internal Peer()
         {

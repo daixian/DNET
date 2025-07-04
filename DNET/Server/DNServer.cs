@@ -6,7 +6,7 @@ using System.Threading;
 namespace DNET
 {
     /// <summary>
-    /// 通信传输的服务器类，默认通信数据包打包方法类的类型为FastPacket。
+    /// 通信传输的服务器类
     /// </summary>
     public class DNServer : IWorkHandler<SwMessage>
     {
