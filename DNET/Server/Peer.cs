@@ -49,7 +49,7 @@ namespace DNET
             get => _id;
             set {
                 _id = value;
-                peerSocket.ID = value;// 同步设置它的ID
+                peerSocket.ID = value; // 同步设置它的ID
             }
         }
 
@@ -71,7 +71,7 @@ namespace DNET
             set {
                 _peerSocket = value;
                 if (_peerSocket != null)
-                    _peerSocket.ID = ID;// 同步设置ID
+                    _peerSocket.ID = ID; // 同步设置ID
             }
         }
 
@@ -154,7 +154,8 @@ namespace DNET
                 dataBytes = Encoding.UTF8.GetBytes(text);
                 Send(dataBytes, 0, dataBytes.Length, format, txrId, eventType);
             } catch (Exception e) {
-                LogProxy.LogWarning($"Peer.Send:异常 {e}");
+                if (LogProxy.Error != null)
+                    LogProxy.Error($"Peer.Send():异常 {e}");
             }
         }
 

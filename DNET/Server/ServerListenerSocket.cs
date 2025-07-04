@@ -68,7 +68,8 @@ namespace DNET
                     address = addressList[addressList.Length - 1];
                 }
                 IPEndPoint localEndPoint = new IPEndPoint(address, port);
-                LogProxy.LogDebug("ServerListenerSocket.Start():尝试启动服务器 " + address + ":" + port);
+                if (LogProxy.Debug != null)
+                    LogProxy.Debug("ServerListenerSocket.Start():尝试启动服务器 " + address + ":" + port);
 
                 //创建一个监听Socket
                 _listenSocket = new Socket(localEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
@@ -87,7 +88,8 @@ namespace DNET
 
                 _isStarted = true; //服务器启动成功
             } catch (Exception e) {
-                LogProxy.LogWarning($"ServerListenerSocket.Start():异常 {e}");
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"ServerListenerSocket.Start():异常 {e}");
             }
         }
 
@@ -129,7 +131,6 @@ namespace DNET
             try {
                 Socket acceptSocket = args.AcceptSocket;
                 if (acceptSocket.Connected) {
-
                     // 产生认证事件,这是一个内部使用的,所以没有try catch
                     if (EventAccept != null) {
                         EventAccept(acceptSocket);
@@ -140,9 +141,11 @@ namespace DNET
                 StartAccept(args);
             } catch (SocketException ex) {
                 //Token token = e.UserToken as Token;
-                LogProxy.LogWarning($"ServerListenerSocket.ProcessAccept():Socket异常,接收认证连接出现错误 {ex}");
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"ServerListenerSocket.ProcessAccept():Socket异常,接收认证连接出现错误 {ex}");
             } catch (Exception ex) {
-                LogProxy.LogWarning($"ServerListenerSocket.ProcessAccept():异常 {ex}");
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"ServerListenerSocket.ProcessAccept():异常 {ex}");
             }
         }
 
@@ -166,7 +169,8 @@ namespace DNET
                     ProcessAccept(args);
                 }
             } catch (Exception e) {
-                LogProxy.LogWarning("ServerListenerSocket.StartAccept():异常：" + e.Message);
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("ServerListenerSocket.StartAccept():异常：" + e.Message);
             }
         }
 
@@ -185,8 +189,8 @@ namespace DNET
                     _acceptSocketArgs[i].Completed += OnIOCompleted;
                     _acceptSocketArgs[i].AcceptSocket = null; // 必须要先清掉Socket
                 }
-
-                LogProxy.LogDebug("ServerListenerSocket.StartAccept2():服务器开始接收认证!");
+                if (LogProxy.Debug != null)
+                    LogProxy.Debug("ServerListenerSocket.StartAccept2():服务器开始接收认证!");
                 for (int i = 0; i < _acceptSocketArgs.Length; i++) {
                     //开始异步接收认证
                     if (!_listenSocket.AcceptAsync(_acceptSocketArgs[i])) {
@@ -194,7 +198,8 @@ namespace DNET
                     }
                 }
             } catch (Exception e) {
-                LogProxy.LogWarning("ServerListenerSocket.StartAccept2():异常：" + e.Message);
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("ServerListenerSocket.StartAccept2():异常：" + e.Message);
                 throw;
             }
         }
@@ -204,7 +209,8 @@ namespace DNET
             if (_disposed) return;
             _disposed = true;
 
-            LogProxy.Log("ServerListenerSocket.Dispose():进入了Dispose!");
+            if (LogProxy.Info != null)
+                LogProxy.Info("ServerListenerSocket.Dispose():进入了Dispose!");
 
             _isStarted = false;
             EventAccept = null;
@@ -223,9 +229,11 @@ namespace DNET
                     }
                 }
 
-                LogProxy.Log("ServerListenerSocket.Dispose():关闭了服务器Socket");
+                if (LogProxy.Info != null)
+                    LogProxy.Info("ServerListenerSocket.Dispose():关闭了服务器Socket");
             } catch (Exception e) {
-                LogProxy.LogWarning("ServerListenerSocket.Dispose():异常：" + e.Message);
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("ServerListenerSocket.Dispose():异常：" + e.Message);
             }
         }
     }

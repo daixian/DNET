@@ -82,7 +82,8 @@ namespace DNET
                 return;
 
             try {
-                LogProxy.LogDebug("DNServer.Start():服务器启动...");
+                if (LogProxy.Debug != null)
+                    LogProxy.Debug("DNServer.Start():服务器启动...");
                 _port = port;
 
                 PeerManager.Inst.DeleteAllPeer();
@@ -112,12 +113,15 @@ namespace DNET
                     _listenerSocket.Start(hostName, port);
                 }
                 if (!_listenerSocket.IsStarted) {
-                    LogProxy.LogError("DNServer.Start():启动监听失败");
+                    if (LogProxy.Error != null)
+                        LogProxy.Error("DNServer.Start():启动监听失败");
                     return;
                 }
-                LogProxy.Log($"DNServer.Start():服务器启动成功,端口:{_port}");
+                if (LogProxy.Info != null)
+                    LogProxy.Info($"DNServer.Start():服务器启动成功,端口:{_port}");
             } catch (Exception e) {
-                LogProxy.LogError("DNServer.Start():异常 " + e.Message);
+                if (LogProxy.Error != null)
+                    LogProxy.Error("DNServer.Start():异常 " + e.Message);
             }
         }
 
@@ -127,12 +131,14 @@ namespace DNET
         /// <param name="clearEvent">是否清除事件绑定</param>
         public void Close(bool clearEvent = true)
         {
-            LogProxy.Log("DNServer.Close():准备关闭Socket和停止工作线程...");
+            if (LogProxy.Info != null)
+                LogProxy.Info("DNServer.Close():准备关闭Socket和停止工作线程...");
             lock (this) {
                 try {
                     _timer?.Dispose();
                 } catch (Exception e) {
-                    LogProxy.LogWarning($"DNServer.Close():停止Timer异常 {e}");
+                    if (LogProxy.Warning != null)
+                        LogProxy.Warning($"DNServer.Close():停止Timer异常 {e}");
                 } finally {
                     _timer = null;
                 }
@@ -145,7 +151,8 @@ namespace DNET
                         _workThread.Stop();
                     }
                 } catch (Exception e) {
-                    LogProxy.LogWarning($"DNServer.Close():停止工作线程异常 {e}");
+                    if (LogProxy.Warning != null)
+                        LogProxy.Warning($"DNServer.Close():停止工作线程异常 {e}");
                 } finally {
                     _workThread = null;
                 }
@@ -154,13 +161,15 @@ namespace DNET
                         _listenerSocket.Dispose();
                     }
                 } catch (Exception e) {
-                    LogProxy.LogWarning($"DNServer.Close():关闭Socket异常 {e}");
+                    if (LogProxy.Warning != null)
+                        LogProxy.Warning($"DNServer.Close():关闭Socket异常 {e}");
                 } finally {
                     _listenerSocket = null;
                 }
 
                 if (clearEvent) {
-                    LogProxy.Log("DNServer.Close():清空了所有绑定事件...");
+                    if (LogProxy.Debug != null)
+                        LogProxy.Debug("DNServer.Close():清空了所有绑定事件...");
                     EventPeerError = null;
                     EventPeerReceData = null;
                 }
@@ -240,7 +249,8 @@ namespace DNET
                 byte[] data = Encoding.UTF8.GetBytes(text);
                 Send(peer, data, 0, data.Length, format, txrId, eventType, immediately);
             } catch (Exception e) {
-                LogProxy.LogError($"DNServer.Send():发送文本异常 {e}");
+                if (LogProxy.Error != null)
+                    LogProxy.Error($"DNServer.Send():发送文本异常 {e}");
             }
         }
 
@@ -318,19 +328,23 @@ namespace DNET
                 if (IsStarted)
                     return;
 
-                LogProxy.LogDebug("DNServer.DoStart()：工作线程开始执行DoStart()...");
+                if (LogProxy.Debug != null)
+                    LogProxy.Debug("DNServer.DoStart()：工作线程开始执行DoStart()...");
                 if (_listenerSocket != null) {
                     _listenerSocket.Dispose();
                 }
                 _listenerSocket = new ServerListenerSocket();
                 _listenerSocket.EventAccept += OnListenerSocketAccept;
 
-                LogProxy.Log("DNServer.DoStart(): _socketListener.Start(" + _port + ");");
+                if (LogProxy.Info != null)
+                    LogProxy.Info("DNServer.DoStart(): _socketListener.Start(" + _port + ");");
                 // msg.text1是服务器的主机IP,一般使用Any表示所有的可能IP
                 _listenerSocket.Start(msg.text1, _port);
-                LogProxy.LogDebug("DNServer.DoStart()执行完毕！");
+                if (LogProxy.Debug != null)
+                    LogProxy.Debug("DNServer.DoStart()执行完毕！");
             } catch (Exception e) {
-                LogProxy.LogWarning("DNServer.DoStart()：异常 " + e.Message);
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("DNServer.DoStart()：异常 " + e.Message);
             }
         }
 
@@ -362,7 +376,8 @@ namespace DNET
 
                 if (Config.IsAutoHeartbeat) {
                     if (peer?.Status?.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
-                        LogProxy.LogDebug($"DNServer.DoTimerCheckStatus():用户 [{peer.ID}] 长时间没有收到心跳包，被删除!");
+                        if (LogProxy.Debug != null)
+                            LogProxy.Debug($"DNServer.DoTimerCheckStatus():用户 [{peer.ID}] 长时间没有收到心跳包，被删除!");
                         PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
                     }
                     if (peer?.Status?.TimeSinceLastSend > Config.HeartBeatSendTime) {
@@ -394,7 +409,8 @@ namespace DNET
                 // 尝试驱动一下
                 peer.peerSocket.TryStartSend();
             } catch (Exception e) {
-                LogProxy.LogWarning("DNServer.DoSend()：异常 " + e.Message);
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("DNServer.DoSend()：异常 " + e.Message);
             }
         }
 
@@ -412,7 +428,8 @@ namespace DNET
                 }
                 ListPool<Peer>.Shared.Recycle(peers);
             } catch (Exception e) {
-                LogProxy.LogWarning("DNServer.DoSendAll()：异常 " + e.Message);
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("DNServer.DoSendAll()：异常 " + e.Message);
             }
         }
 
@@ -428,7 +445,8 @@ namespace DNET
                 // 发出数据事件(这里是否要去判断一下有没有未处理消息才发送?)
                 EventPeerReceData?.Invoke(this, peer);
             } catch (Exception e) {
-                LogProxy.LogWarning($"DNServer.DoReceive()：异常 {e}");
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNServer.DoReceive()：异常 {e}");
             }
         }
 
@@ -442,32 +460,35 @@ namespace DNET
             PeerManager.Inst.AddPeer(peer); //把这个用户加入TokenManager,分配一个ID
 
             peer.peerSocket.SetAcceptSocket(acceptSocket); // 这里会初始化args,会使用name
-            peer.peerSocket.EventError += (ps, eventError) => {
-                Peer p = PeerManager.Inst.GetPeer(ps.ID);
-                if (p == null)
-                    return;
-                EventPeerError?.Invoke(this, p, PeerErrorType.SocketError);
-                LogProxy.Log($"客户端{p.ID}发生错误,删除它");
-                PeerManager.Inst.DeletePeer(p.ID, PeerErrorType.SocketError); //关闭Token
-            };
-            peer.peerSocket.EventReceiveCompleted += (ps) => {
-                // dx: 注意这里给它挂上这个事件,这样可以第一时间响应发出事件.
-                // 但是注意这样的做法在数据量特别大的时候是有一定线程的压力的.
-                // 如果走这里,那么不执行完事件函数不会开启下一次接收.
-                Peer p = PeerManager.Inst.GetPeer(ps.ID);
-                if (p == null)
-                    return;
-                if (IsFastResponse) {
-                    EventPeerReceData?.Invoke(this, p);
-                }
-                else {
-                    // 这是之前的发出消息让工作线程发出对外的事件.
-                    // TODO: 目前实测发现这里如果这样使用会存在一个echo服务器返回消息顺序不一致的问题...
-                    // 如果所有的GetReceiveData()方法都由一个工作线程调用,那么不应该有先后顺序的问题啊,
-                    // 想不出来是为什么
-                    OnReceiveCompleted(p);
-                }
-            };
+            peer.peerSocket.EventError +=
+                (ps, eventError) => {
+                    Peer p = PeerManager.Inst.GetPeer(ps.ID);
+                    if (p == null)
+                        return;
+                    EventPeerError?.Invoke(this, p, PeerErrorType.SocketError);
+                    if (LogProxy.Info != null)
+                        LogProxy.Info($"客户端{p.ID}发生错误,删除它");
+                    PeerManager.Inst.DeletePeer(p.ID, PeerErrorType.SocketError); //关闭Token
+                };
+            peer.peerSocket.EventReceiveCompleted +=
+                (ps) => {
+                    // dx: 注意这里给它挂上这个事件,这样可以第一时间响应发出事件.
+                    // 但是注意这样的做法在数据量特别大的时候是有一定线程的压力的.
+                    // 如果走这里,那么不执行完事件函数不会开启下一次接收.
+                    Peer p = PeerManager.Inst.GetPeer(ps.ID);
+                    if (p == null)
+                        return;
+                    if (IsFastResponse) {
+                        EventPeerReceData?.Invoke(this, p);
+                    }
+                    else {
+                        // 这是之前的发出消息让工作线程发出对外的事件.
+                        // TODO: 目前实测发现这里如果这样使用会存在一个echo服务器返回消息顺序不一致的问题...
+                        // 如果所有的GetReceiveData()方法都由一个工作线程调用,那么不应该有先后顺序的问题啊,
+                        // 想不出来是为什么
+                        OnReceiveCompleted(p);
+                    }
+                };
         }
 
         /// <summary>
@@ -507,7 +528,8 @@ namespace DNET
             try {
                 Close();
             } catch (Exception e) {
-                LogProxy.LogWarning("DNServer.Dispose():异常 " + e.Message);
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("DNServer.Dispose():异常 " + e.Message);
             }
         }
 

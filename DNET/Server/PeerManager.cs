@@ -60,10 +60,11 @@ namespace DNET
                     // 这个事件,但是注意此时Socket还没有好.
                     EventAddPeer?.Invoke(peer.ID);
                 } catch (Exception e) {
-                    LogProxy.LogWarning($"PeerManager.AddPeer():执行事件EventAddToken异常: {e.Message}");
+                    if (LogProxy.Warning != null)
+                        LogProxy.Warning($"PeerManager.AddPeer():执行事件EventAddToken异常: {e.Message}");
                 }
-
-                LogProxy.LogDebug($"PeerManager.AddPeer():添加了一个客户端,当前服务器上有{_dictPeer.Count}个客户端");
+                if (LogProxy.Debug != null)
+                    LogProxy.Debug($"PeerManager.AddPeer():添加了一个客户端,当前服务器上有{_dictPeer.Count}个客户端");
                 return peer;
             }
             throw new InvalidOperationException($"添加客户端失败，ID {peer.ID} 已存在");
@@ -95,10 +96,11 @@ namespace DNET
                 try {
                     EventDeletePeer?.Invoke(id, errorType);
                 } catch (Exception e) {
-                    LogProxy.LogWarning($"PeerManager.DeletePeer(): 执行事件EventDeleteToken异常: {e.Message}");
+                    if (LogProxy.Warning != null)
+                        LogProxy.Warning($"PeerManager.DeletePeer(): 执行事件EventDeleteToken异常: {e.Message}");
                 }
-
-                LogProxy.LogDebug($"PeerManager.DeletePeer(): 关闭了一个客户端. 还有 {_dictPeer.Count} 个客户端，原因 {errorType}");
+                if (LogProxy.Debug != null)
+                    LogProxy.Debug($"PeerManager.DeletePeer(): 关闭了一个客户端. 还有{_dictPeer.Count}个客户端，原因 {errorType}");
             }
         }
 
@@ -110,8 +112,8 @@ namespace DNET
             if (_dictPeer.IsEmpty) {
                 return;
             }
-
-            LogProxy.Log("PeerManager.DeleteAllPeer(): 删除所有客户端！");
+            if (LogProxy.Info != null)
+                LogProxy.Info("PeerManager.DeleteAllPeer(): 删除所有客户端！");
             var peers = GetAllPeer();
             foreach (var peer in peers) {
                 DeletePeer(peer.ID, PeerErrorType.ClearAllToken);
@@ -128,7 +130,8 @@ namespace DNET
         {
             _dictPeer.TryGetValue(id, out var peer);
             if (peer == null)
-                LogProxy.LogError($"PeerManager.GetPeer():不存在id为{id}的Peer!");
+                if (LogProxy.Error != null)
+                    LogProxy.Error($"PeerManager.GetPeer():不存在id为{id}的Peer!");
             return peer;
         }
 

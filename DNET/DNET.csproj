@@ -56,7 +56,6 @@
     <Compile Include="Common\DNETExtension.cs" />
     <Compile Include="Data\ByteBuffer.cs" />
     <Compile Include="Data\ByteBufferPool.cs" />
-    <Compile Include="Common\BytesQueue.cs" />
     <Compile Include="Common\Config.cs" />
     <Compile Include="Protocol\Format.cs" />
     <Compile Include="Protocol\Header.cs" />

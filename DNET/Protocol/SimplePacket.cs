@@ -149,7 +149,8 @@ namespace DNET
                 }
                 if (found) {
                     if (i > 0) {
-                        LogProxy.LogWarning("SimplePacket.TrySyncToMagic():有丢弃数据!");
+                        if (LogProxy.Warning != null)
+                            LogProxy.Warning("SimplePacket.TrySyncToMagic():有丢弃数据!");
                         _unpackBuff.Erase(0, i);
                     }
                     return true;
@@ -159,7 +160,8 @@ namespace DNET
             // 没找到魔数，保留最后几个字节以备拼接
             int keep = Math.Min(3, _unpackBuff.Count);
             if (_unpackBuff.Count > keep) {
-                LogProxy.LogWarning($"SimplePacket.TrySyncToMagic():有丢弃数据{_unpackBuff.Count - keep}字节!");
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"SimplePacket.TrySyncToMagic():有丢弃数据{_unpackBuff.Count - keep}字节!");
                 _unpackBuff.Erase(0, _unpackBuff.Count - keep);
             }
             return false;

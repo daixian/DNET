@@ -45,7 +45,7 @@ namespace DNET.Test
             while (!_client.IsConnected && retry++ < 1000) {
                 Thread.Sleep(20);
                 if (retry % (1000 / 20) == 0) {
-                    LogProxy.Log($"{_client.Name} 尝试重连...");
+                    LogProxy.Info($"{_client.Name} 尝试重连...");
                     _client.Disconnect();
                     _client.Connect(ip, port); //重连一次
                 }
@@ -62,7 +62,7 @@ namespace DNET.Test
         /// <param name="immediately">是否立即发送</param>
         public bool SendAndCheckEcho(byte[] sendData, int batchCount, int repeatCount, bool immediately, float timeoutSeconds = 5f)
         {
-            LogProxy.Log($"{_client.Name} 发送数据并验证结果,数据长度:{sendData.Length}, 一批发送消息数:{batchCount}, 重复次数={repeatCount}, 立刻发送:{immediately}");
+            LogProxy.Info($"{_client.Name} 发送数据并验证结果,数据长度:{sendData.Length}, 一批发送消息数:{batchCount}, 重复次数={repeatCount}, 立刻发送:{immediately}");
             _client.Send($"客户端{_client.Name}准备开始发送数据...", Format.Text, SendCount, 0, true);
 
             for (int c = 0; c < repeatCount; c++) {
@@ -81,14 +81,14 @@ namespace DNET.Test
 
                 while (ReceiveCount != SendCount) {
                     if (DateTime.UtcNow - startTime > timeout) {
-                        LogProxy.LogError($"{_client.Name} 超时未收到全部消息：已收到 {ReceiveCount} 条,预期 {SendCount} 条,上次接收到现在:{_client.Status.TimeSinceLastReceived} ms");
-                        LogProxy.LogDebug($"{_client.Name} 待发送队列{_client.WaitSendMsgCount}");
+                        LogProxy.Error($"{_client.Name} 超时未收到全部消息：已收到 {ReceiveCount} 条,预期 {SendCount} 条,上次接收到现在:{_client.Status.TimeSinceLastReceived} ms");
+                        LogProxy.Debug($"{_client.Name} 待发送队列{_client.WaitSendMsgCount}");
                         _client.Send($"客户端{_client.Name}发生错误", Format.Text, SendCount, 0, true);
                         Thread.Sleep(1000); //这里等待一下看看现在服务器能否收到数据
                         var texts = _client.GetReceiveData();
                         if (texts != null && texts.Count > 0)
                             foreach (Message msg in texts) {
-                                LogProxy.LogDebug($"收到回复文本:{msg.Text}");
+                                LogProxy.Debug($"收到回复文本:{msg.Text}");
                             }
                         return false;
                         //Assert.Fail($"超时未收到全部消息：已收到 {ReceiveCount} 条，预期 {SendCount} 条");
@@ -119,7 +119,7 @@ namespace DNET.Test
                 }
             }
 
-            LogProxy.Log($"{_client.Name}测试结束,平均延迟{_client.RttStatis.Average:F3}ms,最大{_client.RttStatis.Max:F3}ms,最小{_client.RttStatis.Min:F3}ms");
+            LogProxy.Info($"{_client.Name}测试结束,平均延迟{_client.RttStatis.Average:F3}ms,最大{_client.RttStatis.Max:F3}ms,最小{_client.RttStatis.Min:F3}ms");
             return true;
         }
 

@@ -15,8 +15,8 @@ namespace DNET.Test
         {
             Config.IsAutoHeartbeat = false;
             Config.IsDebugLog = true;
-            LogProxy.LogWarning("123");
-            LogProxy.LogError("123");
+            LogProxy.Warning("123");
+            LogProxy.Error("123");
 
             DNClient.Inst.Close();
             DNServer.Inst.Close();

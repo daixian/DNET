@@ -37,10 +37,10 @@ namespace DNET.Test
                 sendData[i] = 0xFF;
 
             if (!client.SendAndCheckEcho(sendData, 50, 100, true)) {
-                LogProxy.LogError($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
+                LogProxy.Error($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
             }
             else {
-                LogProxy.Log($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");
+                LogProxy.Info($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");
             }
             client.Close();
             server.Stop();
@@ -75,7 +75,7 @@ namespace DNET.Test
                 sendData[i] = 0xFF;
 
             if (!client.SendAndCheckEcho(sendData, 500, 100, true)) {
-                LogProxy.LogError($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
+                LogProxy.Error($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
 
                 // 失败之后重新连接个看看
                 client.Close();
@@ -83,10 +83,10 @@ namespace DNET.Test
                 client.Client.Send("这是失败之后重新创建一个客户端连接尝试发个消息");
                 Thread.Sleep(1);
                 var msgs = client.Client.GetReceiveData();
-                LogProxy.Log($"Client.GetReceiveData()的Count={msgs?.Count}");
+                LogProxy.Info($"Client.GetReceiveData()的Count={msgs?.Count}");
             }
             else {
-                LogProxy.Log($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");
+                LogProxy.Info($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");
             }
             client.Close();
             server.Stop();
@@ -119,10 +119,10 @@ namespace DNET.Test
                 sendData[i] = 0xFF;
 
             if (!client.SendAndCheckEcho(sendData, 500, 100, false)) {
-                LogProxy.LogError($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
+                LogProxy.Error($"失败,当前ServerReceiveCount={server.ServerReceiveCount}");
             }
             else {
-                LogProxy.Log($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");
+                LogProxy.Info($"成功,当前ServerReceiveCount={server.ServerReceiveCount}");
             }
 
             Assert.That(client.ReceiveCount, Is.EqualTo(client.SendCount));
@@ -164,17 +164,17 @@ namespace DNET.Test
 
                 results[i] = clients[i].SendAndCheckEcho(sendData, 500, 10, true, timeoutSeconds: 30);
                 if (!results[i]) {
-                    LogProxy.LogError($"客户端 {i} 失败, ServerReceiveCount={server.ServerReceiveCount}");
+                    LogProxy.Error($"客户端 {i} 失败, ServerReceiveCount={server.ServerReceiveCount}");
 
                     clients[i].Close();
                     clients[i].Connect("127.0.0.1", 21024);
                     clients[i].Client.Send($"客户端{i}失败后重新发送一次");
                     Thread.Sleep(1);
                     var msgs = clients[i].Client.GetReceiveData();
-                    LogProxy.Log($"客户端{i} GetReceiveData Count={msgs?.Count}");
+                    LogProxy.Info($"客户端{i} GetReceiveData Count={msgs?.Count}");
                 }
                 else {
-                    LogProxy.Log($"客户端 {i} 成功, ServerReceiveCount={server.ServerReceiveCount}");
+                    LogProxy.Info($"客户端 {i} 成功, ServerReceiveCount={server.ServerReceiveCount}");
                 }
             });
 
@@ -227,17 +227,17 @@ namespace DNET.Test
 
                     results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true, timeoutSeconds: 60);// 有的电脑卡,超时搞长点
                     if (!results[idx]) {
-                        LogProxy.LogError($"客户端 {idx} 失败, ServerReceiveCount={server.ServerReceiveCount}");
+                        LogProxy.Error($"客户端 {idx} 失败, ServerReceiveCount={server.ServerReceiveCount}");
 
                         client.Close();
                         client.Connect("127.0.0.1", 21024);
                         client.Client.Send($"客户端{idx}失败后重新发送一次");
                         Thread.Sleep(1);
                         var msgs = client.Client.GetReceiveData();
-                        LogProxy.Log($"客户端{idx} GetReceiveData Count={msgs?.Count}");
+                        LogProxy.Info($"客户端{idx} GetReceiveData Count={msgs?.Count}");
                     }
                     else {
-                        LogProxy.Log($"客户端 {idx} 成功, ServerReceiveCount={server.ServerReceiveCount}");
+                        LogProxy.Info($"客户端 {idx} 成功, ServerReceiveCount={server.ServerReceiveCount}");
                     }
                 });
 
