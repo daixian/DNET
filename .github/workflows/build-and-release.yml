@@ -1,0 +1,54 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build + Release (.NET Framework 4.6.2)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: 'latest'
+
+      - name: Restore NuGet packages
+        run: nuget restore DNet.sln
+
+      - name: Build solution
+        run: msbuild DNet.sln /p:Configuration=Release
+
+      - name: Run NUnit Tests
+        run: |
+          $testDll = "DNET.Test\bin\Release\DNET.Test.dll"
+          if (Test-Path $testDll) {
+            vstest.console.exe $testDll
+          } else {
+            Write-Error "Test DLL not found: $testDll"
+          }
+
+      - name: Zip release output
+        run: |
+          mkdir output
+          Copy-Item -Recurse -Path DNET\bin\Release\* -Destination output
+          Compress-Archive -Path output\* -DestinationPath DNET-Build.zip
+
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DNET-Release-Zip
+          path: DNET-Build.zip
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DNET-Build.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

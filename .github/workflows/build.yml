@@ -1,0 +1,36 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build and Test (.NET Framework 4.6.2)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: 'latest'
+
+      - name: Restore NuGet packages
+        run: nuget restore DNet.sln
+
+      - name: Build solution
+        run: msbuild DNet.sln /p:Configuration=Release
+
+      - name: Run NUnit Tests
+        run: |
+          $testDll = "DNET.Test\bin\Release\DNET.Test.dll"
+          if (Test-Path $testDll) {
+            vstest.console.exe $testDll
+          } else {
+            Write-Error "Test DLL not found: $testDll"
+          }
