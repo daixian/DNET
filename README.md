@@ -5,12 +5,13 @@
 [![Release](https://github.com/daixian/DNET/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/daixian/DNET/actions/workflows/build-and-release.yml)
 
 
-一个简单的TCP通信库，包含了客户端和服务端，可给Unity使用。可以任意对接自定义的的TCP分包协议。
- 
+一个简单的TCP通信库，包含了客户端和服务端，可给Unity3D使用。里面有一个自己规定的分包的协议。
 
-## 注意点
+
+## 需要实现的特性备忘
 1. 实际调用发送IO的时刻要整合队列中的所有消息,一次性发送出去.
 2. 如果一次性发送的需要的buffer长度过长,那么就停止从队列中提取.
+3. 对各种byte[]数组和网络Message使用了对象池以减少GC.
 
 
 ## 测试
