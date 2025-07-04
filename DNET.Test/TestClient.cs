@@ -112,6 +112,8 @@ namespace DNET.Test
                     }
                 }
             }
+
+            LogProxy.Log($"{_client.Name}测试结束,平均延迟{_client.RttStatis.Average:F3}ms,最大{_client.RttStatis.Max:F3}ms,最小{_client.RttStatis.Min:F3}ms");
             return true;
         }
 

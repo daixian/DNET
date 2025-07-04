@@ -8,13 +8,23 @@
         /// <summary>
         /// 是否打印调试型的日志.
         /// </summary>
-        public static bool IsDebugLog = false;
+        public static bool IsDebugLog { get; set; } = false;
+
+        /// <summary>
+        /// 是否开启对Peer的统计信息
+        /// </summary>
+        public static bool EnablePeerStatistics { get; set; } = true;
+
+        /// <summary>
+        /// 是否开启对服务器往返延迟的RTT的统计信息(需要发送带有事务ID的消息)
+        /// </summary>
+        public static bool EnableRttStatistics { get; set; } = true;
 
         /// <summary>
         /// 自动心跳包。
         /// 只有当它为true的时候，客户端才会在timer中自动发送，服务器才会在timer中检查离线。
         /// </summary>
-        public static bool IsAutoHeartbeat = true;
+        public static bool IsAutoHeartbeat { get; set; } = true;
 
         /// <summary>
         /// 心跳包的发送间隔时间（ms）,目前默认是5秒

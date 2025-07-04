@@ -77,7 +77,12 @@ namespace DNET
         /// <summary>
         /// 它的状态.
         /// </summary>
-        public PeerStatus Status => _peerSocket?.peerStatus;
+        public PeerStatus Status => _peerSocket?.Status;
+
+        /// <summary>
+        /// 往返延迟统计(它包括服务器的CPU执行时间),在发送带事务的类型的消息的时候，会记录延迟
+        /// </summary>
+        public RttStatistics RttStatis => _peerSocket?.RttStatis;
 
         /// <summary>
         /// 等待发送的消息数量
@@ -443,6 +448,7 @@ namespace DNET
                 // dx: 如果有时候正在合并发送数据,那么会刚好触发,提起发送一部分出去.这是正常的
                 //LogProxy.LogWarning($"DNClient.DoTimerCheckStatus():{Name}这里TryStartSend成功了,这是不太应该的");
             }
+
             if (Config.IsAutoHeartbeat) {
                 //如果时间已经超过了那么就发送心跳包
                 if (Status.TimeSinceLastSend > Config.HeartBeatSendTime) {
@@ -455,6 +461,10 @@ namespace DNET
                     LogProxy.LogWarning($"DNClient.DoTimerCheckStatus():{Name}长时间没有收到心跳包，判断可能已经掉线！");
                     Disconnect(); //关闭连接?
                 }
+            }
+
+            if (Config.EnablePeerStatistics) {
+                _peerSocket.Status.UpdateStatus();
             }
         }
 

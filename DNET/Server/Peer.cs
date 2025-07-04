@@ -78,7 +78,12 @@ namespace DNET
         /// <summary>
         /// 它的状态
         /// </summary>
-        public PeerStatus Status => peerSocket.peerStatus;
+        public PeerStatus Status => peerSocket.Status;
+
+        /// <summary>
+        /// 往返延迟统计(它包括服务器的CPU执行时间),在发送带事务的类型的消息的时候，会记录延迟
+        /// </summary>
+        public RttStatistics RttStatis => peerSocket.RttStatis;
 
         /// <summary>
         /// 等待发送消息队列长度

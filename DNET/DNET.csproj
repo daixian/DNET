@@ -50,6 +50,7 @@
     <Compile Include="Peer\ConnectionContext.cs" />
     <Compile Include="Client\DNClient.cs" />
     <Compile Include="Client\ErrorType.cs" />
+    <Compile Include="Peer\RttStatistics.cs" />
     <Compile Include="Peer\PeerStatus.cs" />
     <Compile Include="Peer\PeerSocket.cs" />
     <Compile Include="Common\DNETExtension.cs" />

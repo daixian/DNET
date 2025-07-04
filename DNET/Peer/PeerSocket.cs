@@ -116,7 +116,12 @@ namespace DNET
         /// <summary>
         /// 状态统计
         /// </summary>
-        public PeerStatus peerStatus { get; } = new PeerStatus();
+        public PeerStatus Status { get; } = new PeerStatus();
+
+        /// <summary>
+        /// 往返延迟统计(它包括服务器的CPU执行时间),在发送带事务的类型的消息的时候，会记录延迟
+        /// </summary>
+        public RttStatistics RttStatis { get; } = new RttStatistics();
 
         /// <summary>
         /// Remote的IP
@@ -178,6 +183,9 @@ namespace DNET
             try {
                 ByteBuffer packedData = _packet.Pack(data, offset, count, format, txrId, eventType);
                 _sendQueue.Enqueue(packedData);
+                if (Config.EnableRttStatistics && txrId != 0) {
+                    RttStatis.RecordSent(txrId);//记录发送
+                }
             } catch (Exception e) {
                 LogProxy.LogWarning($"PeerSocket.AddSendData:[{Name}] 异常 {e}");
             }
@@ -224,7 +232,7 @@ namespace DNET
                 socket.ReceiveTimeout = 0;
 
                 PrepareSocketAsyncEventArgs();
-                peerStatus.Reset();
+                Status.Reset();
 
                 if (IsConnected) {
                     PrepareReceive(_receiveArgs); // 启动接收
@@ -282,7 +290,7 @@ namespace DNET
         {
             PrepareSocketAsyncEventArgs();
 
-            peerStatus.Reset();
+            Status.Reset();
 
             SocketAsyncEventArgs connectArgs = new SocketAsyncEventArgs(); //创建一个SocketAsyncEventArgs类型
             connectArgs.UserToken = new ConnectionContext {
@@ -443,6 +451,8 @@ namespace DNET
 
             // 标记发送结束
             Interlocked.Exchange(ref _isSending, 0);
+
+            RttStatis.Reset();
         }
 
         #endregion
@@ -498,7 +508,7 @@ namespace DNET
                     if (Config.IsDebugLog)
                         LogProxy.LogDebug($"SocketClient.OnSendCompleted():[{Name}] 发送成功 发送数据字节数 {args.BytesTransferred}");
                     // 这是多条消息合并发送的,所以这里要记录
-                    peerStatus.RecordSentMessage(context.curSendMsgCount, args.BytesTransferred);
+                    Status.RecordSentMessage(context.curSendMsgCount, args.BytesTransferred);
 
                     //执行事件
                     if (EventSendCompleted != null) {
@@ -547,14 +557,20 @@ namespace DNET
                 // 写入当前接收的数据(这里等于说是由.net线程池的接收线程进行了解包)
                 var msgList = _packet.Unpack(bytes, offset, length);
                 if (msgList != null) {
-                    msgList.ForEach(msg => { _receQueue.Enqueue(msg); });
+                    msgList.ForEach(msg => {
+                        _receQueue.Enqueue(msg);
+                        // 这里解析到了消息, 执行RTT统计
+                        if (Config.EnableRttStatistics && msg.TxrId != 0) {
+                            RttStatis.RecordReceived(msg.TxrId);//记录响应
+                        }
+                    });
                 }
                 int msgCount = msgList == null ? 0 : msgList.Count;
                 msgList.Recycle();// list列表可以回收
                 // curRecvBuffer.Recycle(); //解包结束,回收接收缓存区
 
                 // 记录接收状态
-                peerStatus.RecordReceivedMessage(msgCount, length);
+                Status.RecordReceivedMessage(msgCount, length);
 
                 //如果确实收到了一条消息.执行事件
                 if (msgCount > 0 && EventReceiveCompleted != null) {

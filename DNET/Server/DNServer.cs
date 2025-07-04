@@ -369,6 +369,9 @@ namespace DNET
                         peer.Send(null, 0, 0, Format.Heart); //发个心跳包
                     }
                 }
+                if (Config.EnablePeerStatistics) {
+                    peer.Status.UpdateStatus();
+                }
             }
             ListPool<Peer>.Shared.Recycle(peers);
         }

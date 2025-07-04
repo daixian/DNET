@@ -69,6 +69,15 @@ namespace DNET
 
             LastMsgSendTickTime = Stopwatch.GetTimestamp();
             LastMsgReceTickTime = Stopwatch.GetTimestamp();
+
+            // 速度统计字段
+            _lastSendTickTime = LastMsgSendTickTime;
+            _lastSendBytesCount = 0;
+            _lastRecvTickTime = LastMsgReceTickTime;
+            _lastRecvBytesCount = 0;
+
+            SendBytesPerSecond = 0;
+            ReceiveBytesPerSecond = 0;
         }
 
         /// <summary>
@@ -96,5 +105,73 @@ namespace DNET
 
             LastMsgReceTickTime = Stopwatch.GetTimestamp();
         }
+
+        #region 速度统计
+
+        private long _lastSendBytesCount;
+        private long _lastSendTickTime;
+
+        private long _lastRecvBytesCount;
+        private long _lastRecvTickTime;
+
+        /// <summary>
+        /// 发送速度,字节/秒
+        /// </summary>
+        public double SendBytesPerSecond { get; private set; }
+
+        // <summary>
+        /// 接收速度,字节/秒
+        /// </summary>
+        public double ReceiveBytesPerSecond { get; private set; }
+
+        /// <summary>
+        /// 发送速度的文本
+        /// </summary>
+        public string SendBytesPerSecondText => FormatSpeed(SendBytesPerSecond);
+
+        /// <summary>
+        /// 接收速度的文本
+        /// </summary>
+        public string ReceiveBytesPerSecondText => FormatSpeed(ReceiveBytesPerSecond);
+
+        #endregion
+
+        /// <summary>
+        /// 统计信息,从上一次调用 UpdateStatus() 到这一次之间的平均字节/秒速率
+        /// </summary>
+        public void UpdateStatus()
+        {
+            long now = Stopwatch.GetTimestamp();
+
+            // 发送速率
+            long sendBytesDelta = SendBytesCount - _lastSendBytesCount;
+            double sendTimeDelta = (now - _lastSendTickTime) / (double)Stopwatch.Frequency;
+            SendBytesPerSecond = sendTimeDelta > 0 ? sendBytesDelta / sendTimeDelta : 0;
+
+            _lastSendBytesCount = SendBytesCount;
+            _lastSendTickTime = now;
+
+            // 接收速率
+            long recvBytesDelta = ReceiveBytesCount - _lastRecvBytesCount;
+            double recvTimeDelta = (now - _lastRecvTickTime) / (double)Stopwatch.Frequency;
+            ReceiveBytesPerSecond = recvTimeDelta > 0 ? recvBytesDelta / recvTimeDelta : 0;
+
+            _lastRecvBytesCount = ReceiveBytesCount;
+            _lastRecvTickTime = now;
+        }
+
+        /// <summary>
+        /// 字节每秒发送速率
+        /// </summary>
+        /// <param name="bps"></param>
+        /// <returns></returns>
+        public static string FormatSpeed(double bps)
+        {
+            if (bps > 1024 * 1024) return $"{bps / (1024 * 1024):F2} MB/s";
+            if (bps > 1024) return $"{bps / 1024:F2} KB/s";
+            return $"{bps:F2} B/s";
+        }
+
+
     }
 }
