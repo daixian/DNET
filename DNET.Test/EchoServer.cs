@@ -45,7 +45,7 @@ namespace DNET.Test
                 var msgList = peer.GetReceiveData();
                 if (msgList == null || msgList.Count == 0) return;
 
-                foreach (Message msg in msgList) {
+                foreach (var msg in msgList) {
                     // 这是小线程的回调事件,server不应该sleep
                     // while (peer.IsSendQueueOverflow())
                     //     Thread.Sleep(1);

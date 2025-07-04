@@ -32,24 +32,26 @@ namespace SimpleSever
 
         bool isReSend;
 
-        private void OnTokenReceData(Peer peer)
+        private void OnTokenReceData(DNServer server, Peer peer)
         {
-            var datas = peer.GetReceiveData();
-            if (datas == null) {
-                return;
-            }
+            var msgList = peer.GetReceiveData();
+            if (msgList == null || msgList.Count == 0) return;
 
-            for (int i = 0; i < datas.Count; i++) {
-                var msg = datas[i];
-                if (isReSend) //如果CheckBox选择了要回发
-                {
-                    //直接回发
-                    DNServer.Inst.Send(peer, msg.data.buffer, 0, msg.data.Length);
+            foreach (var msg in msgList) {
+                // 这是小线程的回调事件,server不应该sleep
+                // while (peer.IsSendQueueOverflow())
+                //     Thread.Sleep(1);
+
+                if (msg.Format == Format.Text) {
+                    LogProxy.Log($"收到文本数据:{msg.Text}");
                 }
-                //得到消息类型然后处理
-                //int pType = BitConverter.ToInt32(data, 0);
-                //TypeRegister.GetInstance().Dispatch(token, pType, data, sizeof(int), data.Length - sizeof(int));
+                // 回发接收到的数据
+                peer.AddSendData(msg.data.buffer, 0, msg.data.Length,
+                    format: msg.Format,
+                    txrId: msg.TxrId);
             }
+            server.TryStartSend(peer); // 此时再合并发送.
+            msgList.RecycleAllItems();
         }
 
         private void checkBox1_CheckedChanged(object sender, EventArgs e)
