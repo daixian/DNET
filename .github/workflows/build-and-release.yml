@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 必须拉取完整历史，否则 git describe 无法正常工作
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
@@ -24,26 +26,6 @@ jobs:
 
       - name: Build solution
         run: msbuild DNet.sln /p:Configuration=Release
-
-      # - name: Run NUnit Tests
-      #   run: |
-      #     $testDll = "DNET.Test\bin\Release\DNET.Test.dll"
-      #     if (-Not (Test-Path $testDll)) {
-      #       Write-Error "Test DLL not found: $testDll"
-      #       exit 1
-      #     }
-
-      #     # 查找 vstest.console.exe
-      #     $vsTestPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" `
-      #       -latest -products * -requires Microsoft.VisualStudio.PackageGroup.TestTools.Core `
-      #       -find **\vstest.console.exe
-
-      #     if (-not (Test-Path $vsTestPath)) {
-      #       Write-Error "vstest.console.exe not found"
-      #       exit 1
-      #     }
-
-      #     & "$vsTestPath" "$testDll"
 
       - name: Zip release output
         run: |
@@ -64,20 +46,20 @@ jobs:
         run: |
           $lastTag = git describe --tags --abbrev=0 2>$null
           if ([string]::IsNullOrWhiteSpace($lastTag)) {
-            Write-Host "⚠️ 没有找到 tag,使用完整提交历史"
+            Write-Host "⚠️ 没有找到 tag, 使用完整提交历史"
             $log = git log --pretty=format:"%h %s"
           } else {
             Write-Host "📝 使用从 $lastTag 到 HEAD 的提交记录"
             $log = git log --pretty=format:"%h %s" "$lastTag..HEAD"
           }
 
-          $output = @"
-          changelog<<EOF
-          $log
-          EOF
-          "@
+          Write-Host "----- changelog start -----"
+          Write-Host $log
+          Write-Host "----- changelog end -----"
 
-          Add-Content -Path $env:GITHUB_OUTPUT -Value $output
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "changelog<<EOF"
+          $log.Split("`n") | ForEach-Object { Add-Content -Path $env:GITHUB_OUTPUT -Value $_ }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "EOF"
 
       # 🔽 发布 Release 并附带变更日志
       - name: Publish GitHub Release
