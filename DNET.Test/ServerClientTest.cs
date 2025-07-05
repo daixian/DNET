@@ -202,7 +202,73 @@ namespace DNET.Test
             DNServer.Inst.Close();
 
             EchoServer server = new EchoServer(DNServer.Inst);
-            server.Start(21024);
+            server.Start(21024, isFastResponse: false);
+            Assert.That(DNServer.Inst.IsStarted);
+
+            int clientCount = 8;
+            Random rand = new Random();
+            int sendDataLength = rand.Next(1, 256);
+            byte[] sendData = new byte[sendDataLength];
+            for (int i = 0; i < sendData.Length; i++)
+                sendData[i] = 0xFF;
+
+            TestClient[] clients = new TestClient[clientCount];
+            bool[] results = new bool[clientCount];
+
+            var tasks = new List<Task>();
+
+            for (int i = 0; i < clientCount; i++) {
+                int idx = i; // 捕获变量
+                var task = Task.Run(() => {
+                    var client = new TestClient(new DNClient() { Name = $"Client{idx}" });
+                    clients[idx] = client;
+
+                    client.Connect("127.0.0.1", 21024);
+
+                    results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true, timeoutSeconds: 60);// 有的电脑卡,超时搞长点
+                    if (!results[idx]) {
+                        LogProxy.Error($"客户端 {idx} 失败, ServerReceiveCount={server.ServerReceiveCount}");
+
+                        client.Close();
+                        client.Connect("127.0.0.1", 21024);
+                        client.Client.Send($"客户端{idx}失败后重新发送一次");
+                        Thread.Sleep(1);
+                        var msgs = client.Client.GetReceiveData();
+                        LogProxy.Info($"客户端{idx} GetReceiveData Count={msgs?.Count}");
+                    }
+                    else {
+                        LogProxy.Info($"客户端 {idx} 成功, ServerReceiveCount={server.ServerReceiveCount}");
+                    }
+                });
+
+                tasks.Add(task);
+            }
+
+            Task.WaitAll(tasks.ToArray());
+
+            foreach (var client in clients)
+                client.Close();
+
+            server.Stop();
+
+            for (int i = 0; i < clientCount; i++) {
+                Assert.That(clients[i].ReceiveCount, Is.EqualTo(clients[i].SendCount), $"客户端 {i} 的接收数量与发送不一致");
+            }
+        }
+
+        /// <summary>
+        /// 测试服务器端使用isFastResponse=true来做
+        /// </summary>
+        [Test]
+        public void TestMethod_ServerClient8C_Parallel_Fast()
+        {
+            Config.IsAutoHeartbeat = false;
+            Config.IsDebugMode = false;
+            DNClient.Inst.Close();
+            DNServer.Inst.Close();
+
+            EchoServer server = new EchoServer(DNServer.Inst);
+            server.Start(21024, isFastResponse: true);
             Assert.That(DNServer.Inst.IsStarted);
 
             int clientCount = 8;

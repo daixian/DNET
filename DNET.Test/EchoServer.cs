@@ -39,7 +39,7 @@ namespace DNET.Test
         /// </summary>
         /// <param name="port">监听的端口号</param>
         /// <param name="isFastResponse"></param>
-        public void Start(int port, bool isFastResponse = false)
+        public void Start(int port, bool isFastResponse = true)
         {
             // server.Close();
 
