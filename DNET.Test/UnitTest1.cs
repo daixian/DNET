@@ -14,7 +14,7 @@ namespace DNET.Test
         public void TestMethod_Log()
         {
             Config.IsAutoHeartbeat = false;
-            Config.IsDebugLog = true;
+            Config.IsDebugMode = true;
             LogProxy.Warning("123");
             LogProxy.Error("123");
 

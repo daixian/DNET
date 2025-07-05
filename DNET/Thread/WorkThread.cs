@@ -82,6 +82,9 @@ namespace DNET
         /// </summary>
         private void Loop()
         {
+            if (LogProxy.Debug != null)
+                LogProxy.Debug($"WorkThread.Loop():线程[{Thread.CurrentThread.Name}]开始工作");
+
             while (_running) {
                 _signal.WaitOne(); // 等待信号唤醒
                 ThreadAnalyzer.Inst.BeginWork(); // 开始工作统计

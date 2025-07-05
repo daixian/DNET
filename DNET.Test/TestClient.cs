@@ -63,12 +63,12 @@ namespace DNET.Test
         public bool SendAndCheckEcho(byte[] sendData, int batchCount, int repeatCount, bool immediately, float timeoutSeconds = 5f)
         {
             LogProxy.Info($"{_client.Name} 发送数据并验证结果,数据长度:{sendData.Length}, 一批发送消息数:{batchCount}, 重复次数={repeatCount}, 立刻发送:{immediately}");
-            _client.Send($"客户端{_client.Name}准备开始发送数据...", Format.Text, SendCount, 0, true);
+            // _client.Send($"客户端{_client.Name}准备开始发送数据...", Format.Text, SendCount, 0, true);
 
             for (int c = 0; c < repeatCount; c++) {
                 for (int i = 0; i < batchCount; i++) {
-                    while (_client.IsSendQueueOverflow())
-                        Thread.Sleep(1);
+                    // while (_client.IsSendQueueOverflow())
+                    // Thread.Sleep(1);
 
                     _client.Send(sendData, 0, sendData.Length, Format.Raw, SendCount, 0, immediately);
                     SendCount++;
@@ -78,7 +78,7 @@ namespace DNET.Test
                 // 5秒超时
                 DateTime startTime = DateTime.UtcNow;
                 TimeSpan timeout = TimeSpan.FromSeconds(timeoutSeconds);
-
+                int errorCount = 0;
                 while (ReceiveCount != SendCount) {
                     if (DateTime.UtcNow - startTime > timeout) {
                         LogProxy.Error($"{_client.Name} 超时未收到全部消息：已收到 {ReceiveCount} 条,预期 {SendCount} 条,上次接收到现在:{_client.Status.TimeSinceLastReceived} ms");
@@ -101,13 +101,16 @@ namespace DNET.Test
                                 continue;
                             Assert.That(msg.data.Length == sendData.Length);
 
+                            if (msg.TxrId != ReceiveCount) {
+                                errorCount++;
+                                LogProxy.Error($"{_client.Name}错误 {msg.TxrId}/{ReceiveCount}  发送/接收:{_client.Status.SendMessageCount}/{_client.Status.ReceiveMessageCount}");
+                            }
                             // 验证事务id号是不是按照自己发送的顺序递增的
-                            Assert.That(msg.TxrId, Is.EqualTo(ReceiveCount),
-                                $"[ASSERT FAILED] 客户端{_client.Name}检查TxrId错误: actual = {msg.TxrId}, expected = {ReceiveCount},总的SendCount={SendCount},msgList.Count={msgList.Count},待发送队列{_client.WaitSendMsgCount}");
+                            // Assert.That(msg.TxrId, Is.EqualTo(ReceiveCount),
+                            //     $"[ASSERT FAILED] 客户端{_client.Name}检查TxrId错误: actual = {msg.TxrId}, expected = {ReceiveCount},总的SendCount={SendCount},msgList.Count={msgList.Count},待发送队列{_client.WaitSendMsgCount}");
 
                             for (int j = 0; j < msg.data.Length; j++)
                                 Assert.That(msg.data.buffer[j] == sendData[j]);
-
 
                             ReceiveCount++;
                         }
@@ -117,6 +120,7 @@ namespace DNET.Test
                         Thread.Sleep(1);
                     }
                 }
+                Assert.IsTrue(errorCount == 0, $"{_client.Name}接收错误: {errorCount}");
             }
 
             LogProxy.Info($"{_client.Name}测试结束,平均延迟{_client.RttStatis.Average:F3}ms,最大{_client.RttStatis.Max:F3}ms,最小{_client.RttStatis.Min:F3}ms");

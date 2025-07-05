@@ -83,7 +83,7 @@ namespace DNET
 
             try {
                 if (LogProxy.Debug != null)
-                    LogProxy.Debug("DNServer.Start():服务器启动...");
+                    LogProxy.Debug("DNServer.Start():服务器尝试启动...");
                 _port = port;
 
                 PeerManager.Inst.DeleteAllPeer();
@@ -174,8 +174,8 @@ namespace DNET
                     EventPeerReceData = null;
                 }
 
-                // 重置设置
-                IsFastResponse = true;
+                // 不重置算了
+                // IsFastResponse = true;
             }
         }
 
@@ -439,14 +439,14 @@ namespace DNET
         /// <param name="msg"></param>
         private void DoReceive(SwMessage msg)
         {
+            Peer peer = msg.peer;
             try {
-                Peer peer = msg.peer;
                 // 现在没有线程的解包,所以不需要工作
                 // 发出数据事件(这里是否要去判断一下有没有未处理消息才发送?)
                 EventPeerReceData?.Invoke(this, peer);
             } catch (Exception e) {
-                if (LogProxy.Warning != null)
-                    LogProxy.Warning($"DNServer.DoReceive()：异常 {e}");
+                if (LogProxy.Error != null)
+                    LogProxy.Error($"DNServer.DoReceive(): {peer.Name}执行事件 EventPeerReceData 异常 {e}");
             }
         }
 
@@ -462,7 +462,7 @@ namespace DNET
             peer.peerSocket.SetAcceptSocket(acceptSocket); // 这里会初始化args,会使用name
             peer.peerSocket.EventError +=
                 (ps, eventError) => {
-                    Peer p = PeerManager.Inst.GetPeer(ps.ID);
+                    Peer p = ps.User as Peer;
                     if (p == null)
                         return;
                     EventPeerError?.Invoke(this, p, PeerErrorType.SocketError);
@@ -475,11 +475,16 @@ namespace DNET
                     // dx: 注意这里给它挂上这个事件,这样可以第一时间响应发出事件.
                     // 但是注意这样的做法在数据量特别大的时候是有一定线程的压力的.
                     // 如果走这里,那么不执行完事件函数不会开启下一次接收.
-                    Peer p = PeerManager.Inst.GetPeer(ps.ID);
+                    Peer p = ps.User as Peer;
                     if (p == null)
                         return;
                     if (IsFastResponse) {
-                        EventPeerReceData?.Invoke(this, p);
+                        try {
+                            EventPeerReceData?.Invoke(this, p);
+                        } catch (Exception e) {
+                            if (LogProxy.Error != null)
+                                LogProxy.Error($"DNServer:{p.Name}执行事件 EventPeerReceData 异常 {e}");
+                        }
                     }
                     else {
                         // 这是之前的发出消息让工作线程发出对外的事件.

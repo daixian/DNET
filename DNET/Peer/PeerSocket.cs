@@ -79,9 +79,29 @@ namespace DNET
         private int _isSending;
 
         /// <summary>
+        /// 是否正在接收数据,同时只能接收一个数据
+        /// </summary>
+        private int _isReceiving;
+
+        /// <summary>
         /// 上次启动发送的时间戳
         /// </summary>
-        private Stopwatch _sendWatch = new Stopwatch();
+        private readonly Stopwatch _sendWatch = new Stopwatch();
+
+        /// <summary>
+        /// 一直递增的序号,在加入发送队列的时刻记录
+        /// </summary>
+        private int _sendMsgId = 0;
+
+        /// <summary>
+        /// 在从发送队列提取的时刻用来比对发送消息的序号
+        /// </summary>
+        private int _sendMsgId2 = 0;
+
+        /// <summary>
+        /// 用来对比接收的消息序号
+        /// </summary>
+        private int _receMsgId = 0;
 
         /// <summary>
         /// 它其实代表一个客户端,所以经常有ID的需求
@@ -187,6 +207,8 @@ namespace DNET
             }
             try {
                 ByteBuffer packedData = _packet.Pack(data, offset, count, format, txrId, eventType);
+                packedData.buffer.SetHeaderId(_sendMsgId++); //记录id
+
                 _sendQueue.Enqueue(packedData);
                 if (Config.EnableRttStatistics && txrId != 0) {
                     RttStatis.RecordSent(txrId); //记录发送
@@ -213,11 +235,20 @@ namespace DNET
             if (_receQueue.IsEmpty)
                 return null;
 
-            List<Message> messages = ListPool<Message>.Shared.Get();
-            while (_receQueue.TryDequeue(out Message msg)) {
-                messages.Add(msg);
+            // 虽然队列是线程安全的,但是要保证消息的顺序性,所以这里仍然加锁
+            lock (_receQueue) {
+                List<Message> messages = ListPool<Message>.Shared.Get();
+                while (_receQueue.TryDequeue(out Message msg)) {
+                    messages.Add(msg);
+                }
+
+                // 由于及其微小的概率,queue.IsEmpty和锁不是同步,所以这里最终再次判断一下
+                if (messages.Count == 0) {
+                    ListPool<Message>.Shared.Recycle(messages);
+                    messages = null;
+                }
+                return messages;
             }
-            return messages;
         }
 
         /// <summary>
@@ -410,6 +441,12 @@ namespace DNET
             }
 
             while (_sendQueue.TryDequeue(out ByteBuffer item)) {
+                int curID = item.buffer.GetHeaderId();
+                if (_sendMsgId2 != curID) {
+                    if (LogProxy.Error != null)
+                        LogProxy.Error($"SocketClient.TryStartSend():[{Name}] 提取消息的序号错误! {curID}/{_sendMsgId2}");
+                }
+                _sendMsgId2++;
                 buffers.Add(item);
                 if (item.Length == 0) {
                     // 这里是不应该进入的情况,打这个日志用来调试错误
@@ -482,6 +519,9 @@ namespace DNET
             Interlocked.Exchange(ref _isSending, 0);
 
             RttStatis.Reset();
+
+            _sendMsgId = 0;
+            _sendMsgId2 = 0;
         }
 
         #endregion
@@ -538,7 +578,7 @@ namespace DNET
                     _sendFailData = context.sendBuffer;
                 }
                 else {
-                    if (Config.IsDebugLog && LogProxy.Debug != null)
+                    if (Config.IsDebugMode && LogProxy.Debug != null)
                         LogProxy.Debug($"SocketClient.OnSendCompleted():[{Name}] 发送成功 发送数据字节数 {args.BytesTransferred}");
                     // 这是多条消息合并发送的,所以这里要记录
                     Status.RecordSentMessage(context.curSendMsgCount, args.BytesTransferred);
@@ -586,14 +626,26 @@ namespace DNET
                 int offset = args.Offset;
                 int length = args.BytesTransferred;
 
-                if (Config.IsDebugLog && LogProxy.Debug != null)
-                    LogProxy.Debug($"SocketClient.OnReceiveCompleted():[{Name}] 接收成功 接收数据字节数 {length}");
+                if (Config.IsDebugMode && LogProxy.Debug != null)
+                    LogProxy.Debug($"PeerSocket.OnReceiveCompleted():[{Name}] 接收成功 接收数据字节数 {length}");
 
                 // 写入当前接收的数据(这里等于说是由.net线程池的接收线程进行了解包)
                 var msgList = _packet.Unpack(bytes, offset, length);
                 if (msgList != null) {
                     msgList.ForEach(msg => {
                         _receQueue.Enqueue(msg);
+
+                        // 检查接收到的消息ID,它应该是按顺序递增的
+                        if (_receMsgId != msg.Id) {
+                            // 这是真正确保每条消息都是按顺序发送接收成功了
+                            if (LogProxy.Error != null)
+                                LogProxy.Error($"PeerSocket.OnReceiveCompleted():[{Name}] 接收消息ID顺序错误: {msg.Id}/{_receMsgId}");
+                        }
+                        _receMsgId++; //它其实和Status记录接受消息条数是一样的
+
+                        // 记录接收状态
+                        Status.RecordReceivedMessage(1, msg.Length + Message.HeaderLength);
+
                         // 这里解析到了消息, 执行RTT统计
                         if (Config.EnableRttStatistics && msg.TxrId != 0) {
                             RttStatis.RecordReceived(msg.TxrId); //记录响应
@@ -604,13 +656,18 @@ namespace DNET
                 msgList.Recycle(); // list列表可以回收
                 // curRecvBuffer.Recycle(); //解包结束,回收接收缓存区
 
-                // 记录接收状态
-                Status.RecordReceivedMessage(msgCount, length);
-
                 //如果确实收到了一条消息.执行事件
                 if (msgCount > 0 && EventReceiveCompleted != null) {
-                    EventReceiveCompleted(this);
+                    try {
+                        EventReceiveCompleted(this);
+                    } catch (Exception ex) {
+                        if (LogProxy.Error != null)
+                            LogProxy.Error($"PeerSocket 执行事件 EventReceiveCompleted 异常: {ex}");
+                    }
                 }
+
+                Interlocked.Exchange(ref _isReceiving, 0); //标记接收完成
+
                 PrepareReceive(args); //立刻开始下一个接收,免得解包速度过慢
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
@@ -745,6 +802,13 @@ namespace DNET
                     return;
                 }
 
+                if (Interlocked.CompareExchange(ref _isReceiving, 1, 0) != 0) {
+                    // 理论上应该不可能进入这里
+                    if (LogProxy.Error != null)
+                        LogProxy.Error($"PeerSocket.PrepareReceive():[{Name}] 正在接收中，请勿重复调用.原则上不应该进入这里");
+                    return;
+                }
+
                 // 这里确保buffer存在吧,但是不要重复分配buffer了.没有必要.
                 var context = args.GetConnectionContext();
                 if (context.recvBuffer == null) {
@@ -764,6 +828,8 @@ namespace DNET
                     LogProxy.Warning($"PeerSocket.PrepareReceive():[{Name}] 开始异步接收错误：" + e.Message);
                 //这里捕获过的异常有：
                 // Thread creation failed.
+
+                Interlocked.Exchange(ref _isReceiving, 0); // 标记接收结束
             }
         }
 

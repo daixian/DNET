@@ -16,6 +16,11 @@
         public ByteBuffer data;
 
         /// <summary>
+        /// 发送端ID
+        /// </summary>
+        public int Id => header.id;
+
+        /// <summary>
         /// 数据格式
         /// </summary>
         public Format Format => header.format;
@@ -34,6 +39,18 @@
         /// 数据长度
         /// </summary>
         public int Length => header.dataLen;
+
+        /// <summary>
+        /// Header的字节长度
+        /// </summary>
+        /// <returns></returns>
+        public static int HeaderLength {
+            get {
+                unsafe {
+                    return sizeof(Header);
+                }
+            }
+        }
 
         /// <summary>
         /// 文本数据

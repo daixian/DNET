@@ -16,16 +16,11 @@ namespace DNET
         public uint magic;
 
         /// <summary>
-        /// 协议版本
+        /// 消息序号主要用户框架排查发送流是否有错误.
+        /// 在一次通信中的发送端所发出的消息这个id应该是递增的.
         /// </summary>
         [FieldOffset(4)]
-        public ushort version;
-
-        /// <summary>
-        /// 保留字段（用于对齐或扩展）
-        /// </summary>
-        [FieldOffset(6)]
-        public ushort reserved;
+        public int id;
 
         /// <summary>
         /// 数据长度（不包含头部长度）
@@ -58,8 +53,7 @@ namespace DNET
         {
             return new Header {
                 magic = 0x584D5347, // 'XMSG' 小端序
-                version = 1,
-                reserved = 0,
+                id = 0,
                 dataLen = 0,
                 format = Format.None,
                 txrId = 0,
@@ -73,8 +67,7 @@ namespace DNET
         public void Reset()
         {
             magic = 0x584D5347; // 'XMSG' 小端序
-            version = 1;
-            reserved = 0;
+            id = 0;
             dataLen = 0;
             format = Format.None;
             txrId = 0;
@@ -92,6 +85,63 @@ namespace DNET
             int size = sizeof(Header); // 需要加上 [StructLayout(LayoutKind.Sequential, Pack = 1)] 保证结构体布局
             fixed (Header* srcPtr = &this) {
                 buff.Write(srcPtr, size);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 扩展方法
+    /// </summary>
+    public static class HeaderExtension
+    {
+        /// <summary>
+        /// 从字节数组中读取Header
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <returns></returns>
+        public static Header GetHeader(this byte[] buffer)
+        {
+            unsafe {
+                if (buffer == null || buffer.Length < sizeof(Header))
+                    throw new ArgumentException("Buffer too small for Header");
+                fixed (byte* srcPtr = buffer) {
+                    return *(Header*)srcPtr;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 得到Header的id
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static int GetHeaderId(this byte[] buffer)
+        {
+            if (buffer == null || buffer.Length < 8) // 前4字节是 magic, 接下来4字节是 id
+                throw new ArgumentException("Buffer too small to read Header.id");
+
+            unsafe {
+                fixed (byte* ptr = buffer) {
+                    return *(int*)(ptr + 4); // offset 4 是 id
+                }
+            }
+        }
+
+        /// <summary>
+        /// 从字节数组中设置Header的id
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="id"></param>
+        public static void SetHeaderId(this byte[] buffer, int id)
+        {
+            if (buffer == null || buffer.Length < 8)
+                throw new ArgumentException("Buffer too small to set Header.id");
+
+            unsafe {
+                fixed (byte* ptr = buffer) {
+                    *(int*)(ptr + 4) = id;
+                }
             }
         }
     }

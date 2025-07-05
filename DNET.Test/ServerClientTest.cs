@@ -18,7 +18,7 @@ namespace DNET.Test
         public void TestMethod_ServerClient50()
         {
             Config.IsAutoHeartbeat = false;
-            Config.IsDebugLog = false;
+            Config.IsDebugMode = false;
             DNClient.Inst.Close();
             DNServer.Inst.Close();
 
@@ -56,7 +56,7 @@ namespace DNET.Test
         public void TestMethod_ServerClient()
         {
             Config.IsAutoHeartbeat = false;
-            Config.IsDebugLog = false;
+            Config.IsDebugMode = false;
             DNClient.Inst.Close();
             DNServer.Inst.Close();
 
@@ -101,7 +101,7 @@ namespace DNET.Test
         public void TestMethod_ServerClientMerge()
         {
             Config.IsAutoHeartbeat = false;
-            Config.IsDebugLog = false;
+            Config.IsDebugMode = false;
             DNClient.Inst.Close();
             DNServer.Inst.Close();
 
@@ -138,7 +138,7 @@ namespace DNET.Test
         public void TestMethod_ServerClient64C_Parallel()
         {
             Config.IsAutoHeartbeat = false;
-            Config.IsDebugLog = false;
+            Config.IsDebugMode = false;
             DNClient.Inst.Close();
             DNServer.Inst.Close();
 
@@ -197,7 +197,7 @@ namespace DNET.Test
         public void TestMethod_ServerClient8C_Parallel()
         {
             Config.IsAutoHeartbeat = false;
-            Config.IsDebugLog = false;
+            Config.IsDebugMode = false;
             DNClient.Inst.Close();
             DNServer.Inst.Close();
 

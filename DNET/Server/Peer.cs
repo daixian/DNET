@@ -30,7 +30,7 @@ namespace DNET
         /// </summary>
         internal Peer()
         {
-            _peerSocket = new PeerSocket();
+            _peerSocket = new PeerSocket() { User = this };
         }
 
         /// <summary>
@@ -39,7 +39,7 @@ namespace DNET
         /// <param name="name"></param>
         internal Peer(string name)
         {
-            peerSocket = new PeerSocket() { Name = name };
+            peerSocket = new PeerSocket() { Name = name, User = this };
         }
 
         /// <summary>
@@ -49,7 +49,10 @@ namespace DNET
             get => _id;
             set {
                 _id = value;
-                peerSocket.ID = value; // 同步设置它的ID
+                if (peerSocket != null) {
+                    peerSocket.ID = value; // 同步设置它的ID
+                    peerSocket.User = this;
+                }
             }
         }
 
@@ -70,8 +73,10 @@ namespace DNET
             get => _peerSocket;
             set {
                 _peerSocket = value;
-                if (_peerSocket != null)
+                if (_peerSocket != null) {
                     _peerSocket.ID = ID; // 同步设置ID
+                    _peerSocket.User = this;
+                }
             }
         }
 

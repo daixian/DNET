@@ -206,21 +206,21 @@ namespace DNET
                 }
 
                 try {
-                    _workThread?.Stop();
-                } catch (Exception e) {
-                    if (LogProxy.Warning != null)
-                        LogProxy.Warning($"DNClient.Close():{Name}停止工作线程异常 {e}");
-                } finally {
-                    _workThread = null;
-                }
-
-                try {
                     _peerSocket?.Dispose();
                 } catch (Exception e) {
                     if (LogProxy.Warning != null)
                         LogProxy.Warning($"DNClient.Close():{Name}关闭Socket异常 {e}");
                 } finally {
                     _peerSocket = null;
+                }
+
+                try {
+                    _workThread?.Stop();
+                } catch (Exception e) {
+                    if (LogProxy.Warning != null)
+                        LogProxy.Warning($"DNClient.Close():{Name}停止工作线程异常 {e}");
+                } finally {
+                    _workThread = null;
                 }
 
                 // 清空事件算了
@@ -408,7 +408,7 @@ namespace DNET
                 if (_peerSocket.IsConnected)
                     return;
 
-                if (Config.IsDebugLog && LogProxy.Debug != null)
+                if (Config.IsDebugMode && LogProxy.Debug != null)
                     LogProxy.Debug($"DNClient.DoConnect():{Name}执行Connect...");
 
                 //标记正在连接

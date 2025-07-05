@@ -6,9 +6,9 @@
     public static class Config
     {
         /// <summary>
-        /// 是否打印调试型的日志.
+        /// 是否是调试模式.这模式输出更多错误信息和开启一些记录，方便调试
         /// </summary>
-        public static bool IsDebugLog { get; set; } = false;
+        public static bool IsDebugMode { get; set; } = false;
 
         /// <summary>
         /// 是否开启对Peer的统计信息

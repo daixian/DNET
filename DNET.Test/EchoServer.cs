@@ -29,6 +29,11 @@ namespace DNET.Test
         /// </summary>
         public bool Immediately { get; set; } = true;
 
+        public class PeerUser
+        {
+            public int ReceiveCount;
+        }
+
         /// <summary>
         /// 启动服务器
         /// </summary>
@@ -36,13 +41,14 @@ namespace DNET.Test
         /// <param name="isFastResponse"></param>
         public void Start(int port, bool isFastResponse = false)
         {
-            server.Close();
-
-            // 这个服务器压力很大,用工作线程处理每个消息吧isFastResponse=false
-            server.IsFastResponse = isFastResponse;
+            // server.Close();
 
             // 设置接收数据事件处理
             server.EventPeerReceData += (s, peer) => {
+                if (peer.User == null) {
+                    peer.User = new PeerUser();
+                }
+                PeerUser user = peer.User as PeerUser;
                 var msgList = peer.GetReceiveData();
                 if (msgList == null || msgList.Count == 0) return;
 
@@ -54,11 +60,15 @@ namespace DNET.Test
                     if (msg.Format == Format.Text) {
                         LogProxy.Info($"收到文本数据:{msg.Text}");
                     }
+                    if (msg.TxrId != user.ReceiveCount) {
+                        LogProxy.Error($"[{peer.Name}]收到数据包序号错误,当前 ID/事务/接收:{msg.Id}/{msg.TxrId}/{user.ReceiveCount}");
+                    }
                     // 回发接收到的数据
                     peer.AddSendData(msg.data.buffer, 0, msg.data.Length,
                         format: msg.Format,
                         txrId: msg.TxrId);
 
+                    user.ReceiveCount++;
                     ServerReceiveCount++;
                 }
                 s.TryStartSend(peer, forceUseWorkThread: true); // 此时再合并发送.
@@ -68,6 +78,10 @@ namespace DNET.Test
             // 尝试启动服务器直到成功
             while (true) {
                 server.Close(false);
+
+                // 这个服务器压力很大,用工作线程处理每个消息吧isFastResponse=false
+                server.IsFastResponse = isFastResponse;
+
                 server.Start(port);
                 if (server.IsStarted)
                     break;
