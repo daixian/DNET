@@ -60,10 +60,24 @@ jobs:
       # 🔽 添加 changelog 收集逻辑
       - name: Generate changelog
         id: changelog
+        shell: pwsh
         run: |
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          git log --pretty=format:"%h %s" $(git describe --tags --abbrev=0 || echo "")..HEAD >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          $lastTag = git describe --tags --abbrev=0 2>$null
+          if ([string]::IsNullOrWhiteSpace($lastTag)) {
+            Write-Host "⚠️ 没有找到 tag,使用完整提交历史"
+            $log = git log --pretty=format:"%h %s"
+          } else {
+            Write-Host "📝 使用从 $lastTag 到 HEAD 的提交记录"
+            $log = git log --pretty=format:"%h %s" "$lastTag..HEAD"
+          }
+
+          $output = @"
+          changelog<<EOF
+          $log
+          EOF
+          "@
+
+          Add-Content -Path $env:GITHUB_OUTPUT -Value $output
 
       # 🔽 发布 Release 并附带变更日志
       - name: Publish GitHub Release
