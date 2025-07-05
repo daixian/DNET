@@ -55,9 +55,9 @@ namespace DNET
         }
 
         /// <summary>
-        /// 快速响应,如果为true，则会直接在.net小线程进入接收回调的时候直接进入响应事件。
-        /// 如果服务器压力特别大,则应该使用false.
-        /// 默认为true.
+        /// 是否在接收线程中直接分发消息事件。
+        /// 若为true，则在 .NET 的 IO 回调线程中立即调用接收事件,如果事件执行太慢,则容易使线程池枯竭.
+        /// 若为false，则切换为工作线程处理，适用于高负载场景。
         /// </summary>
         public bool IsFastResponse { get; set; } = true;
 
@@ -67,7 +67,8 @@ namespace DNET
         public event Action<DNServer, Peer, PeerErrorType> EventPeerError;
 
         /// <summary>
-        /// 事件：某个Peer接收到了数据，可以将轻量任务加入这个事件，这是.net线程池中的小线程,这里一定要快速处理
+        /// 事件：某个Peer接收到了数据，注意如果可能会有多线程执行这个事件的时候(如IsFastResponse=True的时候)
+        /// 如果特别关心回复的发送顺序,那么要对回调函数中的Peer进行加锁.
         /// </summary>
         public event Action<DNServer, Peer> EventPeerReceData;
 
@@ -363,14 +364,15 @@ namespace DNET
                     //LogProxy.LogWarning($"DNServer.DoTimerCheckStatus():{peer.Name}这里TryStartSend成功了,这是不太应该的");
                 }
 
-                // 如果还有未提取的消息那么就再次提醒,可能需要限制 && IsFastResponse
+                // 如果还有未提取的消息那么就再次提醒
                 if (peer.HasReceiveMsg) {
                     // EventPeerReceData?.Invoke(peer);
                     // dx: 注意这里不能直接发出事件,否则可能会导致消息的先后顺序不再是按顺序回复的.
                     // 如果全是是线程池,那么会先发出事件等阻塞处理完了再开始下一个接收,所以永远是按顺序的.
                     // 如果是工作线程给出接收事件,那么这里直接发出事件则有两个线程同时从消息队列中提取内容并启动异步回发,
                     // 那么就会导致消息的先后顺序乱掉.
-                    // 如果所有的GetReceiveData()方法都由一个工作线程调用,那么不应该有先后顺序的问题啊
+                    // 如果所有的GetReceiveData()方法都由一个工作线程调用,那么不应该有先后顺序的问题.
+                    // 如果有多个线程调用GetReceiveData()方法,那么应该加锁,并且加锁到Send()方法结束.
                     OnReceiveCompleted(peer); //让工作线程提醒Peer有数据可处理
                 }
 
@@ -397,8 +399,8 @@ namespace DNET
         /// <param name="msg">这个消息参数带一个peer</param>
         private void DoSend(SwMessage msg)
         {
+            Peer peer = msg.peer;
             try {
-                Peer peer = msg.peer;
                 if (peer == null) {
                     return;
                 }
@@ -410,7 +412,7 @@ namespace DNET
                 peer.peerSocket.TryStartSend();
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning("DNServer.DoSend()：异常 " + e.Message);
+                    LogProxy.Warning($"DNServer.DoSend():{peer.Name} 异常 {e}");
             }
         }
 
@@ -440,10 +442,21 @@ namespace DNET
         private void DoReceive(SwMessage msg)
         {
             Peer peer = msg.peer;
+            // dx: 在Fast模式下也会丢进来执行这个检查,所以有大量的消息要执行,
+            // 所以必须加这个,不要去轻易锁掉peer.
+            if (!peer.HasReceiveMsg) {
+                return;
+            }
             try {
                 // 现在没有线程的解包,所以不需要工作
                 // 发出数据事件(这里是否要去判断一下有没有未处理消息才发送?)
-                EventPeerReceData?.Invoke(this, peer);
+                lock (peer) {
+                    // 这里再检查一下算了,不行就下次timer再检查,没消息就算了
+                    if (!peer.HasReceiveMsg) {
+                        return;
+                    }
+                    EventPeerReceData?.Invoke(this, peer);
+                }
             } catch (Exception e) {
                 if (LogProxy.Error != null)
                     LogProxy.Error($"DNServer.DoReceive(): {peer.Name}执行事件 EventPeerReceData 异常 {e}");
@@ -472,27 +485,25 @@ namespace DNET
                 };
             peer.peerSocket.EventReceiveCompleted +=
                 (ps) => {
-                    // dx: 注意这里给它挂上这个事件,这样可以第一时间响应发出事件.
-                    // 但是注意这样的做法在数据量特别大的时候是有一定线程的压力的.
-                    // 如果走这里,那么不执行完事件函数不会开启下一次接收.
                     Peer p = ps.User as Peer;
                     if (p == null)
                         return;
+                    // dx: 快速模式这里给它挂上这个事件,这样可以第一时间响应发出事件.
+                    // 但是注意这样的做法在数据量特别大的时候是有一定线程的压力的.
+                    // 如果走这里,那么不执行完事件函数不会开启下一次接收.
                     if (IsFastResponse) {
                         try {
-                            EventPeerReceData?.Invoke(this, p);
+                            // 因为要支持在timer中查看是否有未处理的事件,所以这里需要加锁,让事件中的工作可以串行
+                            lock (peer) {
+                                EventPeerReceData?.Invoke(this, p);
+                            }
                         } catch (Exception e) {
                             if (LogProxy.Error != null)
                                 LogProxy.Error($"DNServer:{p.Name}执行事件 EventPeerReceData 异常 {e}");
                         }
                     }
-                    else {
-                        // 这是之前的发出消息让工作线程发出对外的事件.
-                        // TODO: 目前实测发现这里如果这样使用会存在一个echo服务器返回消息顺序不一致的问题...
-                        // 如果所有的GetReceiveData()方法都由一个工作线程调用,那么不应该有先后顺序的问题啊,
-                        // 想不出来是为什么
-                        OnReceiveCompleted(p);
-                    }
+                    // 在有的时候执行事件的时候从队列中提取不出消息,所以这里丢工作线程,双保险算了
+                    OnReceiveCompleted(p);
                 };
         }
 

@@ -103,7 +103,7 @@ namespace DNET
         /// <summary>
         /// 有等待提取的消息.
         /// </summary>
-        public bool HasReceiveMsg => WaitReceMsgCount > 0;
+        public bool HasReceiveMsg => peerSocket.HasReceiveMsg;
 
         /// <summary>
         /// 发送队列是否太长

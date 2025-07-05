@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
 using NUnit.Framework;
 
 namespace DNET.Test
@@ -41,15 +42,15 @@ namespace DNET.Test
         /// <param name="isFastResponse"></param>
         public void Start(int port, bool isFastResponse = true)
         {
-            // server.Close();
-
             // 设置接收数据事件处理
             server.EventPeerReceData += (s, peer) => {
                 if (peer.User == null) {
                     peer.User = new PeerUser();
                 }
+                // dx: 这个锁是为了保证按顺序发送回去
+                // lock (peer) {
                 PeerUser user = peer.User as PeerUser;
-                var msgList = peer.GetReceiveData();
+                List<Message> msgList = peer.GetReceiveData();
                 if (msgList == null || msgList.Count == 0) return;
 
                 foreach (var msg in msgList) {
@@ -73,6 +74,7 @@ namespace DNET.Test
                 }
                 s.TryStartSend(peer, forceUseWorkThread: true); // 此时再合并发送.
                 msgList.RecycleAllItems();
+                // }
             };
 
             // 尝试启动服务器直到成功

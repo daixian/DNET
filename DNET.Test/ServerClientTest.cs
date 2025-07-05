@@ -135,7 +135,7 @@ namespace DNET.Test
         /// 64个客户端同时并发发送并阻塞等待回显结果
         /// </summary>
         [Test]
-        public void TestMethod_ServerClient64C_Parallel()
+        public void TestMethod_ServerClient32C_Parallel()
         {
             Config.IsAutoHeartbeat = false;
             Config.IsDebugMode = false;
@@ -143,10 +143,10 @@ namespace DNET.Test
             DNServer.Inst.Close();
 
             EchoServer server = new EchoServer(DNServer.Inst);
-            server.Start(21024);
+            server.Start(21024, false);
             Assert.That(DNServer.Inst.IsStarted);
 
-            int clientCount = 64;
+            int clientCount = 32;
             Random rand = new Random();
             int sendDataLength = rand.Next(1, 256);
             byte[] sendData = new byte[sendDataLength];

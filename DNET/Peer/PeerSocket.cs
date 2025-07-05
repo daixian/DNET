@@ -139,6 +139,11 @@ namespace DNET
         public int WaitReceMsgCount => _receQueue.Count;
 
         /// <summary>
+        /// 有等待提取的消息.
+        /// </summary>
+        public bool HasReceiveMsg => !_receQueue.IsEmpty;
+
+        /// <summary>
         /// 状态统计
         /// </summary>
         public PeerStatus Status { get; } = new PeerStatus();
