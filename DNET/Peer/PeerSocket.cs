@@ -597,7 +597,7 @@ namespace DNET
                     TryStartSend();
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning($"PeerSocket.OnSendCompleted():[{Name}]  {e}");
+                    LogProxy.Warning($"PeerSocket.OnSendCompleted():[{Name}] 异常 {e}");
             }
         }
 
@@ -662,7 +662,7 @@ namespace DNET
                         EventReceiveCompleted(this);
                     } catch (Exception ex) {
                         if (LogProxy.Error != null)
-                            LogProxy.Error($"PeerSocket 执行事件 EventReceiveCompleted 异常: {ex}");
+                            LogProxy.Error($"PeerSocket.OnReceiveCompleted():[{Name}] 执行事件 EventReceiveCompleted 异常: {ex}");
                     }
                 }
 
