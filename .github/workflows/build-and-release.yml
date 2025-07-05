@@ -39,18 +39,28 @@ jobs:
           name: DNET-Release-Zip
           path: DNET-Build.zip
 
-      # 🔽 添加 changelog 收集逻辑
       - name: Generate changelog
         id: changelog
         shell: pwsh
         run: |
-          $lastTag = git describe --tags --abbrev=0 2>$null
-          if ([string]::IsNullOrWhiteSpace($lastTag)) {
-            Write-Host "⚠️ 没有找到 tag, 使用完整提交历史"
+          $tags = git tag --sort=-creatordate
+          if ($tags.Count -eq 0) {
+            Write-Host "没有 tag，使用全部提交"
             $log = git log --pretty=format:"%h %s"
+          } elseif ($tags.Count -eq 1) {
+            $lastTag = $tags[0]
+            Write-Host "只有一个 tag：$lastTag，显示该 tag 提交"
+            $log = git log -1 --pretty=format:"%h %s" $lastTag
           } else {
-            Write-Host "📝 使用从 $lastTag 到 HEAD 的提交记录"
-            $log = git log --pretty=format:"%h %s" "$lastTag..HEAD"
+            $lastTag = $tags[0]
+            $prevTag = $tags[1]
+            Write-Host "当前 tag：$lastTag，之前 tag：$prevTag"
+            $log = git log --pretty=format:"%h %s" "$prevTag..$lastTag"
+          }
+
+          if (-not $log) {
+            Write-Host "无提交，改为最近5条提交"
+            $log = git log -n 5 --pretty=format:"%h %s"
           }
 
           Write-Host "----- changelog start -----"
