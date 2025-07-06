@@ -43,8 +43,8 @@ namespace DNET.Test
             // 一直等待连接成功
             int retry = 0;
             while (!_client.IsConnected && retry++ < 1000) {
-                Thread.Sleep(20);
-                if (retry % (1000 / 20) == 0) {
+                Thread.Sleep(40);
+                if (retry % 100 == 0) {
                     LogProxy.Info($"{_client.Name} 尝试重连...");
                     _client.Disconnect();
                     _client.Connect(ip, port); //重连一次

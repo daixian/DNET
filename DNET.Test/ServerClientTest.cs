@@ -135,7 +135,7 @@ namespace DNET.Test
         /// 64个客户端同时并发发送并阻塞等待回显结果
         /// </summary>
         [Test]
-        public void TestMethod_ServerClient32C_Parallel()
+        public void TestMethod_ServerClient64C_Parallel()
         {
             Config.IsAutoHeartbeat = false;
             Config.IsDebugMode = false;
@@ -143,10 +143,10 @@ namespace DNET.Test
             DNServer.Inst.Close();
 
             EchoServer server = new EchoServer(DNServer.Inst);
-            server.Start(21024, false);
+            server.Start(21024, true);
             Assert.That(DNServer.Inst.IsStarted);
 
-            int clientCount = 32;
+            int clientCount = 64;
             Random rand = new Random();
             int sendDataLength = rand.Next(1, 256);
             byte[] sendData = new byte[sendDataLength];
@@ -225,7 +225,7 @@ namespace DNET.Test
 
                     client.Connect("127.0.0.1", 21024);
 
-                    results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true, timeoutSeconds: 60);// 有的电脑卡,超时搞长点
+                    results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true, timeoutSeconds: 60); // 有的电脑卡,超时搞长点
                     if (!results[idx]) {
                         LogProxy.Error($"客户端 {idx} 失败, ServerReceiveCount={server.ServerReceiveCount}");
 
@@ -291,7 +291,7 @@ namespace DNET.Test
 
                     client.Connect("127.0.0.1", 21024);
 
-                    results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true, timeoutSeconds: 60);// 有的电脑卡,超时搞长点
+                    results[idx] = client.SendAndCheckEcho(sendData, 500, 200, true, timeoutSeconds: 60); // 有的电脑卡,超时搞长点
                     if (!results[idx]) {
                         LogProxy.Error($"客户端 {idx} 失败, ServerReceiveCount={server.ServerReceiveCount}");
 
@@ -321,6 +321,5 @@ namespace DNET.Test
                 Assert.That(clients[i].ReceiveCount, Is.EqualTo(clients[i].SendCount), $"客户端 {i} 的接收数量与发送不一致");
             }
         }
-
     }
 }

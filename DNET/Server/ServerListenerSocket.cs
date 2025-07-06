@@ -45,7 +45,8 @@ namespace DNET
         /// </summary>
         /// <param name="hostName">服务器的ip</param>
         /// <param name="port">本机的服务器端口</param>
-        internal void Start(string hostName, int port)
+        /// <param name="backlog">监听的队列长度</param>
+        internal void Start(string hostName, int port, int backlog = 64)
         {
             try {
                 _isStarted = false;
@@ -83,7 +84,7 @@ namespace DNET
                 else {
                     _listenSocket.Bind(localEndPoint);
                 }
-                _listenSocket.Listen(2); //最大挂起数
+                _listenSocket.Listen(backlog); //最大挂起数
                 StartAccept2();
 
                 _isStarted = true; //服务器启动成功
@@ -184,9 +185,10 @@ namespace DNET
                     _acceptSocketArgs = new SocketAsyncEventArgs[2];
                 }
                 for (int i = 0; i < _acceptSocketArgs.Length; i++) {
-                    if (_acceptSocketArgs[i] == null)
+                    if (_acceptSocketArgs[i] == null) {
                         _acceptSocketArgs[i] = new SocketAsyncEventArgs();
-                    _acceptSocketArgs[i].Completed += OnIOCompleted;
+                        _acceptSocketArgs[i].Completed += OnIOCompleted;
+                    }
                     _acceptSocketArgs[i].AcceptSocket = null; // 必须要先清掉Socket
                 }
                 if (LogProxy.Debug != null)

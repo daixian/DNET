@@ -77,7 +77,8 @@ namespace DNET
         /// </summary>
         /// <param name="port">端口号</param>
         /// <param name="hostName">服务器的主机IP,一般使用Any表示所有的可能IP</param>
-        public void Start(int port, string hostName = "Any")
+        /// <param name="backlog">监听队列的长度</param>
+        public void Start(int port, string hostName = "Any", int backlog = 64)
         {
             if (IsStarted)
                 return;
@@ -111,7 +112,7 @@ namespace DNET
                     _listenerSocket.EventAccept += OnListenerSocketAccept;
 
                     // msg.text1是服务器的主机IP,一般使用Any表示所有的可能IP
-                    _listenerSocket.Start(hostName, port);
+                    _listenerSocket.Start(hostName, port, backlog);
                 }
                 if (!_listenerSocket.IsStarted) {
                     if (LogProxy.Error != null)
