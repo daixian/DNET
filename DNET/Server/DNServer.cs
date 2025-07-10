@@ -199,6 +199,12 @@ namespace DNET
             bool immediately = true)
         {
             Peer peer = PeerManager.Inst.GetPeer(peerId);
+            if (peer == null || _disposed) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNServer.Send():peer为null或者disposed,不能发送.");
+                return;
+            }
+
             Send(peer, data, offset, count, format, txrId, eventType, immediately);
         }
 
@@ -219,6 +225,12 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
+            if (peer == null || _disposed) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNServer.Send():peer为null或者disposed,不能发送.");
+                return;
+            }
+
             peer.peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
             if (immediately)
                 peer.peerSocket.TryStartSend();
@@ -243,6 +255,12 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
+            if (peer == null || _disposed) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNServer.Send():peer为null或者disposed,不能发送.");
+                return;
+            }
+
             try {
                 if (string.IsNullOrEmpty(text)) {
                     Send(peer, null, 0, 0, format, txrId, eventType, immediately);
@@ -269,6 +287,12 @@ namespace DNET
         public void AddSendData(Peer peer, byte[] data, int offset, int count,
             Format format = Format.Raw, int txrId = 0, int eventType = 0)
         {
+            if (peer == null || _disposed) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNServer.AddSendData():peer为null或者disposed,不能发送.");
+                return;
+            }
+
             peer.peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
         }
 
@@ -280,6 +304,10 @@ namespace DNET
         /// <returns>true表示确实启动了一个发送</returns>
         public bool TryStartSend(Peer peer, bool forceUseWorkThread = true)
         {
+            if (peer == null || _workThread == null || _disposed) {
+                return false;
+            }
+
             if (peer.peerSocket.TryStartSend() && forceUseWorkThread == false)
                 return true;
             // 在超高并发的时候TryStartSend()可能会漏掉一个发送,所以这里用工作线程再次尝试
@@ -293,6 +321,10 @@ namespace DNET
         /// </summary>
         public void SendAll()
         {
+            if (_workThread == null || _disposed) {
+                return;
+            }
+
             var msg = new SwMessage { type = SwMessage.Type.SendAll };
             _workThread.Post(in msg, this);
         }

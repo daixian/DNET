@@ -83,33 +83,60 @@ namespace DNET
         /// <summary>
         /// 它的状态
         /// </summary>
-        public PeerStatus Status => peerSocket.Status;
+        public PeerStatus Status => peerSocket?.Status;
 
         /// <summary>
         /// 往返延迟统计(它包括服务器的CPU执行时间),在发送带事务的类型的消息的时候，会记录延迟
         /// </summary>
-        public RttStatistics RttStatis => peerSocket.RttStatis;
+        public RttStatistics RttStatis => peerSocket?.RttStatis;
 
         /// <summary>
         /// 等待发送消息队列长度
         /// </summary>
-        public int WaitSendMsgCount => peerSocket.WaitSendMsgCount;
+        public int WaitSendMsgCount {
+            get {
+                if (peerSocket == null || _disposed) {
+                    return 0;
+                }
+                return peerSocket.WaitSendMsgCount;
+            }
+        }
 
         /// <summary>
         /// 等待提取的消息队列长度
         /// </summary>
-        public int WaitReceMsgCount => peerSocket.WaitReceMsgCount;
+        public int WaitReceMsgCount {
+            get {
+                if (peerSocket == null || _disposed) {
+                    return 0;
+                }
+                return peerSocket.WaitReceMsgCount;
+            }
+        }
 
         /// <summary>
         /// 有等待提取的消息.
         /// </summary>
-        public bool HasReceiveMsg => peerSocket.HasReceiveMsg;
+        public bool HasReceiveMsg {
+            get {
+                if (peerSocket == null || _disposed) {
+                    return false;
+                }
+                return peerSocket.HasReceiveMsg;
+            }
+        }
+
+
 
         /// <summary>
         /// 发送队列是否太长
         /// </summary>
         public bool IsSendQueueOverflow(int queueLen = 1024)
         {
+            if (peerSocket == null) {
+                return false;
+            }
+
             return peerSocket.WaitSendMsgCount >= queueLen;
         }
 
@@ -129,7 +156,7 @@ namespace DNET
             int txrId = 0,
             int eventType = 0)
         {
-            if (_disposed) return;
+            if (peerSocket == null || _disposed) return;
 
             // 这里其实已经开始打包了.
             peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
@@ -148,7 +175,7 @@ namespace DNET
             int txrId = 0,
             int eventType = 0)
         {
-            if (_disposed) return;
+            if (peerSocket == null || _disposed) return;
 
             try {
                 byte[] dataBytes = null;
@@ -177,7 +204,7 @@ namespace DNET
         public void AddSendData(byte[] data, int offset, int count,
             Format format = Format.Raw, int txrId = 0, int eventType = 0)
         {
-            if (_disposed) return;
+            if (peerSocket == null || _disposed) return;
 
             peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
         }
@@ -188,7 +215,7 @@ namespace DNET
         /// <returns>true表示确实启动了一个发送</returns>
         public bool TryStartSend()
         {
-            if (_disposed) return false;
+            if (peerSocket == null || _disposed) return false;
 
             return peerSocket.TryStartSend();
         }

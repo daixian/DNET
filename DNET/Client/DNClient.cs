@@ -87,12 +87,26 @@ namespace DNET
         /// <summary>
         /// 等待发送的消息数量
         /// </summary>
-        public int WaitSendMsgCount => _peerSocket.WaitSendMsgCount;
+        public int WaitSendMsgCount {
+            get {
+                if (_peerSocket == null || _disposed) {
+                    return 0;
+                }
+                return _peerSocket.WaitSendMsgCount;
+            }
+        }
 
         /// <summary>
         /// 等待提取的消息队列长度
         /// </summary>
-        public int WaitReceMsgCount => _peerSocket.WaitReceMsgCount;
+        public int WaitReceMsgCount {
+            get {
+                if (_peerSocket == null || _disposed) {
+                    return 0;
+                }
+                return _peerSocket.WaitReceMsgCount;
+            }
+        }
 
         #region 对外事件
 
@@ -174,7 +188,7 @@ namespace DNET
         {
             lock (this) {
                 try {
-                    _workThread.ClearQueue();
+                    _workThread?.ClearQueue();
                     // 中断连接必须要释放socket,必须要Close().
                     if (_peerSocket != null) {
                         _peerSocket.Dispose(); // 这样可以保证正在连接中的也直接异常掉
@@ -242,6 +256,11 @@ namespace DNET
         /// <param name="data">要发送的整个数据</param>
         public void Send(byte[] data)
         {
+            if (data == null) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNClient.Send():传入data为null");
+                return; //如果数据为null,那么返回算了
+            }
             Send(data, 0, data.Length);
         }
 
@@ -263,6 +282,12 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
+            if (_peerSocket == null || _disposed) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNClient.Send():{Name} PeerSocket为null或者disposed,不能发送.");
+                return;
+            }
+
             try {
                 // 这里其实已经开始打包了.
                 _peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
@@ -293,6 +318,12 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
+            if (_peerSocket == null || _disposed) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNClient.Send():{Name} PeerSocket为null或者disposed,不能发送.");
+                return;
+            }
+
             try {
                 byte[] dataBytes = null;
                 if (string.IsNullOrEmpty(text)) {
@@ -321,6 +352,11 @@ namespace DNET
             int txrId = 0,
             int eventType = 0)
         {
+            if (_peerSocket == null || _disposed) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNClient.AddSendData():{Name} PeerSocket为null或者disposed,不能发送.");
+                return;
+            }
             _peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
         }
 
@@ -331,6 +367,10 @@ namespace DNET
         /// <returns>true表示确实启动了一个发送</returns>
         public bool TryStartSend(bool forceUseWorkThread = true)
         {
+            if (_workThread == null || _peerSocket == null || _disposed) {
+                return false;
+            }
+
             if (_peerSocket.TryStartSend() && forceUseWorkThread == false)
                 return true;
             // 在超高并发的时候TryStartSend()可能会漏掉一个发送,所以这里用工作线程再次尝试
@@ -344,6 +384,10 @@ namespace DNET
         /// </summary>
         public void TryStartSendOnWorkThread()
         {
+            if (_workThread == null || _peerSocket == null || _disposed) {
+                return;
+            }
+
             // 让工作线程处理这个消息
             var msg = new CwMessage { type = CwMessage.Type.Send };
             _workThread.Post(in msg, this);
@@ -362,7 +406,7 @@ namespace DNET
         /// </example>
         public List<Message> GetReceiveData()
         {
-            return _peerSocket.GetReceiveMessages();
+            return _peerSocket?.GetReceiveMessages();
         }
 
         /// <summary>
@@ -370,6 +414,7 @@ namespace DNET
         /// </summary>
         public bool IsSendQueueOverflow(int queueLen = 1024)
         {
+            if (_peerSocket == null) return false;
             return _peerSocket.WaitSendMsgCount >= queueLen;
         }
 
