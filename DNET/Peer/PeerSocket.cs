@@ -276,6 +276,8 @@ namespace DNET
                 PrepareSocketAsyncEventArgs();
                 Status.Reset();
 
+                Clear(); // 这里也清理一下状态
+
                 if (IsConnected) {
                     PrepareReceive(_receiveArgs); // 启动接收
                 }
@@ -322,6 +324,9 @@ namespace DNET
                 //设置这个Timeout应该是无效的(是有效的，必须设置为0，否则自动断线)
                 socket.SendTimeout = 8 * 1000;
                 socket.ReceiveTimeout = 0;
+
+                Clear(); // 这里也清理一下状态
+
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning($"PeerSocket.BindRemote():[{Name}] 绑定远程地址地址错误: " + e.Message);
@@ -333,9 +338,13 @@ namespace DNET
         /// </summary>
         public void Connect()
         {
+            if (IsConnected || _disposed)
+                return;
+
             PrepareSocketAsyncEventArgs();
 
             Status.Reset();
+            Clear(); // 有可能是断线重连,这里干脆清空一下状态吧
 
             _connectArgs = new SocketAsyncEventArgs(); //创建一个SocketAsyncEventArgs类型
             _connectArgs.UserToken = new ConnectionContext {
@@ -361,6 +370,8 @@ namespace DNET
                 throw new SocketException((int)errorCode);
             }
 
+
+
             // 此时成功了,不用了
             _connectArgs.Dispose();
             _connectArgs = null;
@@ -377,8 +388,7 @@ namespace DNET
             try {
                 if (IsConnected) {
                     socket.Shutdown(SocketShutdown.Both);
-                    socket.Disconnect(false); //不允许重用套接字
-                    Clear(); //清空数据
+                    socket.Disconnect(false); //不允许重用套接字 
                 }
                 else {
                     if (_connectArgs != null) {
@@ -388,6 +398,8 @@ namespace DNET
                         _areConnectDone.Set(); //随便释放一下
                     }
                 }
+
+                Clear(); //清空数据
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning($"PeerSocket.Disconnect():[{Name}] 异常 " + e.Message);
@@ -517,6 +529,7 @@ namespace DNET
                 buff.Recycle();
             }
             while (_receQueue.TryDequeue(out var msg)) {
+                msg.Recycle();
             }
             _packet.Clear();
 
@@ -527,6 +540,7 @@ namespace DNET
 
             _sendMsgId = 0;
             _sendMsgId2 = 0;
+            _receMsgId = 0;
         }
 
         #endregion

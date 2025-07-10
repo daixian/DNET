@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -23,6 +24,18 @@ namespace DNET.Test
                 _ = DNClient.Inst.IsConnecting;
                 _ = DNClient.Inst.WaitReceMsgCount;
                 _ = DNClient.Inst.WaitSendMsgCount;
+            }
+
+        }
+
+        [Test]
+        public void Test_Connect()
+        {
+            DNClient.Inst.Close();
+            for (int i = 0; i < 5; i++) {
+                if (!DNClient.Inst.IsConnected && !DNClient.Inst.IsConnecting)
+                    DNClient.Inst.Connect("127.0.0.1", 40000);
+                Thread.Sleep(500);
             }
 
         }

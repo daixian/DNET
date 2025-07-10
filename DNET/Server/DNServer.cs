@@ -62,6 +62,11 @@ namespace DNET
         public bool IsFastResponse { get; set; } = true;
 
         /// <summary>
+        /// 它也可以设置一个名字吧
+        /// </summary>
+        public string Name { get; set; } = "Server";
+
+        /// <summary>
         /// 事件：某个Peer发生了错误后，会自动调用关闭，这是错误及关闭事件
         /// </summary>
         public event Action<DNServer, Peer, PeerErrorType> EventPeerError;
@@ -334,9 +339,15 @@ namespace DNET
         /// <summary>
         /// 工作线程处理函数
         /// </summary>
-        /// <param name="msg"></param>
-        public void Handle(ref SwMessage msg)
+        /// <param name="msg">要处理的消息。</param>
+        /// <param name="waitTimeMs">这条消息等待了多长时间(ms)。</param>
+        public void Handle(ref SwMessage msg, double waitTimeMs)
         {
+            if (waitTimeMs > 500 && msg.type != SwMessage.Type.TimerCheckStatus) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNServer.Handle():[{Name}]工作{msg.type}等待处理时间过长！waitTime:{waitTimeMs}ms");
+            }
+
             switch (msg.type) {
                 case SwMessage.Type.Start:
                     DoStart(msg);

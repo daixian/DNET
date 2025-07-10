@@ -193,6 +193,8 @@ namespace DNET
                     if (_peerSocket != null) {
                         _peerSocket.Dispose(); // 这样可以保证正在连接中的也直接异常掉
                         _peerSocket = null;
+
+                        IsConnecting = false;
                     }
                 } catch (Exception e) {
                     if (LogProxy.Warning != null)
@@ -236,6 +238,8 @@ namespace DNET
                 } finally {
                     _workThread = null;
                 }
+
+                IsConnecting = false;
 
                 // 清空事件算了
                 if (clearEvent) {
@@ -423,9 +427,15 @@ namespace DNET
         /// <summary>
         /// 处理消息
         /// </summary>
-        /// <param name="msg"></param>
-        public void Handle(ref CwMessage msg)
+        /// <param name="msg">要处理的消息。</param>
+        /// <param name="waitTimeMs">这条消息等待了多长时间(ms)。</param>
+        public void Handle(ref CwMessage msg, double waitTimeMs)
         {
+            if (waitTimeMs > 500 && msg.type != CwMessage.Type.TimerCheckStatus) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNClient.Handle():[{Name}]工作{msg.type}等待处理时间过长！waitTime:{waitTimeMs}ms");
+            }
+
             switch (msg.type) {
                 case CwMessage.Type.Connect:
                     DoConnect();
@@ -450,8 +460,10 @@ namespace DNET
             try {
                 // 如果已经连接上了,那么返回.,不要断开连接和重连接.因为用户那边的连接函数是异步的.
                 // 用户那边判断还没有连接上那么就连接
-                if (_peerSocket.IsConnected)
+                if (_peerSocket.IsConnected) {
+                    IsConnecting = false;
                     return;
+                }
 
                 if (Config.IsDebugMode && LogProxy.Debug != null)
                     LogProxy.Debug($"DNClient.DoConnect():{Name}执行Connect...");

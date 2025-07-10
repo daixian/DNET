@@ -15,7 +15,8 @@ namespace DNET
         /// 处理指定的消息。
         /// </summary>
         /// <param name="msg">要处理的消息。</param>
-        void Handle(ref T msg);
+        /// <param name="waitTimeMs">这条消息等待了多长时间(ms)。</param>
+        void Handle(ref T msg, double waitTimeMs);
     }
 
     /// <summary>
@@ -92,14 +93,8 @@ namespace DNET
                 // 处理队列中所有任务
                 while (_queue.TryDequeue(out var msg)) {
                     try {
-                        double waitTime = msg.WaitTimeMs;
-                        if (waitTime > 500) {
-                            if (LogProxy.Warning != null)
-                                LogProxy.Warning($"WorkThread.Loop():[{Thread.CurrentThread.Name}]等待处理时间过长！waitTime:{waitTime}ms");
-                        }
-
                         // 执行处理逻辑
-                        msg.handler.Handle(ref msg.data);
+                        msg.handler.Handle(ref msg.data, msg.WaitTimeMs);
                     } catch (Exception e) {
                         if (LogProxy.Warning != null)
                             LogProxy.Warning($"WorkThread.Loop():[{Thread.CurrentThread.Name}] 工作异常: {e}");
