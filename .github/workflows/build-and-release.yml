@@ -1,0 +1,85 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build + Release (.NET Framework 4.6.2)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 必须拉取完整历史，否则 git describe 无法正常工作
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: 'latest'
+
+      - name: Restore NuGet packages
+        run: nuget restore DNet.sln
+
+      - name: Build solution
+        run: msbuild DNet.sln /p:Configuration=Release
+
+      - name: Zip release output
+        run: |
+          mkdir output
+          Copy-Item -Recurse -Path DNET\bin\Release\* -Destination output
+          Compress-Archive -Path output\* -DestinationPath DNET-Build.zip
+
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DNET-Release-Zip
+          path: DNET-Build.zip
+
+      - name: Generate changelog
+        id: changelog
+        shell: pwsh
+        run: |
+          $tags = git tag --sort=-creatordate
+          if ($tags.Count -eq 0) {
+            Write-Host "没有 tag，使用全部提交"
+            $log = git log --pretty=format:"%h %s"
+          } elseif ($tags.Count -eq 1) {
+            $lastTag = $tags[0]
+            Write-Host "只有一个 tag：$lastTag，显示该 tag 提交"
+            $log = git log -1 --pretty=format:"%h %s" $lastTag
+          } else {
+            $lastTag = $tags[0]
+            $prevTag = $tags[1]
+            Write-Host "当前 tag：$lastTag，之前 tag：$prevTag"
+            $log = git log --pretty=format:"%h %s" "$prevTag..$lastTag"
+          }
+
+          if (-not $log) {
+            Write-Host "无提交，改为最近5条提交"
+            $log = git log -n 5 --pretty=format:"%h %s"
+          }
+
+          Write-Host "----- changelog start -----"
+          Write-Host $log
+          Write-Host "----- changelog end -----"
+
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "changelog<<EOF"
+          $log.Split("`n") | ForEach-Object { Add-Content -Path $env:GITHUB_OUTPUT -Value $_ }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "EOF"
+
+      # 🔽 发布 Release 并附带变更日志
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DNET-Build.zip
+          body: |
+            🚀 自动发布版本
+
+            📦 变更内容:
+            ${{ steps.changelog.outputs.changelog }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

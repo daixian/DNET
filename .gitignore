@@ -1,0 +1,104 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio 2015+ cache/options directory
+.vs/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Auto-generated files by Visual Studio
+*.vcxproj.user
+*.filters
+*.log
+
+# NuGet packages
+*.nupkg
+packages/
+# NuGet v3's project.json files
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Visual Studio Code workspace settings
+.vscode/
+
+# Rider
+.idea/
+
+# Others
+*.dbmdl
+*.pdb
+*.cache
+*.ilk
+*.meta
+*.obj
+*.exe
+*.dll
+*.lib
+*.app
+*.apk
+*.iobj
+*.ipdb
+*.iuser
+*.ipch
+*.idb
+*.class
+*.jar
+*.war
+*.ear
+
+# DotCover
+*.dotCover
+
+# Resharper
+_ReSharper*/
+
+# TFS
+$tf/
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Backup & report files
+*.bak
+*.backup
+*.log
+*.rdlc
+*.trx
+
+# Others
+*.userprefs
+
+# IIS Express
+/.vs/
+*.vspscc
+
+# Publish Web Output
+*.Publish.xml
+*.azurePubxml
+*.pubxml.user
+
+# Web workbench config files
+.sass-cache/
+*.css.map
+
+# npm packages
+node_modules/
+
+# Yarn Integrity file
+.yarn-integrity
+
+# JetBrains Rider
+.idea/
+.DS_Store

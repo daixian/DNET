@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36221.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DNET", "DNET\DNET.csproj", "{1AF6AFDE-C7FE-466A-9A48-E2E4922F4DA3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSever", "SimpleSever\SimpleSever.csproj", "{65CAFAE8-AEFE-4562-9A19-F6419D9FC7FB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DNET.Test", "DNET.Test\DNET.Test.csproj", "{6DE0EF7A-2582-4A42-93DC-642B9806BCBD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1AF6AFDE-C7FE-466A-9A48-E2E4922F4DA3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1AF6AFDE-C7FE-466A-9A48-E2E4922F4DA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1AF6AFDE-C7FE-466A-9A48-E2E4922F4DA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1AF6AFDE-C7FE-466A-9A48-E2E4922F4DA3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{65CAFAE8-AEFE-4562-9A19-F6419D9FC7FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65CAFAE8-AEFE-4562-9A19-F6419D9FC7FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65CAFAE8-AEFE-4562-9A19-F6419D9FC7FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65CAFAE8-AEFE-4562-9A19-F6419D9FC7FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6DE0EF7A-2582-4A42-93DC-642B9806BCBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DE0EF7A-2582-4A42-93DC-642B9806BCBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6DE0EF7A-2582-4A42-93DC-642B9806BCBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6DE0EF7A-2582-4A42-93DC-642B9806BCBD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {232C41B7-9EE4-47D4-B375-0CFE3549D640}
+	EndGlobalSection
+EndGlobal

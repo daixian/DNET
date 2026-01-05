@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{1AF6AFDE-C7FE-466A-9A48-E2E4922F4DA3}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>DNET</RootNamespace>
+    <AssemblyName>DNET</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Debug\DNET.XML</DocumentationFile>
+    <Prefer32Bit>false</Prefer32Bit>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+    <DocumentationFile>bin\Release\DNET.XML</DocumentationFile>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Client\CwMessage.cs" />
+    <Compile Include="Data\IPoolable.cs" />
+    <Compile Include="Data\ListPool.cs" />
+    <Compile Include="Data\Pool.cs" />
+    <Compile Include="Data\PoolExtensions.cs" />
+    <Compile Include="Peer\ConnectionContext.cs" />
+    <Compile Include="Client\DNClient.cs" />
+    <Compile Include="Client\ErrorType.cs" />
+    <Compile Include="Peer\RttStatistics.cs" />
+    <Compile Include="Peer\PeerStatus.cs" />
+    <Compile Include="Peer\PeerSocket.cs" />
+    <Compile Include="Common\DNETExtension.cs" />
+    <Compile Include="Data\ByteBuffer.cs" />
+    <Compile Include="Data\ByteBufferPool.cs" />
+    <Compile Include="Common\Config.cs" />
+    <Compile Include="Protocol\Format.cs" />
+    <Compile Include="Protocol\Header.cs" />
+    <Compile Include="Protocol\IPacket3.cs" />
+    <Compile Include="Protocol\Message.cs" />
+    <Compile Include="Protocol\SimplePacket.cs" />
+    <Compile Include="Server\SwMessage.cs" />
+    <Compile Include="Thread\ThreadAnalyzer.cs" />
+    <Compile Include="Common\LogProxy.cs" />
+    <Compile Include="Thread\ThreadSampler.cs" />
+    <Compile Include="Thread\WorkThread.cs" />
+    <Compile Include="Data\GlobalBuffer.cs" />
+    <Compile Include="Data\IBufferPool.cs" />
+    <Compile Include="Data\UnsafeByteBuffer.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Protocol\Crc32.cs" />
+    <Compile Include="Server\PeerErrorType.cs" />
+    <Compile Include="Server\DNServer.cs" />
+    <Compile Include="Server\ServerListenerSocket.cs" />
+    <Compile Include="Server\Peer.cs" />
+    <Compile Include="Server\PeerManager.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>
+    </PostBuildEvent>
+  </PropertyGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

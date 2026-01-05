@@ -1,0 +1,48 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    name: Build and Test (.NET Framework 4.6.2)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: "latest"
+
+      - name: Restore NuGet packages
+        run: nuget restore DNet.sln
+
+      - name: Build solution
+        run: msbuild DNet.sln /p:Configuration=Release
+
+      - name: Run NUnit Tests
+        shell: pwsh
+        run: |
+          $testDll = "DNET.Test\bin\Release\DNET.Test.dll"
+          if (-Not (Test-Path $testDll)) {
+            Write-Error "Test DLL not found: $testDll"
+            exit 1
+          }
+
+          # 查找 vstest.console.exe，只取第一条结果
+          $vsTestPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -products * -requires Microsoft.VisualStudio.PackageGroup.TestTools.Core `
+            -find **\vstest.console.exe | Select-Object -First 1
+
+          if (-not (Test-Path $vsTestPath)) {
+            Write-Error "vstest.console.exe not found at: $vsTestPath"
+            exit 1
+          }
+
+          & "$vsTestPath" "$testDll"
