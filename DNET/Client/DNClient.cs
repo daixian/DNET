@@ -9,7 +9,7 @@ namespace DNET
     /// 通信传输的客户端类.
     /// 主要就是再加上一层工作线程的异步封装
     /// </summary>
-    public class DNClient : IWorkHandler<CwMessage>
+    public class DNClient : IWorkHandler<ClientCommand>
     {
         /// <summary>
         /// 单例实例懒加载容器
@@ -34,7 +34,7 @@ namespace DNET
         /// <summary>
         /// 工作线程
         /// </summary>
-        private WorkThread<CwMessage> _workThread;
+        private WorkThread<ClientCommand> _workThread;
 
         /// <summary>
         /// 底层的通信类
@@ -116,19 +116,18 @@ namespace DNET
         /// <summary>
         /// 事件：连接服务器成功
         /// </summary>
-        public event Action<DNClient> EventConnectSuccess;
+        public event Action<DNClient> ConnectSuccess;
 
         /// <summary>
-        /// 事件：接收到了新的消息，可以将任务加入这个事件交给数据解包线程。
-        /// 有几条数据就会有几次事件，但是由于粘包问题这些事件可能会一连串的来。
-        /// 用户在这个事件中应该自己调用GetReceiveData()。
+        /// 事件：接收到了新的消息
+        /// 用户在这个事件中应该自己调用GetReceiveData()来提取已经缓存的接收到的消息。
         /// </summary>
-        public event Action<DNClient> EventReceive;
+        public event Action<DNClient> Received;
 
         /// <summary>
         /// 事件：错误,可以用来通知服务器断线，关闭等。当进入这个事件的时候，此时与服务器的连接肯定已经断开了
         /// </summary>
-        public event Action<DNClient, ErrorType> EventError;
+        public event Action<DNClient, ErrorType> ErrorOccurred;
 
         #endregion
 
@@ -151,7 +150,7 @@ namespace DNET
 
                     // 工作线程总是启动
                     if (_workThread == null) {
-                        _workThread = new WorkThread<CwMessage>("DNClientWorkThread");
+                        _workThread = new WorkThread<ClientCommand>("DNClientWorkThread");
                     }
                     _workThread.ClearQueue();
 
@@ -159,7 +158,7 @@ namespace DNET
                     if (_timer == null) {
                         _timer = new Timer(state => {
                             // 让工作线程定时检查
-                            var check = new CwMessage { type = CwMessage.Type.TimerCheckStatus };
+                            var check = new ClientCommand { type = ClientCommand.Type.TimerCheckStatus };
                             _workThread.Post(in check, this);
                         });
                         _timer.Change(1000, 1000); //一秒后启动
@@ -168,12 +167,12 @@ namespace DNET
                     if (_peerSocket == null) {
                         _peerSocket = new PeerSocket();
                         _peerSocket.Name = Name;
-                        _peerSocket.EventError += OnError;
-                        _peerSocket.EventReceiveCompleted += OnReceiveCompleted;
+                        _peerSocket.ErrorOccurred += OnError;
+                        _peerSocket.ReceiveCompleted += OnReceiveCompleted;
                     }
 
                     // 让工作线程处理这个消息
-                    var msg = new CwMessage { type = CwMessage.Type.Connect };
+                    var msg = new ClientCommand { type = ClientCommand.Type.Connect };
                     _workThread.Post(in msg, this);
                 } catch (Exception e) {
                     // 一般来说其实不会进入这个异常.因为这个函数只是吧一个Message添加到队列中，不会发生异常.
@@ -248,9 +247,9 @@ namespace DNET
                 if (clearEvent) {
                     if (LogProxy.Info != null)
                         LogProxy.Info($"DNClient.Close():{Name}清空了所有绑定事件...");
-                    EventConnectSuccess = null;
-                    EventReceive = null;
-                    EventError = null;
+                    ConnectSuccess = null;
+                    Received = null;
+                    ErrorOccurred = null;
                     // EventSendQueueIsFull = null;
                     // EventSendQueueIsAvailable = null;
                 }
@@ -303,7 +302,7 @@ namespace DNET
                 else {
                     // TODO: _workThread 可能为 null，需确认调用前已启动工作线程
                     // 让工作线程处理这个消息
-                    var msg = new CwMessage { type = CwMessage.Type.Send };
+                    var msg = new ClientCommand { type = ClientCommand.Type.Send };
                     _workThread.Post(in msg, this);
                 }
             } catch (Exception e) {
@@ -386,7 +385,7 @@ namespace DNET
             if (_peerSocket.TryStartSend() && forceUseWorkThread == false)
                 return true;
             // 在超高并发的时候TryStartSend()可能会漏掉一个发送,所以这里用工作线程再次尝试
-            var msg = new CwMessage { type = CwMessage.Type.Send };
+            var msg = new ClientCommand { type = ClientCommand.Type.Send };
             _workThread.Post(in msg, this);
             return false;
         }
@@ -401,7 +400,7 @@ namespace DNET
             }
 
             // 让工作线程处理这个消息
-            var msg = new CwMessage { type = CwMessage.Type.Send };
+            var msg = new ClientCommand { type = ClientCommand.Type.Send };
             _workThread.Post(in msg, this);
         }
 
@@ -438,27 +437,27 @@ namespace DNET
         /// </summary>
         /// <param name="msg">要处理的消息。</param>
         /// <param name="waitTimeMs">这条消息等待了多长时间(ms)。</param>
-        public void Handle(ref CwMessage msg, double waitTimeMs)
+        public void Handle(ref ClientCommand msg, double waitTimeMs)
         {
-            if (waitTimeMs > 500 && msg.type != CwMessage.Type.TimerCheckStatus) {
+            if (waitTimeMs > 500 && msg.type != ClientCommand.Type.TimerCheckStatus) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning($"DNClient.Handle():[{Name}]工作{msg.type}等待处理时间过长！waitTime:{waitTimeMs}ms");
             }
 
             switch (msg.type) {
-                case CwMessage.Type.Connect:
+                case ClientCommand.Type.Connect:
                     DoConnect();
                     break;
-                case CwMessage.Type.Send:
+                case ClientCommand.Type.Send:
                     DoSend();
                     break;
-                case CwMessage.Type.Receive:
+                case ClientCommand.Type.Receive:
                     DoReceive();
                     break;
-                case CwMessage.Type.Close:
+                case ClientCommand.Type.Close:
                     DoClose();
                     break;
-                case CwMessage.Type.TimerCheckStatus:
+                case ClientCommand.Type.TimerCheckStatus:
                     DoTimerCheckStatus();
                     break;
             }
@@ -497,7 +496,7 @@ namespace DNET
                     if (LogProxy.Info != null)
                         LogProxy.Info($"DNClient.DoConnect():{Name}连接服务器成功！{_host}:{_port}");
                     try {
-                        EventConnectSuccess?.Invoke(this);
+                        ConnectSuccess?.Invoke(this);
                     } catch (Exception e) {
                         if (LogProxy.Error != null)
                             LogProxy.Error($"DNClient.DoConnect():{Name}执行 EventConnectSuccess 事件异常 {e}");
@@ -511,7 +510,7 @@ namespace DNET
                     LogProxy.Info($"DNClient.DoConnect():{Name}连接服务器失败！{e.Message}");
 
                 try {
-                    EventError?.Invoke(this, ErrorType.ConnectError); //事件类型：ConnectError
+                    ErrorOccurred?.Invoke(this, ErrorType.ConnectError); //事件类型：ConnectError
                 } catch (Exception e2) {
                     if (LogProxy.Error != null)
                         LogProxy.Error($"DNClient.DoConnect():{Name}执行 EventError 事件异常 {e2}");
@@ -618,7 +617,7 @@ namespace DNET
         {
             try {
                 // dx: 这里也是立刻响应事件处理.不处理完不会开启下一个接收.
-                EventReceive?.Invoke(this); //发出事件：接收到了数据
+                Received?.Invoke(this); //发出事件：接收到了数据
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning($"DNClient.OnReceiveCompleted():{Name}执行外部事件 EventReceive 异常 {e}");
@@ -640,7 +639,7 @@ namespace DNET
         private void OnError(PeerSocket sender, ErrorType errorType)
         {
             try {
-                EventError?.Invoke(this, errorType);
+                ErrorOccurred?.Invoke(this, errorType);
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning($"DNClient.OnError():{Name}执行 EventError 事件异常 {e}");

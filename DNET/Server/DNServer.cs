@@ -8,7 +8,7 @@ namespace DNET
     /// <summary>
     /// 通信传输的服务器类
     /// </summary>
-    public class DNServer : IWorkHandler<SwMessage>
+    public class DNServer : IWorkHandler<ServerCommand>
     {
         /// <summary>
         /// 单例实例懒加载容器
@@ -28,7 +28,7 @@ namespace DNET
         /// <summary>
         /// 工作线程
         /// </summary>
-        private WorkThread<SwMessage> _workThread;
+        private WorkThread<ServerCommand> _workThread;
 
         /// <summary>
         /// 底层的通信类
@@ -72,13 +72,13 @@ namespace DNET
         /// <summary>
         /// 事件：某个Peer发生了错误后，会自动调用关闭，这是错误及关闭事件
         /// </summary>
-        public event Action<DNServer, Peer, PeerErrorType> EventPeerError;
+        public event Action<DNServer, Peer, PeerErrorType> PeerErrorOccurred;
 
         /// <summary>
         /// 事件：某个Peer接收到了数据，注意如果可能会有多线程执行这个事件的时候(如IsFastResponse=True的时候)
         /// 如果特别关心回复的发送顺序,那么要对回调函数中的Peer进行加锁.
         /// </summary>
-        public event Action<DNServer, Peer> EventPeerReceData;
+        public event Action<DNServer, Peer> PeerReceived;
 
         /// <summary>
         /// 启动服务器，会开启工作线程.
@@ -100,7 +100,7 @@ namespace DNET
 
                 // 工作线程总是启动
                 if (_workThread == null) {
-                    _workThread = new WorkThread<SwMessage>("DNServerWorkThread");
+                    _workThread = new WorkThread<ServerCommand>("DNServerWorkThread");
                 }
                 _workThread.ClearQueue();
 
@@ -108,7 +108,7 @@ namespace DNET
                 if (_timer == null) {
                     _timer = new Timer(state => {
                         // 让工作线程定时检查
-                        var check = new SwMessage { type = SwMessage.Type.TimerCheckStatus };
+                        var check = new ServerCommand { type = ServerCommand.Type.TimerCheckStatus };
                         _workThread.Post(in check, this);
                     });
                     _timer.Change(1000, 1000); //一秒后启动
@@ -180,8 +180,8 @@ namespace DNET
                 if (clearEvent) {
                     if (LogProxy.Debug != null)
                         LogProxy.Debug("DNServer.Close():清空了所有绑定事件...");
-                    EventPeerError = null;
-                    EventPeerReceData = null;
+                    PeerErrorOccurred = null;
+                    PeerReceived = null;
                 }
 
                 // 不重置算了
@@ -245,7 +245,7 @@ namespace DNET
                 peer.peerSocket.TryStartSend();
             else {
                 // TODO: _workThread 可能为 null，需确认在调用前已启动工作线程
-                var msg = new SwMessage { type = SwMessage.Type.Send, peer = peer };
+                var msg = new ServerCommand { type = ServerCommand.Type.Send, peer = peer };
                 _workThread.Post(in msg, this);
             }
         }
@@ -324,7 +324,7 @@ namespace DNET
             if (peer.peerSocket.TryStartSend() && forceUseWorkThread == false)
                 return true;
             // 在超高并发的时候TryStartSend()可能会漏掉一个发送,所以这里用工作线程再次尝试
-            var msg = new SwMessage { type = SwMessage.Type.Send, peer = peer };
+            var msg = new ServerCommand { type = ServerCommand.Type.Send, peer = peer };
             _workThread.Post(in msg, this);
             return false;
         }
@@ -338,7 +338,7 @@ namespace DNET
                 return;
             }
 
-            var msg = new SwMessage { type = SwMessage.Type.SendAll };
+            var msg = new ServerCommand { type = ServerCommand.Type.SendAll };
             _workThread.Post(in msg, this);
         }
 
@@ -349,27 +349,27 @@ namespace DNET
         /// </summary>
         /// <param name="msg">要处理的消息。</param>
         /// <param name="waitTimeMs">这条消息等待了多长时间(ms)。</param>
-        public void Handle(ref SwMessage msg, double waitTimeMs)
+        public void Handle(ref ServerCommand msg, double waitTimeMs)
         {
-            if (waitTimeMs > 500 && msg.type != SwMessage.Type.TimerCheckStatus) {
+            if (waitTimeMs > 500 && msg.type != ServerCommand.Type.TimerCheckStatus) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning($"DNServer.Handle():[{Name}]工作{msg.type}等待处理时间过长！waitTime:{waitTimeMs}ms");
             }
 
             switch (msg.type) {
-                case SwMessage.Type.Start:
+                case ServerCommand.Type.Start:
                     DoStart(msg);
                     break;
-                case SwMessage.Type.Send:
+                case ServerCommand.Type.Send:
                     DoSend(msg);
                     break;
-                case SwMessage.Type.Receive:
+                case ServerCommand.Type.Receive:
                     DoReceive(msg);
                     break;
-                case SwMessage.Type.SendAll:
+                case ServerCommand.Type.SendAll:
                     DoSendAll(msg);
                     break;
-                case SwMessage.Type.TimerCheckStatus:
+                case ServerCommand.Type.TimerCheckStatus:
                     DoTimerCheckStatus(msg);
                     break;
             }
@@ -379,7 +379,7 @@ namespace DNET
         /// 工作线程内启动服务器
         /// </summary>
         /// <param name="msg">启动参数消息</param>
-        private void DoStart(SwMessage msg)
+        private void DoStart(ServerCommand msg)
         {
             try {
                 if (IsStarted)
@@ -408,7 +408,7 @@ namespace DNET
         /// <summary>
         /// 响应Timer的执行,目前是一秒一次
         /// </summary>
-        private void DoTimerCheckStatus(SwMessage msg)
+        private void DoTimerCheckStatus(ServerCommand msg)
         {
             var peers = PeerManager.Inst.GetAllPeer();
             for (int i = 0; i < peers.Count; i++) {
@@ -455,7 +455,7 @@ namespace DNET
         /// 线程函数：发送
         /// </summary>
         /// <param name="msg">带peer和数据的消息</param>
-        private void DoSend(SwMessage msg)
+        private void DoSend(ServerCommand msg)
         {
             Peer peer = msg.peer;
             try {
@@ -478,7 +478,7 @@ namespace DNET
         /// 线程函数，向所有Token发送他们的待发送数据
         /// </summary>
         /// <param name="msg">发送全部的消息</param>
-        private void DoSendAll(SwMessage msg)
+        private void DoSendAll(ServerCommand msg)
         {
             try {
                 var peers = PeerManager.Inst.GetAllPeer();
@@ -497,7 +497,7 @@ namespace DNET
         /// 线程函数,发出事件.
         /// </summary>
         /// <param name="msg">接收事件的消息</param>
-        private void DoReceive(SwMessage msg)
+        private void DoReceive(ServerCommand msg)
         {
             Peer peer = msg.peer;
             // dx: 在Fast模式下也会丢进来执行这个检查,所以有大量的消息要执行,
@@ -513,7 +513,7 @@ namespace DNET
                     if (!peer.HasReceiveMsg) {
                         return;
                     }
-                    EventPeerReceData?.Invoke(this, peer);
+                    PeerReceived?.Invoke(this, peer);
                 }
             } catch (Exception e) {
                 if (LogProxy.Error != null)
@@ -535,17 +535,17 @@ namespace DNET
             PeerManager.Inst.AddPeer(peer); //把这个用户加入TokenManager,分配一个ID
 
             peer.peerSocket.SetAcceptSocket(acceptSocket); // 这里会初始化args,会使用name
-            peer.peerSocket.EventError +=
+            peer.peerSocket.ErrorOccurred +=
                 (ps, eventError) => {
                     Peer p = ps.User as Peer;
                     if (p == null)
                         return;
-                    EventPeerError?.Invoke(this, p, PeerErrorType.SocketError);
+                    PeerErrorOccurred?.Invoke(this, p, PeerErrorType.SocketError);
                     if (LogProxy.Info != null)
                         LogProxy.Info($"客户端{p.ID}发生错误,删除它");
                     PeerManager.Inst.DeletePeer(p.ID, PeerErrorType.SocketError); //关闭Token
                 };
-            peer.peerSocket.EventReceiveCompleted +=
+            peer.peerSocket.ReceiveCompleted +=
                 (ps) => {
                     Peer p = ps.User as Peer;
                     if (p == null)
@@ -557,7 +557,7 @@ namespace DNET
                         try {
                             // 因为要支持在timer中查看是否有未处理的事件,所以这里需要加锁,让事件中的工作可以串行
                             lock (peer) {
-                                EventPeerReceData?.Invoke(this, p);
+                                PeerReceived?.Invoke(this, p);
                             }
                         } catch (Exception e) {
                             if (LogProxy.Error != null)
@@ -577,7 +577,7 @@ namespace DNET
         {
             // TODO: Close 后 _workThread 可能为 null，需确认调用时机
             // 让工作线程处理
-            var msg = new SwMessage { type = SwMessage.Type.Receive, peer = peer };
+            var msg = new ServerCommand { type = ServerCommand.Type.Receive, peer = peer };
             _workThread.Post(in msg, this);
 
             //DoReceive(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
@@ -591,7 +591,7 @@ namespace DNET
         {
             if (peer.peerSocket.WaitSendMsgCount > 0) //如果待发送队列里有消息这里应该不需要这个判断了token.SendingCount < MAX_TOKEN_SENDING_COUNT &&
             {
-                var msg = new SwMessage { type = SwMessage.Type.Send };
+                var msg = new ServerCommand { type = ServerCommand.Type.Send };
                 _workThread.Post(in msg, this);
             }
         }

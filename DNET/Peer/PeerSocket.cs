@@ -174,22 +174,22 @@ namespace DNET
         /// <summary>
         /// 出现错误
         /// </summary>
-        internal event Action<PeerSocket, ErrorType> EventError;
+        internal event Action<PeerSocket, ErrorType> ErrorOccurred;
 
         /// <summary>
         /// 连接成功的事件
         /// </summary>
-        internal event Action<PeerSocket> EventConnectCompleted;
+        internal event Action<PeerSocket> ConnectCompleted;
 
         /// <summary>
         /// 数据发送完毕
         /// </summary>
-        internal event Action<PeerSocket> EventSendCompleted;
+        internal event Action<PeerSocket> SendCompleted;
 
         /// <summary>
         /// 数据接收完毕
         /// </summary>
-        internal event Action<PeerSocket> EventReceiveCompleted;
+        internal event Action<PeerSocket> ReceiveCompleted;
 
         #endregion
 
@@ -562,7 +562,7 @@ namespace DNET
                 _areConnectDone.Set(); // 通知等待线程连接已完成(中断未完成的连接函数也会保证Set这一下)
 
                 if (args.SocketError == SocketError.Success) {
-                    EventConnectCompleted?.Invoke(this);
+                    ConnectCompleted?.Invoke(this);
 
                     if (IsConnected) {
                         PrepareReceive(_receiveArgs); // 启动接收
@@ -614,8 +614,8 @@ namespace DNET
                     Status.RecordSentMessage(context.curSendMsgCount, args.BytesTransferred);
 
                     //执行事件
-                    if (EventSendCompleted != null) {
-                        EventSendCompleted(this);
+                    if (SendCompleted != null) {
+                        SendCompleted(this);
                     }
                 }
 
@@ -692,9 +692,9 @@ namespace DNET
                 // curRecvBuffer.Recycle(); //解包结束,回收接收缓存区
 
                 //如果确实收到了一条消息.执行事件
-                if (msgCount > 0 && EventReceiveCompleted != null) {
+                if (msgCount > 0 && ReceiveCompleted != null) {
                     try {
-                        EventReceiveCompleted(this);
+                        ReceiveCompleted(this);
                     } catch (Exception ex) {
                         if (LogProxy.Error != null)
                             LogProxy.Error($"PeerSocket.OnReceiveCompleted():[{Name}] 执行事件 EventReceiveCompleted 异常: {ex}");
@@ -785,7 +785,7 @@ namespace DNET
                 }
             }
             //产生错误事件，这是一个很重要的事件，处理服务器连接断开等
-            EventError?.Invoke(this, ErrorType.IOError);
+            ErrorOccurred?.Invoke(this, ErrorType.IOError);
         }
 
         /// <summary>
@@ -908,10 +908,10 @@ namespace DNET
                 //断开连接,这里有SocketShutdown.Both
                 Disconnect();
 
-                EventConnectCompleted = null;
-                EventReceiveCompleted = null;
-                EventSendCompleted = null;
-                EventError = null;
+                ConnectCompleted = null;
+                ReceiveCompleted = null;
+                SendCompleted = null;
+                ErrorOccurred = null;
 
                 if (_sendArgs != null) {
                     // dx: 这里不要置空，因为可能此时还有异步回调没有进入

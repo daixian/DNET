@@ -67,14 +67,14 @@ namespace SimpleSever
                 MessageBox.Show("请输入有效的端口号。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
-            DNServer.Inst.EventPeerReceData += OnTokenReceData;
+            DNServer.Inst.PeerReceived += OnTokenReceData;
             DNServer.Inst.Start(port);
         }
 
         private void btnStop_Click(object sender, EventArgs e)
         {
             DNServer.Inst.Close();
-            DNServer.Inst.EventPeerReceData -= OnTokenReceData;
+            DNServer.Inst.PeerReceived -= OnTokenReceData;
         }
     }
 }

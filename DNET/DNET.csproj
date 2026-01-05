@@ -42,7 +42,7 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Client\CwMessage.cs" />
+    <Compile Include="Client\ClientCommand.cs" />
     <Compile Include="Data\IPoolable.cs" />
     <Compile Include="Data\ListPool.cs" />
     <Compile Include="Data\Pool.cs" />
@@ -62,7 +62,7 @@
     <Compile Include="Protocol\IPacket3.cs" />
     <Compile Include="Protocol\Message.cs" />
     <Compile Include="Protocol\SimplePacket.cs" />
-    <Compile Include="Server\SwMessage.cs" />
+    <Compile Include="Server\ServerCommand.cs" />
     <Compile Include="Thread\ThreadAnalyzer.cs" />
     <Compile Include="Common\LogProxy.cs" />
     <Compile Include="Thread\ThreadSampler.cs" />

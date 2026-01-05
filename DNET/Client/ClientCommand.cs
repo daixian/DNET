@@ -3,7 +3,7 @@
     /// <summary>
     /// 客户端线程消息
     /// </summary>
-    public struct CwMessage
+    public struct ClientCommand
     {
         /// <summary>
         /// 消息类型

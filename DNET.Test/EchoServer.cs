@@ -43,7 +43,7 @@ namespace DNET.Test
         public void Start(int port, bool isFastResponse = true)
         {
             // 设置接收数据事件处理
-            server.EventPeerReceData += (s, peer) => {
+            server.PeerReceived += (s, peer) => {
                 if (peer.User == null) {
                     peer.User = new PeerUser();
                 }

@@ -3,7 +3,7 @@
     /// <summary>
     /// 给服务器的工作线程传递事件
     /// </summary>
-    public struct SwMessage
+    public struct ServerCommand
     {
         /// <summary>
         /// 消息类型
