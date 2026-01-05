@@ -110,7 +110,7 @@ namespace DNET.Test
                             //     $"[ASSERT FAILED] 客户端{_client.Name}检查TxrId错误: actual = {msg.TxrId}, expected = {ReceiveCount},总的SendCount={SendCount},msgList.Count={msgList.Count},待发送队列{_client.WaitSendMsgCount}");
 
                             for (int j = 0; j < msg.data.Length; j++)
-                                Assert.That(msg.data.buffer[j] == sendData[j]);
+                                Assert.That(msg.data.Bytes[j] == sendData[j]);
 
                             ReceiveCount++;
                         }

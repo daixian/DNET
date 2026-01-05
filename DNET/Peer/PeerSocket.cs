@@ -214,7 +214,7 @@ namespace DNET
             }
             try {
                 ByteBuffer packedData = _packet.Pack(data, offset, count, format, txrId, eventType);
-                packedData.buffer.SetHeaderId(_sendMsgId++); //记录id
+                packedData.Bytes.SetHeaderId(_sendMsgId++); //记录id
 
                 _sendQueue.Enqueue(packedData);
                 if (Config.EnableRttStatistics && txrId != 0) {
@@ -459,7 +459,7 @@ namespace DNET
             }
 
             while (_sendQueue.TryDequeue(out ByteBuffer item)) {
-                int curID = item.buffer.GetHeaderId();
+                int curID = item.Bytes.GetHeaderId();
                 if (_sendMsgId2 != curID) {
                     if (LogProxy.Error != null)
                         LogProxy.Error($"SocketClient.TryStartSend():[{Name}] 提取消息的序号错误! {curID}/{_sendMsgId2}");
@@ -509,7 +509,7 @@ namespace DNET
             context.sendBuffer = sendBuffer;
             context.curSendMsgCount = buffers.Count; // 发送消息的个数
             // dx: 注意这里是发送的实际数据长度
-            _sendArgs.SetBuffer(context.sendBuffer.buffer, 0, context.sendBuffer.Length);
+            _sendArgs.SetBuffer(context.sendBuffer.Bytes, 0, context.sendBuffer.Length);
 
             ListPool<ByteBuffer>.Shared.Recycle(buffers); // 这是最后使用的地方了归还.
 
@@ -849,7 +849,7 @@ namespace DNET
                 if (context.receiveBuffer == null) {
                     context.receiveBuffer = GlobalBuffer.Inst.Get(RECE_BUFFER_SIZE);
                 }
-                byte[] buff = context.receiveBuffer.buffer; // dx: 注意这里是buffer的容量
+                byte[] buff = context.receiveBuffer.Bytes; // dx: 注意这里是buffer的容量
                 args.SetBuffer(buff, 0, buff.Length);
                 //开始接收
                 if (!socket.ReceiveAsync(args)) {

@@ -48,9 +48,9 @@ namespace DNET
         public int Capacity => _buffer.Length;
 
         /// <summary>
-        /// 获取buffer块
+        /// 获取buffer块,注意它只有部分数据是有效的.
         /// </summary>
-        public byte[] buffer => _buffer;
+        public byte[] Bytes => _buffer;
 
         /// <summary>
         /// 清空buffer
@@ -78,26 +78,26 @@ namespace DNET
             }
             //else {
             //    _buffer = null;
-            //} 
+            //}
         }
 
         /// <summary>
-        /// 将其他 buffer 的内容追加进来,会提升validLength。所以要注意在拷贝前设置
-        /// validLength=0; 
+        /// 拷贝数据,追加模式.将其他 buffer 的内容追加进来,会提升validLength。所以要注意在拷贝前设置
+        /// validLength=0;
         /// </summary>
         /// <param name="other">要追加的buffer</param>
         public void Append(ByteBuffer other)
         {
             if (other == null || other._length == 0) return;
-            if (_length + other._length > buffer.Length)
+            if (_length + other._length > Bytes.Length)
                 throw new InvalidOperationException("Buffer overflow");
 
-            Buffer.BlockCopy(other.buffer, 0, buffer, _length, other._length);
+            Buffer.BlockCopy(other.Bytes, 0, Bytes, _length, other._length);
             _length += other._length;
         }
 
         /// <summary>
-        /// 追加数据
+        /// 拷贝数据,追加模式.
         /// </summary>
         /// <param name="src">源数据</param>
         /// <param name="offset">起始偏移</param>
@@ -145,6 +145,18 @@ namespace DNET
                 Buffer.MemoryCopy(source, destPtr, Capacity, sourceBytesToCopy);
             }
             _length = (int)sourceBytesToCopy;
+        }
+
+        /// <summary>
+        /// 直接设置有效长度,用于在某些API直接使用了之后.
+        /// </summary>
+        /// <param name="length"></param>
+        /// <exception cref="InvalidOperationException"></exception>
+        public void SetLength(int length)
+        {
+            if (length > Capacity)
+                throw new InvalidOperationException($"Buffer capacity {Capacity} is less than length {length}");
+            _length = length;
         }
 
         /// <summary>

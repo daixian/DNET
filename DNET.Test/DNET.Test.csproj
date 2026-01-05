@@ -65,6 +65,7 @@
     <Compile Include="ByteBufferTest.cs" />
     <Compile Include="ClientSimpleTest.cs" />
     <Compile Include="EchoServer.cs" />
+    <Compile Include="GlobalBufferTest.cs" />
     <Compile Include="SampleDTO.cs" />
     <Compile Include="TestClient.cs" />
     <Compile Include="UnitTest1.cs" />

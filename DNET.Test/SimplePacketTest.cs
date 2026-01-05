@@ -33,7 +33,7 @@ namespace DNET.Test
             Assert.That(packedBuffer.Length, Is.GreaterThan(0));
 
             // 测试 Unpack
-            var unpackedMessages = packet.Unpack(packedBuffer.buffer, 0, packedBuffer.Length);
+            var unpackedMessages = packet.Unpack(packedBuffer.Bytes, 0, packedBuffer.Length);
             Assert.That(unpackedMessages, Is.Not.Null);
             Assert.That(unpackedMessages.Count, Is.EqualTo(1));
 
@@ -44,7 +44,7 @@ namespace DNET.Test
             Assert.That(unpackedMsg.header.eventType, Is.EqualTo(header.eventType));
             Assert.That(unpackedMsg.header.dataLen, Is.EqualTo(header.dataLen));
 
-            string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data.buffer, 0, unpackedMsg.data.Length);
+            string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data.Bytes, 0, unpackedMsg.data.Length);
             Assert.That(unpackedString, Is.EqualTo("Hello, SimplePacket!"));
 
             // 释放 ByteBuffer 资源（如果需要）
@@ -97,7 +97,7 @@ namespace DNET.Test
             Assert.That(unpackedMsg.header.eventType, Is.EqualTo(header.eventType));
             Assert.That(unpackedMsg.header.dataLen, Is.EqualTo(header.dataLen));
 
-            string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data.buffer, 0, unpackedMsg.data.Length);
+            string unpackedString = System.Text.Encoding.UTF8.GetString(unpackedMsg.data.Bytes, 0, unpackedMsg.data.Length);
             Assert.That(unpackedString, Is.EqualTo("Hello, SimplePacket!"));
 
             packedBuffer.Recycle();

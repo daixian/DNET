@@ -44,7 +44,7 @@ namespace SimpleSever
                     LogProxy.Info($"收到文本数据:{msg.Text},事务ID{msg.TxrId}");
                 }
                 // 回发接收到的数据
-                peer.AddSendData(msg.data.buffer, 0, msg.data.Length,
+                peer.AddSendData(msg.data.Bytes, 0, msg.data.Length,
                     format: msg.Format,
                     txrId: msg.TxrId);
             }

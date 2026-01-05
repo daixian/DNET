@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 
 namespace DNET
 {
@@ -54,6 +55,27 @@ namespace DNET
 
             // 超过最大分档，直接创建临时 ByteBuffer
             return new ByteBuffer(minSize);
+        }
+
+        /// <summary>
+        /// 将字符串转换为 UTF-8 编码的字节数组,直接传出ByteBuffer
+        /// </summary>
+        /// <param name="text"></param>
+        /// <returns></returns>
+        public ByteBuffer GetEncodedUtf8(string text)
+        {
+            int maxBytes = Encoding.UTF8.GetMaxByteCount(text.Length);
+            ByteBuffer buffer = Get(maxBytes);
+            // 直接编码到 buffer 内部数组
+            int byteCount = Encoding.UTF8.GetBytes(
+                text,
+                0,
+                text.Length,
+                buffer.Bytes,   // 你的内部 byte[]
+                0   // 写入起始位置
+            );
+            buffer.SetLength(byteCount);
+            return buffer;
         }
     }
 }

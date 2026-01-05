@@ -276,8 +276,10 @@ namespace DNET
                     Send(peer, null, 0, 0, format, txrId, eventType, immediately);
                     return;
                 }
-                byte[] data = Encoding.UTF8.GetBytes(text);
-                Send(peer, data, 0, data.Length, format, txrId, eventType, immediately);
+                // 直接编码到 buffer 内部数组
+                ByteBuffer buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
+                Send(peer, buffer.Bytes, 0, buffer.Length, format, txrId, eventType, immediately);
+                buffer.Recycle();
             } catch (Exception e) {
                 if (LogProxy.Error != null)
                     LogProxy.Error($"DNServer.Send():发送文本异常 {e}");

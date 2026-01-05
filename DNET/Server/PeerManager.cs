@@ -57,7 +57,8 @@ namespace DNET
         /// <param name="peer">要加入的peer对象</param>
         internal Peer AddPeer(Peer peer)
         {
-            // TODO: peer 可能为 null，需确认调用方是否保证非空
+            if (peer == null)
+                throw new ArgumentNullException(nameof(peer));
             peer.ID = Interlocked.Increment(ref _curID) - 1;
             peer.peerSocket.Name = $"Peer[{peer.ID}]";
             if (_dictPeer.TryAdd(peer.ID, peer)) {
@@ -235,8 +236,10 @@ namespace DNET
                     SendToAllPeerExcept(exceptPeerID, null, 0, 0, format, txrId, eventType);
                     return;
                 }
-                byte[] data = Encoding.UTF8.GetBytes(text);
-                SendToAllPeerExcept(exceptPeerID, data, 0, data.Length, format, txrId, eventType);
+                // 直接编码到 buffer 内部数组
+                ByteBuffer buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
+                SendToAllPeerExcept(exceptPeerID, buffer.Bytes, 0, buffer.Length, format, txrId, eventType);
+                buffer.Recycle();
             } catch (Exception e) {
                 if (LogProxy.Error != null)
                     LogProxy.Error($"DNServer.SendToAllPeerExcept():发送文本异常 {e}");

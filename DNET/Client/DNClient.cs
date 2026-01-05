@@ -333,14 +333,17 @@ namespace DNET
             }
 
             try {
-                byte[] dataBytes = null;
+
                 if (string.IsNullOrEmpty(text)) {
                     // TODO: 确认底层AddSendData对null的处理逻辑，避免空消息引发异常
-                    Send(dataBytes, 0, 0, format, txrId, eventType, immediately); //发送一个没有内容的空消息
+                    Send(null, 0, 0, format, txrId, eventType, immediately); //发送一个没有内容的空消息
                     return;
                 }
-                dataBytes = Encoding.UTF8.GetBytes(text);
-                Send(dataBytes, 0, dataBytes.Length, format, txrId, eventType, immediately);
+                // 直接编码到 buffer 内部数组
+                // 替代 dataBytes = Encoding.UTF8.GetBytes(text);
+                ByteBuffer buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
+                Send(buffer.Bytes, 0, buffer.Length, format, txrId, eventType, immediately);
+                buffer.Recycle();
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning($"DNClient.Send:异常 {e}");

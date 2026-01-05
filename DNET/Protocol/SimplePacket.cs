@@ -55,7 +55,7 @@ namespace DNET
             header.txrId = txrId;
             header.eventType = eventType;
             header.WriteToByteBuffer(result);
-            result.Append(data, offset, length);
+            result.Append(data, offset, length); //拷贝数据
             return result;
         }
 
@@ -69,7 +69,7 @@ namespace DNET
             int headerSize = Marshal.SizeOf<Header>();
             ByteBuffer result = GlobalBuffer.Inst.Get(headerSize + msg.header.dataLen);
             msg.header.WriteToByteBuffer(result);
-            result.Append(msg.data.buffer, 0, msg.data.Length);
+            result.Append(msg.data.Bytes, 0, msg.data.Length);
             return result;
         }
 

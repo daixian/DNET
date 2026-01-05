@@ -177,13 +177,14 @@ namespace DNET
             if (peerSocket == null || _disposed) return;
 
             try {
-                byte[] dataBytes = null;
                 if (string.IsNullOrEmpty(text)) {
-                    Send(dataBytes, 0, 0, format, txrId, eventType); //发送一个没有内容的空消息
+                    Send(null, 0, 0, format, txrId, eventType); //发送一个没有内容的空消息
                     return;
                 }
-                dataBytes = Encoding.UTF8.GetBytes(text);
-                Send(dataBytes, 0, dataBytes.Length, format, txrId, eventType);
+                // 直接编码到 buffer 内部数组
+                ByteBuffer buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
+                Send(buffer.Bytes, 0, buffer.Length, format, txrId, eventType);
+                buffer.Recycle();
             } catch (Exception e) {
                 if (LogProxy.Error != null)
                     LogProxy.Error($"Peer.Send():异常 {e}");

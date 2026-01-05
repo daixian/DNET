@@ -65,7 +65,7 @@ namespace DNET.Test
                         LogProxy.Error($"[{peer.Name}]收到数据包序号错误,当前 ID/事务/接收:{msg.Id}/{msg.TxrId}/{user.ReceiveCount}");
                     }
                     // 回发接收到的数据
-                    peer.AddSendData(msg.data.buffer, 0, msg.data.Length,
+                    peer.AddSendData(msg.data.Bytes, 0, msg.data.Length,
                         format: msg.Format,
                         txrId: msg.TxrId);
 

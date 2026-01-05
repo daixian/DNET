@@ -57,9 +57,8 @@
         /// </summary>
         public string Text {
             get {
-                if (Format == Format.Text) {
-                    // TODO: data 可能为 null，需确认上游是否保证存在有效数据
-                    return System.Text.Encoding.UTF8.GetString(data.buffer, 0, data.Length);
+                if (Format == Format.Text && data != null) {
+                    return System.Text.Encoding.UTF8.GetString(data.Bytes, 0, data.Length);
                 }
                 else {
                     return null;
