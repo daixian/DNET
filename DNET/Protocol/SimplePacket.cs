@@ -41,9 +41,17 @@ namespace DNET
         /// <returns>打包数据结果</returns>
         public ByteBuffer Pack(byte[] data, int offset, int length, Format format, int txrId, int eventType)
         {
-            // TODO: IPacket3 允许 data 为 null，这里需要明确是否允许空包
-            if (data == null || length < 0 || offset + length > data.Length)
-                throw new ArgumentException("Invalid data length");
+            if (data == null || length == 0) {
+                // 这是一种空包.
+                data = null;
+                length = 0;
+                offset = 0;
+            }
+            else {
+                // 如果不是故意空包，则检查数据长度
+                if (length < 0 || offset + length > data.Length)
+                    throw new ArgumentException($"Invalid data offset={offset}, length={length}");
+            }
 
             int headerSize = Marshal.SizeOf<Header>();
             ByteBuffer result = GlobalBuffer.Inst.Get(headerSize + length);

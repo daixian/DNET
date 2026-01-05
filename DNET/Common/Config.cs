@@ -6,7 +6,8 @@
     public static class Config
     {
         /// <summary>
-        /// 是否是调试模式.这模式输出更多错误信息和开启一些记录，方便调试
+        /// 是否是调试模式.这模式输出更多错误信息和开启一些记录，方便调试.
+        /// 比普通的Debug日志打印更多的高频Debug日志.
         /// </summary>
         public static bool IsDebugMode { get; set; } = false;
 

@@ -88,7 +88,8 @@ namespace DNET
         /// <param name="other">要追加的buffer</param>
         public void Append(ByteBuffer other)
         {
-            if (other == null || other._length == 0) return;
+            if (other == null || other._length == 0)
+                return;
             if (_length + other._length > Bytes.Length)
                 throw new InvalidOperationException("Buffer overflow");
 
@@ -99,13 +100,14 @@ namespace DNET
         /// <summary>
         /// 拷贝数据,追加模式.
         /// </summary>
-        /// <param name="src">源数据</param>
+        /// <param name="src">源数据,如果为null则不做操作.</param>
         /// <param name="offset">起始偏移</param>
         /// <param name="count">写入字节数</param>
         /// <exception cref="InvalidOperationException"></exception>
         public void Append(byte[] src, int offset, int count)
         {
-            if (src == null || count <= 0) return;
+            if (src == null || count <= 0)
+                return;
             if (_length + count > _buffer.Length)
                 throw new InvalidOperationException("Buffer overflow");
 
@@ -122,7 +124,8 @@ namespace DNET
         /// <exception cref="InvalidOperationException"></exception>
         public void Write(byte[] src, int offset, int count)
         {
-            if (src == null || count <= 0) return;
+            if (src == null || count <= 0)
+                return;
             if (count > _buffer.Length)
                 throw new InvalidOperationException("Buffer overflow");
 

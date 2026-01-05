@@ -19,15 +19,17 @@ namespace SimpleSever
         {
             InitializeComponent();
 
-            _ = this.checkBox1.Checked;
+            _enableEcho = this.checkBox1.Checked;
 
-            //Config.DefaultConfigOnWindows();//在自己根目录下创建日志
-            Config.IsAutoHeartbeat = false;
-            LogProxy.SetupLogToConsole();
+            Config.IsDebugMode = false;
+            Config.IsAutoHeartbeat = true;
+
             // 在vs调试的时候这个控制台内容会打印到vs的IDE中.
-            DNServer.Inst.EventPeerReceData += OnTokenReceData;
-            DNServer.Inst.Start(23333);
+            LogProxy.SetupLogToConsole();
+
         }
+
+        bool _enableEcho = true;
 
 
         private void OnTokenReceData(DNServer server, Peer peer)
@@ -44,9 +46,11 @@ namespace SimpleSever
                     LogProxy.Info($"收到文本数据:{msg.Text},事务ID{msg.TxrId}");
                 }
                 // 回发接收到的数据
-                peer.AddSendData(msg.data.Bytes, 0, msg.data.Length,
-                    format: msg.Format,
-                    txrId: msg.TxrId);
+                if (_enableEcho) {
+                    peer.AddSendData(msg.data.Bytes, 0, msg.data.Length,
+                        format: msg.Format,
+                        txrId: msg.TxrId);
+                }
             }
             server.TryStartSend(peer); // 此时再合并发送.
             msgList.RecycleAllItems();
@@ -54,7 +58,23 @@ namespace SimpleSever
 
         private void checkBox1_CheckedChanged(object sender, EventArgs e)
         {
-            _ = this.checkBox1.Checked;
+            _enableEcho = this.checkBox1.Checked;
+        }
+
+        private void btnStart_Click(object sender, EventArgs e)
+        {
+            if (!int.TryParse(textBoxPort.Text, out int port)) {
+                MessageBox.Show("请输入有效的端口号。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            DNServer.Inst.EventPeerReceData += OnTokenReceData;
+            DNServer.Inst.Start(port);
+        }
+
+        private void btnStop_Click(object sender, EventArgs e)
+        {
+            DNServer.Inst.Close();
+            DNServer.Inst.EventPeerReceData -= OnTokenReceData;
         }
     }
 }

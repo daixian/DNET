@@ -58,7 +58,8 @@ namespace DNET
         }
 
         /// <summary>
-        /// 将字符串转换为 UTF-8 编码的字节数组,直接传出ByteBuffer
+        /// 将字符串转换为 UTF-8 编码的字节数组,直接传出ByteBuffer.
+        /// 在发送文本时可以使用这个方法来减少GC.
         /// </summary>
         /// <param name="text"></param>
         /// <returns></returns>
@@ -74,6 +75,35 @@ namespace DNET
                 buffer.Bytes,   // 你的内部 byte[]
                 0   // 写入起始位置
             );
+            buffer.SetLength(byteCount);
+            return buffer;
+        }
+
+        /// <summary>
+        /// 将字符串转换为 UTF-16 编码的字节数组,直接传出ByteBuffer.
+        /// unsafe方法.可以替代text.ToCharArray();
+        /// </summary>
+        /// <param name="text"></param>
+        /// <returns></returns>
+        public unsafe ByteBuffer GetEncodedUtf16(string text)
+        {
+            if (string.IsNullOrEmpty(text)) {
+                return Get(0);
+            }
+
+            int byteCount = text.Length * 2;
+            ByteBuffer buffer = Get(byteCount);
+
+            fixed (char* src = text)
+            fixed (byte* dst = buffer.Bytes) {
+                Buffer.MemoryCopy(
+                    src,
+                    dst,
+                    buffer.Capacity,
+                    byteCount
+                );
+            }
+
             buffer.SetLength(byteCount);
             return buffer;
         }

@@ -882,24 +882,24 @@ namespace DNET
 
             try {
                 if (LogProxy.Info != null)
-                    LogProxy.Info($"PeerSocket.Dispose():[{Name}] 进入Dispose, 发送消息数{Status.SendMessageCount},接收消息数{Status.ReceiveMessageCount}");
+                    LogProxy.Info($"PeerSocket.Dispose():[{Name}][{RemoteIP}] 进入Dispose, 发送消息数{Status.SendMessageCount},接收消息数{Status.ReceiveMessageCount}");
 
                 if (_isSending != 0) {
                     if (LogProxy.Warning != null)
-                        LogProxy.Warning($"PeerSocket.Dispose():[{Name}] isSending={_isSending}");
+                        LogProxy.Warning($"PeerSocket.Dispose():[{Name}][{RemoteIP}] isSending={_isSending}");
                 }
                 // 最好不要有任何的残留数据
                 if (_packet.UnpackCachedCount != 0) {
                     if (LogProxy.Warning != null)
-                        LogProxy.Warning($"PeerSocket.Dispose():[{Name}] 中packet有未处理数据{_packet.UnpackCachedCount}字节");
+                        LogProxy.Warning($"PeerSocket.Dispose():[{Name}][{RemoteIP}] 中packet有未处理数据{_packet.UnpackCachedCount}字节");
                 }
                 if (WaitSendMsgCount != 0) {
                     if (LogProxy.Warning != null)
-                        LogProxy.Warning($"PeerSocket.Dispose():[{Name}] 中待发送数据{WaitSendMsgCount}条");
+                        LogProxy.Warning($"PeerSocket.Dispose():[{Name}][{RemoteIP}] 中待发送数据{WaitSendMsgCount}条");
                 }
                 if (WaitReceMsgCount != 0) {
                     if (LogProxy.Warning != null)
-                        LogProxy.Warning($"PeerSocket.Dispose():[{Name}] 中待接收数据{WaitReceMsgCount}条");
+                        LogProxy.Warning($"PeerSocket.Dispose():[{Name}][{RemoteIP}] 中待接收数据{WaitReceMsgCount}条");
                 }
                 //快速的尝试掉线？
                 //_clientSocket.SendTimeout = 500;

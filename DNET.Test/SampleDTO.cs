@@ -18,7 +18,9 @@ namespace DNET.Test
         MsgU3DRPCProjectUIS2C
     }
 
-
+    /// <summary>
+    /// 所有json消息的基类
+    /// </summary>
     public class JsonMessage
     {
         public JsonMessage()
@@ -192,7 +194,7 @@ namespace DNET.Test
         }
     }
 
-    public static class BaseMessageExt
+    public static class JsonMessageExt
     {
         /// <summary>
         /// 发送消息的扩展方法
@@ -202,7 +204,11 @@ namespace DNET.Test
         public static void Send(this DNClient client, JsonMessage message)
         {
             // 利用协议的txid和type字段一起发送好了.
-            client.Send(message.ToJson(), txrId: message.txid, eventType: (int)message.type);
+            client.Send(message.ToJson(),
+                format: Format.Json,
+                txrId: message.txid,
+                eventType: (int)message.type,
+                immediately: true);
         }
     }
 }

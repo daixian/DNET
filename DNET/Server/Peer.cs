@@ -62,6 +62,11 @@ namespace DNET
         public string Name => peerSocket.Name;
 
         /// <summary>
+        /// 远程IP
+        /// </summary>
+        public string RemoteIP => peerSocket.RemoteIP;
+
+        /// <summary>
         /// 用户自定义的绑定对象，用于简单的绑定关联一个对象
         /// </summary>
         public object User { get; set; }

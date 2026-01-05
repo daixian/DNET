@@ -439,6 +439,8 @@ namespace DNET
                         PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
                     }
                     if (peer?.Status?.TimeSinceLastSend > Config.HeartBeatSendTime) {
+                        if (LogProxy.Debug != null)
+                            LogProxy.Debug($"DNServer.DoTimerCheckStatus():向用户 [{peer.ID}] 发送心跳包!");
                         peer.Send(null, 0, 0, Format.Heart); //发个心跳包
                     }
                 }
@@ -457,8 +459,8 @@ namespace DNET
         {
             Peer peer = msg.peer;
             try {
-                if (peer == null) {
-                    return;
+                if (peer == null || peer.peerSocket == null) {
+                    throw new Exception("DNServer.DoSend():peer == null || peer.peerSocket == null");
                 }
                 // 添加该条数据,但是发送空数据呢?,这里这个判断将来去掉吧
                 if (msg.data != null) {
@@ -482,9 +484,9 @@ namespace DNET
                 var peers = PeerManager.Inst.GetAllPeer();
                 for (int i = 0; i < peers.Count; i++) {
                     Peer peer = peers[i];
-                    peer.peerSocket.TryStartSend();
+                    peer.peerSocket?.TryStartSend();
                 }
-                ListPool<Peer>.Shared.Recycle(peers);
+                peers.Recycle();
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning("DNServer.DoSendAll()：异常 " + e.Message);
