@@ -41,6 +41,11 @@ namespace DNET
         private Timer _timer;
 
         /// <summary>
+        /// 防止线程池定时器回调重入。心跳发送必须独立于可能被业务接收阻塞的服务器工作队列。
+        /// </summary>
+        private int _heartbeatTimerRunning;
+
+        /// <summary>
         /// 标记是否已经被disposed
         /// </summary>
         private bool _disposed;
@@ -107,9 +112,15 @@ namespace DNET
                 // 定时检查的定时器
                 if (_timer == null) {
                     _timer = new Timer(state => {
-                        // 让工作线程定时检查
-                        var check = new ServerCommand { type = ServerCommand.Type.TimerCheckStatus };
-                        _workThread.Post(in check, this);
+                        // 心跳属于连接控制面，直接由 Timer 线程发送，不能排在高频业务消息之后。
+                        SendDueHeartbeatsFromTimer();
+
+                        // 离线删除与统计仍在单一工作线程串行执行。
+                        WorkThread<ServerCommand> workThread = _workThread;
+                        if (workThread != null) {
+                            var check = new ServerCommand { type = ServerCommand.Type.TimerCheckStatus };
+                            workThread.Post(in check, this);
+                        }
                     });
                     _timer.Change(1000, 1000); //一秒后启动
                 }
@@ -438,17 +449,45 @@ namespace DNET
                             LogProxy.Debug($"DNServer.DoTimerCheckStatus():用户 [{peer.ID}] 长时间没有收到心跳包，被删除!");
                         PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
                     }
-                    if (peer?.Status?.TimeSinceLastSend > Config.HeartBeatSendTime) {
-                        if (LogProxy.Debug != null)
-                            LogProxy.Debug($"DNServer.DoTimerCheckStatus():向用户 [{peer.ID}] 发送心跳包!");
-                        peer.Send(null, 0, 0, Format.Heart); //发个心跳包
-                    }
                 }
                 if (Config.EnablePeerStatistics) {
                     peer.Status?.UpdateStatus();
                 }
             }
             ListPool<Peer>.Shared.Recycle(peers);
+        }
+
+        /// <summary>
+        /// 从 Timer 线程直接向到期 Peer 发送心跳。PeerSocket 的发送队列和发送状态使用并发队列及
+        /// Interlocked 保护，因此这里不会与业务回复或工作线程发送发生并发冲突。
+        /// </summary>
+        private void SendDueHeartbeatsFromTimer()
+        {
+            if (!Config.IsAutoHeartbeat
+                || Interlocked.CompareExchange(ref _heartbeatTimerRunning, 1, 0) != 0) {
+                return;
+            }
+
+            var peers = PeerManager.Inst.GetAllPeer();
+            try {
+                for (int index = 0; index < peers.Count; index++) {
+                    Peer peer = peers[index];
+                    PeerStatus status = peer?.Status;
+                    if (status == null || status.TimeSinceLastSend <= Config.HeartBeatSendTime) {
+                        continue;
+                    }
+
+                    if (LogProxy.Debug != null)
+                        LogProxy.Debug($"DNServer.SendDueHeartbeatsFromTimer():向用户 [{peer.ID}] 发送心跳包!");
+                    peer.Send(null, 0, 0, Format.Heart);
+                }
+            } catch (Exception exception) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("DNServer.SendDueHeartbeatsFromTimer():异常 " + exception);
+            } finally {
+                ListPool<Peer>.Shared.Recycle(peers);
+                Interlocked.Exchange(ref _heartbeatTimerRunning, 0);
+            }
         }
 
         /// <summary>

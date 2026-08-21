@@ -525,33 +525,37 @@ namespace DNET
         /// </summary>
         private void DoTimerCheckStatus()
         {
-            if (!IsConnected || Status == null)
+            // 固定本轮使用的 PeerSocket，避免 Disconnect 把字段置空后本方法继续解引用。
+            PeerSocket peerSocket = _peerSocket;
+            if (peerSocket == null || !peerSocket.IsConnected)
                 return;
+            PeerStatus status = peerSocket.Status;
 
             // 驱动一下未发送的数据,按理这里不需要
-            if (_peerSocket.TryStartSend()) {
+            if (peerSocket.TryStartSend()) {
                 // dx: 如果有时候正在合并发送数据,那么会刚好触发,提起发送一部分出去.这是正常的
                 //LogProxy.LogWarning($"DNClient.DoTimerCheckStatus():{Name}这里TryStartSend成功了,这是不太应该的");
             }
 
             if (Config.IsAutoHeartbeat) {
                 //如果时间已经超过了那么就发送心跳包
-                if (Status.TimeSinceLastSend > Config.HeartBeatSendTime) {
+                if (status.TimeSinceLastSend > Config.HeartBeatSendTime) {
                     //发送一次心跳包
                     Send(null, 0, 0, Format.Heart); //发个心跳包
                     if (LogProxy.Debug != null)
                         LogProxy.Debug($"DNClient.DoTimerCheckStatus():{Name}发送 HeartBeatData ~❤");
                 }
 
-                if (Status.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
+                if (status.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
                     if (LogProxy.Warning != null)
                         LogProxy.Warning($"DNClient.DoTimerCheckStatus():{Name}长时间没有收到心跳包，判断可能已经掉线！");
                     Disconnect(); //关闭连接?
+                    return;
                 }
             }
 
             if (Config.EnablePeerStatistics) {
-                _peerSocket.Status.UpdateStatus();
+                status.UpdateStatus();
             }
         }
 
