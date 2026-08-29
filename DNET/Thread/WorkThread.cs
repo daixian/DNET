@@ -99,7 +99,7 @@ namespace DNET
                 ThreadAnalyzer.Inst.BeginWork(); // 开始工作统计
 
                 // 处理队列中所有任务
-                while (_queue.TryDequeue(out var msg)) {
+                while (_running && _queue.TryDequeue(out var msg)) {
                     try {
                         // 执行处理逻辑
                         msg.handler.Handle(ref msg.data, msg.WaitTimeMs);
@@ -135,8 +135,18 @@ namespace DNET
         /// </summary>
         public void ClearQueue()
         {
+            ClearQueue(null);
+        }
+
+        /// <summary>
+        /// 清空当前工作队列中的所有任务，并通知调用方哪些任务被丢弃。
+        /// </summary>
+        /// <param name="onDiscarded">任务被移出队列时调用的回调；不需要通知时传入null。</param>
+        internal void ClearQueue(Action<T> onDiscarded)
+        {
             // 清空队列
-            while (_queue.TryDequeue(out var _)) {
+            while (_queue.TryDequeue(out var workItem)) {
+                onDiscarded?.Invoke(workItem.data);
             }
         }
 
@@ -145,10 +155,13 @@ namespace DNET
         /// </summary>
         public void Stop()
         {
-            ClearQueue(); // 清空队列
             _running = false; // 停止运行标志
+            ClearQueue(); // 清空队列
             _signal.Set(); // 唤醒线程以退出循环
-            _thread.Join(); // 等待线程结束
+            if (!ReferenceEquals(Thread.CurrentThread, _thread)) {
+                _thread.Join(); // 等待线程结束
+                ClearQueue(); // 清理由停止竞态期间最后投递的工作项
+            }
         }
     }
 }

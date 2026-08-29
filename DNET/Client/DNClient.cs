@@ -17,6 +17,17 @@ namespace DNET
         private static readonly Lazy<DNClient> _instance = new Lazy<DNClient>(() => new DNClient());
 
         /// <summary>
+        /// 连接状态检查定时器的执行周期，单位为毫秒。
+        /// </summary>
+        private const int StatusTimerPeriodMilliseconds = 1000;
+
+        /// <summary>
+        /// 标记当前线程正在执行状态定时器回调的客户端，用于避免回调内关闭时等待自身造成死锁。
+        /// </summary>
+        [ThreadStatic]
+        private static DNClient _executingStatusTimerOwner;
+
+        /// <summary>
         /// 单例
         /// </summary>
         public static DNClient Inst => _instance.Value;
@@ -42,9 +53,29 @@ namespace DNET
         private PeerSocket _peerSocket;
 
         /// <summary>
-        /// 一个定时器
+        /// 连接建立后用于驱动心跳与状态检查的定时器。
         /// </summary>
         private Timer _timer;
+
+        /// <summary>
+        /// 保护定时器创建、暂停、恢复和释放过程的同步对象。
+        /// </summary>
+        private readonly object _timerLock = new object();
+
+        /// <summary>
+        /// 标记定时器是否允许投递状态检查，使用原子读写与线程池回调同步。
+        /// </summary>
+        private int _timerEnabled;
+
+        /// <summary>
+        /// 标记是否已经存在一个待处理或正在处理的状态检查，防止工作线程阻塞时无界积压。
+        /// </summary>
+        private int _timerCheckPending;
+
+        /// <summary>
+        /// 标记关闭流程正在永久停止当前定时器，防止连接线程在关闭竞态中重新启用定时器。
+        /// </summary>
+        private bool _timerLifecycleStopping;
 
         /// <summary>
         /// 这个对象是否已经被释放掉
@@ -139,7 +170,7 @@ namespace DNET
         public void Connect(string host, int port)
         {
             lock (this) {
-                if (IsConnecting) return;
+                if (_disposed || IsConnecting || IsConnected) return;
                 IsConnecting = true;
 
                 try {
@@ -152,17 +183,7 @@ namespace DNET
                     if (_workThread == null) {
                         _workThread = new WorkThread<ClientCommand>("DNClientWorkThread");
                     }
-                    _workThread.ClearQueue();
-
-                    // 定时检查的定时器
-                    if (_timer == null) {
-                        _timer = new Timer(state => {
-                            // 让工作线程定时检查
-                            var check = new ClientCommand { type = ClientCommand.Type.TimerCheckStatus };
-                            _workThread.Post(in check, this);
-                        });
-                        _timer.Change(1000, 1000); //一秒后启动
-                    }
+                    _workThread.ClearQueue(OnCommandDiscarded);
 
                     if (_peerSocket == null) {
                         _peerSocket = new PeerSocket();
@@ -190,14 +211,14 @@ namespace DNET
         {
             lock (this) {
                 try {
-                    _workThread?.ClearQueue();
+                    PauseStatusTimer();
+                    _workThread?.ClearQueue(OnCommandDiscarded);
                     // 中断连接必须要释放socket,必须要Close().
                     if (_peerSocket != null) {
                         _peerSocket.Dispose(); // 这样可以保证正在连接中的也直接异常掉
                         _peerSocket = null;
-
-                        IsConnecting = false;
                     }
+                    IsConnecting = false;
                 } catch (Exception e) {
                     if (LogProxy.Warning != null)
                         LogProxy.Warning($"DNClient.DisConnect():{Name}执行DisConnect异常 {e}");
@@ -215,12 +236,10 @@ namespace DNET
                 LogProxy.Info($"DNClient.Close():{Name}准备关闭Socket和停止工作线程...");
             lock (this) {
                 try {
-                    _timer?.Dispose();
+                    StopStatusTimerAndWait();
                 } catch (Exception e) {
                     if (LogProxy.Warning != null)
                         LogProxy.Warning($"DNClient.Close():{Name}停止Timer异常 {e}");
-                } finally {
-                    _timer = null;
                 }
 
                 try {
@@ -239,6 +258,8 @@ namespace DNET
                         LogProxy.Warning($"DNClient.Close():{Name}停止工作线程异常 {e}");
                 } finally {
                     _workThread = null;
+                    Interlocked.Exchange(ref _timerCheckPending, 0);
+                    FinishStatusTimerShutdown();
                 }
 
                 IsConnecting = false;
@@ -296,7 +317,9 @@ namespace DNET
 
             try {
                 // 这里其实已经开始打包了.
-                _peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
+                if (!_peerSocket.TryAddSendData(data, offset, count, format, txrId, eventType)) {
+                    return;
+                }
                 if (immediately)
                     _peerSocket.TryStartSend(); //这个函数可以直接启动
                 else {
@@ -374,20 +397,20 @@ namespace DNET
         /// <summary>
         /// 尝试开始启动发送
         /// </summary>
-        /// <param name="forceUseWorkThread">是否强制使用工作线程补偿发送</param>
+        /// <param name="forceUseWorkThread">是否明确要求切换到客户端工作线程启动发送。</param>
         /// <returns>true表示确实启动了一个发送</returns>
-        public bool TryStartSend(bool forceUseWorkThread = true)
+        public bool TryStartSend(bool forceUseWorkThread = false)
         {
             if (_workThread == null || _peerSocket == null || _disposed) {
                 return false;
             }
 
-            if (_peerSocket.TryStartSend() && forceUseWorkThread == false)
-                return true;
-            // 在超高并发的时候TryStartSend()可能会漏掉一个发送,所以这里用工作线程再次尝试
-            var msg = new ClientCommand { type = ClientCommand.Type.Send };
-            _workThread.Post(in msg, this);
-            return false;
+            if (forceUseWorkThread) {
+                var msg = new ClientCommand { type = ClientCommand.Type.Send };
+                _workThread.Post(in msg, this);
+                return false;
+            }
+            return _peerSocket.TryStartSend();
         }
 
         /// <summary>
@@ -430,6 +453,153 @@ namespace DNET
             return _peerSocket.WaitSendMsgCount >= queueLen;
         }
 
+        #region 定时检查
+
+        /// <summary>
+        /// 在指定连接仍为当前有效连接时创建并启用状态检查定时器。
+        /// </summary>
+        /// <param name="peerSocket">已经成功连接的底层通信对象。</param>
+        private void ResumeStatusTimer(PeerSocket peerSocket)
+        {
+            lock (_timerLock) {
+                if (_timerLifecycleStopping
+                    || _disposed
+                    || !ReferenceEquals(_peerSocket, peerSocket)
+                    || peerSocket == null
+                    || !peerSocket.IsConnected) {
+                    return;
+                }
+
+                if (_timer == null) {
+                    _timer = new Timer(
+                        OnStatusTimer,
+                        null,
+                        Timeout.Infinite,
+                        Timeout.Infinite);
+                }
+
+                Volatile.Write(ref _timerEnabled, 1);
+                try {
+                    _timer.Change(
+                        StatusTimerPeriodMilliseconds,
+                        StatusTimerPeriodMilliseconds);
+                } catch {
+                    Volatile.Write(ref _timerEnabled, 0);
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 暂停状态检查定时器，但保留对象供后续重连继续使用。
+        /// 已进入线程池的最后一次回调会通过启用标记快速退出。
+        /// </summary>
+        private void PauseStatusTimer()
+        {
+            Volatile.Write(ref _timerEnabled, 0);
+            lock (_timerLock) {
+                try {
+                    _timer?.Change(Timeout.Infinite, Timeout.Infinite);
+                } catch (ObjectDisposedException) {
+                    // Close可能已经取得并释放了定时器，此时它已经达到暂停目的。
+                }
+            }
+        }
+
+        /// <summary>
+        /// 永久停止当前定时器，并等待已经排入线程池的全部回调退出。
+        /// </summary>
+        private void StopStatusTimerAndWait()
+        {
+            Timer timer;
+            Volatile.Write(ref _timerEnabled, 0);
+            lock (_timerLock) {
+                _timerLifecycleStopping = true;
+                timer = _timer;
+                _timer = null;
+            }
+
+            if (timer == null) {
+                return;
+            }
+
+            if (ReferenceEquals(_executingStatusTimerOwner, this)) {
+                timer.Dispose();
+                return;
+            }
+
+            using (var disposeCompleted = new ManualResetEvent(false)) {
+                if (timer.Dispose(disposeCompleted)) {
+                    disposeCompleted.WaitOne();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 完成关闭流程对定时器生命周期的独占，允许后续显式Connect创建新会话。
+        /// </summary>
+        private void FinishStatusTimerShutdown()
+        {
+            lock (_timerLock) {
+                _timerLifecycleStopping = false;
+            }
+        }
+
+        /// <summary>
+        /// 在线程池回调中合并并投递一次状态检查。
+        /// </summary>
+        /// <param name="state">System.Threading.Timer传入的用户状态，本实现不使用。</param>
+        private void OnStatusTimer(object state)
+        {
+            if (Volatile.Read(ref _timerEnabled) == 0
+                || Interlocked.CompareExchange(ref _timerCheckPending, 1, 0) != 0) {
+                return;
+            }
+
+            bool posted = false;
+            DNClient previousTimerOwner = _executingStatusTimerOwner;
+            _executingStatusTimerOwner = this;
+            try {
+                if (Volatile.Read(ref _timerEnabled) == 0) {
+                    return;
+                }
+
+                WorkThread<ClientCommand> workThread = _workThread;
+                if (workThread == null) {
+                    return;
+                }
+
+                var check = new ClientCommand { type = ClientCommand.Type.TimerCheckStatus };
+                workThread.Post(in check, this);
+                posted = true;
+            } catch (Exception exception) {
+                try {
+                    if (LogProxy.Warning != null)
+                        LogProxy.Warning($"DNClient.OnStatusTimer():{Name}投递状态检查异常 {exception}");
+                } catch {
+                    // Timer线程不能让日志实现中的异常逃逸到线程池。
+                }
+            } finally {
+                if (!posted) {
+                    Interlocked.Exchange(ref _timerCheckPending, 0);
+                }
+                _executingStatusTimerOwner = previousTimerOwner;
+            }
+        }
+
+        /// <summary>
+        /// 处理工作队列清理时被丢弃的命令，释放对应的状态检查占用标记。
+        /// </summary>
+        /// <param name="command">被工作线程队列丢弃的命令。</param>
+        private void OnCommandDiscarded(ClientCommand command)
+        {
+            if (command.type == ClientCommand.Type.TimerCheckStatus) {
+                Interlocked.Exchange(ref _timerCheckPending, 0);
+            }
+        }
+
+        #endregion
+
         #region 工作线程
 
         /// <summary>
@@ -458,7 +628,11 @@ namespace DNET
                     DoClose();
                     break;
                 case ClientCommand.Type.TimerCheckStatus:
-                    DoTimerCheckStatus();
+                    try {
+                        DoTimerCheckStatus();
+                    } finally {
+                        Interlocked.Exchange(ref _timerCheckPending, 0);
+                    }
                     break;
             }
         }
@@ -468,11 +642,17 @@ namespace DNET
         /// </summary>
         private void DoConnect()
         {
+            PeerSocket peerSocket = _peerSocket;
             try {
+                if (peerSocket == null) {
+                    throw new InvalidOperationException("连接对象已经被释放。");
+                }
+
                 // 如果已经连接上了,那么返回.,不要断开连接和重连接.因为用户那边的连接函数是异步的.
                 // 用户那边判断还没有连接上那么就连接
-                if (_peerSocket.IsConnected) {
+                if (peerSocket.IsConnected) {
                     IsConnecting = false;
+                    ResumeStatusTimer(peerSocket);
                     return;
                 }
 
@@ -486,13 +666,14 @@ namespace DNET
                 //_peerSocket.Disconnect();
                 if (LogProxy.Info != null)
                     LogProxy.Info($"DNClient.DoConnect():{Name}正在连接...");
-                _peerSocket.BindRemote(_host, _port);
-                _peerSocket.Connect(); //这个函数连接失败会异常
+                peerSocket.BindRemote(_host, _port);
+                peerSocket.Connect(); //这个函数连接失败会异常
 
                 //标记已经结束了连接
                 IsConnecting = false;
 
-                if (_peerSocket.IsConnected) {
+                if (ReferenceEquals(_peerSocket, peerSocket) && peerSocket.IsConnected) {
+                    ResumeStatusTimer(peerSocket);
                     if (LogProxy.Info != null)
                         LogProxy.Info($"DNClient.DoConnect():{Name}连接服务器成功！{_host}:{_port}");
                     try {
@@ -506,6 +687,7 @@ namespace DNET
                     throw new Exception("连接失败,异常或取消了..");
                 }
             } catch (Exception e) {
+                PauseStatusTimer();
                 if (LogProxy.Info != null)
                     LogProxy.Info($"DNClient.DoConnect():{Name}连接服务器失败！{e.Message}");
 
@@ -527,22 +709,18 @@ namespace DNET
         {
             // 固定本轮使用的 PeerSocket，避免 Disconnect 把字段置空后本方法继续解引用。
             PeerSocket peerSocket = _peerSocket;
-            if (peerSocket == null || !peerSocket.IsConnected)
+            if (peerSocket == null || !peerSocket.IsConnected) {
+                PauseStatusTimer();
                 return;
-            PeerStatus status = peerSocket.Status;
-
-            // 驱动一下未发送的数据,按理这里不需要
-            if (peerSocket.TryStartSend()) {
-                // dx: 如果有时候正在合并发送数据,那么会刚好触发,提起发送一部分出去.这是正常的
-                //LogProxy.LogWarning($"DNClient.DoTimerCheckStatus():{Name}这里TryStartSend成功了,这是不太应该的");
             }
+            PeerStatus status = peerSocket.Status;
 
             if (Config.IsAutoHeartbeat) {
                 //如果时间已经超过了那么就发送心跳包
                 if (status.TimeSinceLastSend > Config.HeartBeatSendTime) {
                     //发送一次心跳包
                     Send(null, 0, 0, Format.Heart); //发个心跳包
-                    if (LogProxy.Debug != null)
+                    if (Config.IsDebugMode && LogProxy.Debug != null)
                         LogProxy.Debug($"DNClient.DoTimerCheckStatus():{Name}发送 HeartBeatData ~❤");
                 }
 
@@ -593,6 +771,7 @@ namespace DNET
         private void DoClose()
         {
             try {
+                PauseStatusTimer();
                 if (LogProxy.Debug != null)
                     LogProxy.Debug($"DNClient.DoClose():{Name}开始释放资源 ");
 
@@ -642,6 +821,7 @@ namespace DNET
         /// <param name="errorType">错误类型</param>
         private void OnError(PeerSocket sender, ErrorType errorType)
         {
+            PauseStatusTimer();
             try {
                 ErrorOccurred?.Invoke(this, errorType);
             } catch (Exception e) {

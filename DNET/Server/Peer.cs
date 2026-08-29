@@ -163,7 +163,9 @@ namespace DNET
             if (peerSocket == null || _disposed) return;
 
             // 这里其实已经开始打包了.
-            peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
+            if (!peerSocket.TryAddSendData(data, offset, count, format, txrId, eventType)) {
+                return;
+            }
             peerSocket.TryStartSend(); //这个函数可以直接启动
         }
 

@@ -21,6 +21,7 @@ namespace DNET
         {
             _packet = new SimplePacket();
             _areConnectDone = new AutoResetEvent(false);
+            _continueSendPumpCallback = ContinueSendPump;
         }
 
         /// <summary>
@@ -59,19 +60,14 @@ namespace DNET
         private readonly IPacket3 _packet;
 
         /// <summary>
-        /// 缓存一次发送失败的数据,要重发
-        /// </summary>
-        private ByteBuffer _sendFailData;
-
-        /// <summary>
         /// 待发送数据队列
         /// </summary>
-        readonly ConcurrentQueue<ByteBuffer> _sendQueue = new ConcurrentQueue<ByteBuffer>();
+        private readonly ConcurrentQueue<ByteBuffer> _sendQueue = new ConcurrentQueue<ByteBuffer>();
 
         /// <summary>
         /// 待提取的接收数据队列
         /// </summary>
-        readonly ConcurrentQueue<Message> _receQueue = new ConcurrentQueue<Message>();
+        private readonly ConcurrentQueue<Message> _receQueue = new ConcurrentQueue<Message>();
 
         /// <summary>
         /// 是否正在发送数据,同时只能发送一个数据
@@ -79,9 +75,29 @@ namespace DNET
         private int _isSending;
 
         /// <summary>
+        /// 当前Peer尚未发送完成的总字节数，包含队列和正在发送的批次。
+        /// </summary>
+        private long _pendingSendBytes;
+
+        /// <summary>
+        /// 上一次输出发送背压警告的Stopwatch时间戳，用于避免过载时日志放大。
+        /// </summary>
+        private long _lastSendBackpressureLogTimestamp;
+
+        /// <summary>
+        /// 同步发送完成达到公平预算后，用于在线程池继续驱动发送泵的复用回调。
+        /// </summary>
+        private readonly WaitCallback _continueSendPumpCallback;
+
+        /// <summary>
         /// 是否正在接收数据,同时只能接收一个数据
         /// </summary>
         private int _isReceiving;
+
+        /// <summary>
+        /// 标记当前连接是否已经发出过错误事件，避免收发回调同时失败时重复关闭和重复通知。
+        /// </summary>
+        private int _errorSignaled;
 
         /// <summary>
         /// 上次启动发送的时间戳
@@ -89,14 +105,9 @@ namespace DNET
         private readonly Stopwatch _sendWatch = new Stopwatch();
 
         /// <summary>
-        /// 一直递增的序号,在加入发送队列的时刻记录
+        /// 一直递增的发送序号，由单连接发送泵按实际出队顺序写入协议头。
         /// </summary>
-        private int _sendMsgId = 0;
-
-        /// <summary>
-        /// 在从发送队列提取的时刻用来比对发送消息的序号
-        /// </summary>
-        private int _sendMsgId2 = 0;
+        private int _sendMsgId;
 
         /// <summary>
         /// 用来对比接收的消息序号
@@ -132,6 +143,11 @@ namespace DNET
         /// 等待发送消息队列长度
         /// </summary>
         public int WaitSendMsgCount => _sendQueue.Count;
+
+        /// <summary>
+        /// 尚未发送完成的总字节数，包含队列和正在发送的批次。
+        /// </summary>
+        public long PendingSendBytes => Interlocked.Read(ref _pendingSendBytes);
 
         /// <summary>
         /// 等待提取的消息队列长度
@@ -207,22 +223,58 @@ namespace DNET
         public void AddSendData(byte[] data, int offset, int count,
             Format format = Format.Raw, int txrId = 0, int eventType = 0)
         {
-            if (data == null) {
-                // LogProxy.LogWarning("PeerSocket.AddSendData(data,offset,count):要发送的数据为null！");
-                offset = 0;
-                count = 0;
+            TryAddSendData(data, offset, count, format, txrId, eventType);
+        }
+
+        /// <summary>
+        /// 使用数据打包并尝试加入发送队列。达到单Peer待发送字节上限时返回false，避免高并发生产速度
+        /// 长期超过网络吞吐后造成无界内存增长。
+        /// </summary>
+        /// <param name="data">要发送的数据。</param>
+        /// <param name="offset">数据起始偏移。</param>
+        /// <param name="count">数据长度。</param>
+        /// <param name="format">数据格式。</param>
+        /// <param name="txrId">事务ID。</param>
+        /// <param name="eventType">事件类型。</param>
+        /// <returns>成功打包并加入发送队列时返回true；被背压拒绝或打包失败时返回false。</returns>
+        public bool TryAddSendData(byte[] data, int offset, int count,
+            Format format = Format.Raw, int txrId = 0, int eventType = 0)
+        {
+            if (_disposed) {
+                return false;
             }
+
+            ByteBuffer packedData = null;
+            bool reserved = false;
+            bool enqueued = false;
             try {
-                ByteBuffer packedData = _packet.Pack(data, offset, count, format, txrId, eventType);
-                packedData.Bytes.SetHeaderId(_sendMsgId++); //记录id
+                packedData = _packet.Pack(data, offset, count, format, txrId, eventType);
+                if (!TryReservePendingSendBytes(packedData.Length)) {
+                    LogSendBackpressure(packedData.Length);
+                    packedData.Recycle();
+                    return false;
+                }
+                reserved = true;
 
                 _sendQueue.Enqueue(packedData);
+                enqueued = true;
+                packedData = null;
+                if (_disposed) {
+                    ClearQueuedSendData();
+                    return false;
+                }
                 if (Config.EnableRttStatistics && txrId != 0) {
                     RttStatis.RecordSent(txrId); //记录发送
                 }
+                return true;
             } catch (Exception e) {
+                if (reserved && packedData != null) {
+                    ReleasePendingSendBytes(packedData.Length);
+                }
+                packedData?.Recycle();
                 if (LogProxy.Warning != null)
                     LogProxy.Warning($"PeerSocket.AddSendData:[{Name}] 异常 {e}");
+                return enqueued;
             }
         }
 
@@ -274,6 +326,7 @@ namespace DNET
                 // 这里可以根据需要设置超时等属性
                 socket.SendTimeout = 8 * 1000;
                 socket.ReceiveTimeout = 0;
+                socket.NoDelay = Config.EnableTcpNoDelay;
 
                 PrepareSocketAsyncEventArgs();
                 Status.Reset();
@@ -326,6 +379,7 @@ namespace DNET
                 //设置这个Timeout应该是无效的(是有效的，必须设置为0，否则自动断线)
                 socket.SendTimeout = 8 * 1000;
                 socket.ReceiveTimeout = 0;
+                socket.NoDelay = Config.EnableTcpNoDelay;
 
                 Clear(); // 这里也清理一下状态
             } catch (Exception e) {
@@ -408,10 +462,8 @@ namespace DNET
         }
 
         /// <summary>
-        /// 线程安全的从队列中取出数据包发送,可以每帧不停的驱动.
-        /// 这个函数在超高并发的时候可能会漏发.
-        /// 建议使用DNServer的TryStartSend()函数,会多一重保险.
-        /// 但是本质上可能只有在Update()中不停的调用TryStartSend()来驱动会最为可靠.
+        /// 尝试取得当前Peer的发送泵所有权并开始发送。
+        /// 同一个Peer始终只有一个发送泵，不同Peer可以由IOCP并行驱动。
         /// </summary>
         /// <returns>true表示确实启动了一个发送</returns>
         public bool TryStartSend()
@@ -424,101 +476,265 @@ namespace DNET
                     LogProxy.Error($"SocketClient.TryStartSend():[{Name}] 还未连接,不能发送数据!");
                 return false;
             }
-            // dx: 这一段是测试时候测试的代码,或许以后可以扩展某种重发机制.但是如何确认发送失败,这也是一个问题.
-            // if (Volatile.Read(ref _isSending) == 1 && _sendWatch.ElapsedMilliseconds > 2000) {
-            //     LogProxy.LogError($"SocketClient.TryBeginSend():[{Name}] 检测到发送卡死，已超时2秒，重发?");
-            //     PrepareSocketAsyncEventArgs();
-            //     ConnectionContext ctx = _sendArgs.GetConnectionContext();
-            //     // 缓存最后发送失败数据
-            //     _sendFailData = ctx.sendBuffer;
-            //     Interlocked.Exchange(ref _isSending, 0);// 标记发送结束
-            //     return TryBeginSend();
-            // }
-
-            // dx: 一次同时只能发送一个数据包,这里是判断是否正在发送中
             if (Interlocked.CompareExchange(ref _isSending, 1, 0) != 0) {
-                // 已经有发送在进行了，当前线程不执行
                 return false;
             }
 
-            // 尝试获取要发送的,这里应该对所有的数据进行整合然后一次性发送
-            if (_sendQueue.Count == 0 && _sendFailData == null) {
-                Interlocked.Exchange(ref _isSending, 0); // 标记发送结束
-                return false; // 注意返回false前要释放锁
+            try {
+                return RunSendPump();
+            } catch (Exception e) {
+                AbortSendPumpAfterException(e);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 迭代驱动当前Peer的发送泵。异步提交后由IOCP回调继续；同步完成时在预算内原地循环，
+        /// 避免递归增长调用栈。
+        /// </summary>
+        /// <returns>本轮至少向Socket提交过一次发送时返回true。</returns>
+        private bool RunSendPump()
+        {
+            bool started = false;
+            int synchronousCompletions = 0;
+            int synchronousBudget = Math.Max(1, Config.MaxSynchronousSendCompletions);
+
+            while (true) {
+                if (_disposed || !IsConnected) {
+                    Interlocked.Exchange(ref _isSending, 0);
+                    return started;
+                }
+
+                PrepareSocketAsyncEventArgs();
+                ConnectionContext context = _sendArgs.GetConnectionContext();
+                if (context.sendBuffer == null && !TryBuildSendBatch(context)) {
+                    if (TryReleaseAndReacquireSendPump()) {
+                        continue;
+                    }
+                    return started;
+                }
+
+                _sendArgs.SetBuffer(
+                    context.sendBuffer.Bytes,
+                    context.sendOffset,
+                    context.sendRemaining);
+
+                try {
+                    _sendWatch.Restart();
+                    started = true;
+                    if (socket.SendAsync(_sendArgs)) {
+                        return true;
+                    }
+                } catch (Exception e) {
+                    if (LogProxy.Warning != null)
+                        LogProxy.Warning($"PeerSocket.RunSendPump():[{Name}] 提交发送异常 {e}");
+                    FailCurrentSend(_sendArgs);
+                    return started;
+                }
+
+                if (!ProcessSendCompletion(_sendArgs)) {
+                    return started;
+                }
+
+                synchronousCompletions++;
+                if (synchronousCompletions < synchronousBudget) {
+                    continue;
+                }
+
+                if (ScheduleSendPumpContinuation()) {
+                    return true;
+                }
+                synchronousCompletions = 0;
+            }
+        }
+
+        /// <summary>
+        /// 从发送队列按配置上限创建下一批数据，并由单一发送泵按真实出队顺序写入消息ID。
+        /// </summary>
+        /// <param name="context">当前发送SocketAsyncEventArgs的连接上下文。</param>
+        /// <returns>成功构造发送批次时返回true；队列为空时返回false。</returns>
+        private bool TryBuildSendBatch(ConnectionContext context)
+        {
+            if (!_sendQueue.TryDequeue(out ByteBuffer first)) {
+                return false;
             }
 
-            // 注意这里一定要全部整合一次性发送.
+            int maxBatchBytes = Math.Max(Message.HeaderLength, Config.MaxSendBatchBytes);
+            int maxBatchMessages = Math.Max(1, Config.MaxSendBatchMessages);
+            List<ByteBuffer> buffers = context.sendBuffers;
+            if (buffers == null) {
+                buffers = new List<ByteBuffer>(16);
+                context.sendBuffers = buffers;
+            }
+            buffers.Clear();
+
             int totalLength = 0;
-            List<ByteBuffer> buffers = ListPool<ByteBuffer>.Shared.Get();
-            if (_sendFailData != null) {
-                if (LogProxy.Warning != null)
-                    LogProxy.Warning($"SocketClient.TryStartSend():[{Name}] 有一个发送失败的数据,接上重发");
-                buffers.Add(_sendFailData);
-                totalLength += _sendFailData.Length;
-                _sendFailData = null;
-            }
+            ByteBuffer sendBuffer = null;
+            try {
+                first.Bytes.SetHeaderId(_sendMsgId++);
+                buffers.Add(first);
+                totalLength = first.Length;
 
-            while (_sendQueue.TryDequeue(out ByteBuffer item)) {
-                int curID = item.Bytes.GetHeaderId();
-                if (_sendMsgId2 != curID) {
-                    if (LogProxy.Error != null)
-                        LogProxy.Error($"SocketClient.TryStartSend():[{Name}] 提取消息的序号错误! {curID}/{_sendMsgId2}");
-                }
-                _sendMsgId2++;
-                buffers.Add(item);
-                if (item.Length == 0) {
-                    // 这里是不应该进入的情况,打这个日志用来调试错误
-                    if (LogProxy.Error != null)
-                        LogProxy.Error($"SocketClient.TryStartSend():[{Name}] 发送item数据长度不应该为0!");
-                }
-                // 统计总长度
-                totalLength += item.Length;
-                if (totalLength > 12 * 1024) {
-                    // 最大的buffer是16K,这里差不多12K就停下来算了
-                    break;
-                }
-            }
+                while (buffers.Count < maxBatchMessages
+                    && totalLength < maxBatchBytes
+                    && _sendQueue.TryPeek(out ByteBuffer next)) {
+                    if (next.Length > maxBatchBytes - totalLength) {
+                        break;
+                    }
+                    if (!_sendQueue.TryDequeue(out next)) {
+                        continue;
+                    }
 
-            // 没有要发送的数据,那么直接返回吧
-            if (buffers.Count == 0) {
-                Interlocked.Exchange(ref _isSending, 0); // 标记发送结束
-                return false;
-            }
+                    next.Bytes.SetHeaderId(_sendMsgId++);
+                    buffers.Add(next);
+                    totalLength += next.Length;
+                }
 
-            // 如果只有一个数据,那么就直接用这个数据
-            ByteBuffer sendBuffer = buffers[0];
-            if (buffers.Count > 1) {
-                // 如果有多个数据，那么就合并成一个数据
-                sendBuffer = GlobalBuffer.Inst.Get(totalLength);
+                if (buffers.Count == 1) {
+                    sendBuffer = first;
+                }
+                else {
+                    sendBuffer = GlobalBuffer.Inst.Get(totalLength);
+                    for (int i = 0; i < buffers.Count; i++) {
+                        sendBuffer.Append(buffers[i]);
+                    }
+                    for (int i = 0; i < buffers.Count; i++) {
+                        buffers[i].Recycle();
+                    }
+                }
+
+                context.sendBuffer = sendBuffer;
+                context.curSendMsgCount = buffers.Count;
+                context.sendOffset = 0;
+                context.sendRemaining = sendBuffer.Length;
+                buffers.Clear();
+                return true;
+            } catch {
+                if (sendBuffer != null && !ReferenceEquals(sendBuffer, first)) {
+                    sendBuffer.Recycle();
+                }
                 for (int i = 0; i < buffers.Count; i++) {
-                    sendBuffer.Append(buffers[i]);
                     buffers[i].Recycle();
                 }
+                ReleasePendingSendBytes(totalLength);
+                buffers.Clear();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 在观察到队列为空时释放发送权，再重新检查一次队列并尝试抢回发送权，避免生产线程与
+        /// 发送泵退出同时发生时丢失唤醒。
+        /// </summary>
+        /// <returns>当前线程重新取得发送权并应继续循环时返回true。</returns>
+        private bool TryReleaseAndReacquireSendPump()
+        {
+            Interlocked.Exchange(ref _isSending, 0);
+            if (_disposed || _sendQueue.IsEmpty) {
+                return false;
+            }
+            return Interlocked.CompareExchange(ref _isSending, 1, 0) == 0;
+        }
+
+        /// <summary>
+        /// 达到同步完成预算后，把发送泵续体投递到线程池，避免热点连接独占当前业务线程。
+        /// </summary>
+        /// <returns>成功投递时返回true。</returns>
+        private bool ScheduleSendPumpContinuation()
+        {
+            try {
+                return ThreadPool.QueueUserWorkItem(_continueSendPumpCallback);
+            } catch (Exception e) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"PeerSocket.ScheduleSendPumpContinuation():[{Name}] 异常 {e}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 在线程池中继续运行已经持有所有权的发送泵。
+        /// </summary>
+        /// <param name="state">线程池回调状态，本实现不使用。</param>
+        private void ContinueSendPump(object state)
+        {
+            if (_disposed) {
+                Interlocked.Exchange(ref _isSending, 0);
+                return;
+            }
+            try {
+                RunSendPump();
+            } catch (Exception e) {
+                AbortSendPumpAfterException(e);
+            }
+        }
+
+        /// <summary>
+        /// 原子预留待发送字节配额。
+        /// </summary>
+        /// <param name="byteCount">本次新消息占用的协议包字节数。</param>
+        /// <returns>未超过单Peer背压上限并成功预留时返回true。</returns>
+        private bool TryReservePendingSendBytes(int byteCount)
+        {
+            long limit = Config.MaxPendingSendBytesPerPeer;
+            while (true) {
+                long current = Interlocked.Read(ref _pendingSendBytes);
+                if (limit > 0 && (byteCount > limit || current > limit - byteCount)) {
+                    return false;
+                }
+
+                long next = current + byteCount;
+                if (Interlocked.CompareExchange(ref _pendingSendBytes, next, current) == current) {
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 原子释放已经发送完成或被丢弃的待发送字节，并在关闭竞态下把结果限制为非负数。
+        /// </summary>
+        /// <param name="byteCount">要释放的字节数。</param>
+        private void ReleasePendingSendBytes(int byteCount)
+        {
+            while (true) {
+                long current = Interlocked.Read(ref _pendingSendBytes);
+                long next = Math.Max(0, current - byteCount);
+                if (Interlocked.CompareExchange(ref _pendingSendBytes, next, current) == current) {
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 每秒最多输出一次发送背压警告，避免过载时日志成为新的性能瓶颈。
+        /// </summary>
+        /// <param name="rejectedBytes">被拒绝消息的协议包字节数。</param>
+        private void LogSendBackpressure(int rejectedBytes)
+        {
+            if (LogProxy.Warning == null) {
+                return;
             }
 
-            if (sendBuffer.Length == 0) {
-                if (LogProxy.Error != null)
-                    LogProxy.Error($"SocketClient.TryStartSend():[{Name}] 发送数据长度不应该为0!");
+            long now = Stopwatch.GetTimestamp();
+            long previous = Interlocked.Read(ref _lastSendBackpressureLogTimestamp);
+            if (now - previous < Stopwatch.Frequency
+                || Interlocked.CompareExchange(ref _lastSendBackpressureLogTimestamp, now, previous) != previous) {
+                return;
             }
 
-            PrepareSocketAsyncEventArgs();
-            ConnectionContext context = _sendArgs.GetConnectionContext();
+            LogProxy.Warning(
+                $"PeerSocket.TryAddSendData():[{Name}] 触发发送背压，拒绝{rejectedBytes}字节，"
+                + $"当前待发送{PendingSendBytes}字节，上限{Config.MaxPendingSendBytesPerPeer}字节");
+        }
 
-            // 回收上一次发送缓冲区,专门留到这个地方才回收,防止某些地方空指针吧.
-            context.sendBuffer?.Recycle();
-            context.sendBuffer = sendBuffer;
-            context.curSendMsgCount = buffers.Count; // 发送消息的个数
-            // dx: 注意这里是发送的实际数据长度
-            _sendArgs.SetBuffer(context.sendBuffer.Bytes, 0, context.sendBuffer.Length);
-
-            ListPool<ByteBuffer>.Shared.Recycle(buffers); // 这是最后使用的地方了归还.
-
-            if (PrepareSend(socket, _sendArgs)) {
-                return true;
+        /// <summary>
+        /// 回收发送队列中尚未进入活动批次的全部缓冲区。
+        /// </summary>
+        private void ClearQueuedSendData()
+        {
+            while (_sendQueue.TryDequeue(out ByteBuffer buffer)) {
+                ReleasePendingSendBytes(buffer.Length);
+                buffer.Recycle();
             }
-
-            Interlocked.Exchange(ref _isSending, 0); // 这里确保是解除计数的
-            return false;
         }
 
         /// <summary>
@@ -526,9 +742,7 @@ namespace DNET
         /// </summary>
         public void Clear()
         {
-            while (_sendQueue.TryDequeue(out var buff)) {
-                buff.Recycle();
-            }
+            ClearQueuedSendData();
             while (_receQueue.TryDequeue(out var msg)) {
                 msg.Recycle();
             }
@@ -540,8 +754,8 @@ namespace DNET
             RttStatis.Reset();
 
             _sendMsgId = 0;
-            _sendMsgId2 = 0;
             _receMsgId = 0;
+            Interlocked.Exchange(ref _errorSignaled, 0);
         }
 
         #endregion
@@ -594,41 +808,115 @@ namespace DNET
             if (_disposed) return;
 
             try {
-                if (args.SocketError != SocketError.Success) {
-                    ProcessError(args);
+                if (ProcessSendCompletion(args)) {
+                    RunSendPump();
                 }
-                ConnectionContext context = args.GetConnectionContext();
-
-                if (args.BytesTransferred == 0) {
-                    // 在本机回环飞速的发送的时候,有时候会进入这里,导致丢失一个包,似乎不会出现,观察一下.这个错误实际是由Buffer池导致的.后面似乎可以去掉这个
-                    if (LogProxy.Warning != null)
-                        LogProxy.Warning($"SocketClient.OnSendCompleted():[{Name}] 发送状态成功 但是发送数据字节数 {args.BytesTransferred}");
-
-                    // 缓存最后发送失败数据
-                    _sendFailData = context.sendBuffer;
-                }
-                else {
-                    if (Config.IsDebugMode && LogProxy.Debug != null)
-                        LogProxy.Debug($"SocketClient.OnSendCompleted():[{Name}] 发送成功 发送数据字节数 {args.BytesTransferred}");
-                    // 这是多条消息合并发送的,所以这里要记录
-                    Status.RecordSentMessage(context.curSendMsgCount, args.BytesTransferred);
-
-                    //执行事件
-                    if (SendCompleted != null) {
-                        SendCompleted(this);
-                    }
-                }
-
-                // 标记发送结束
-                Interlocked.Exchange(ref _isSending, 0);
-
-                // 继续发送下一条数据
-                if (_sendQueue.Count > 0 || _sendFailData != null)
-                    TryStartSend();
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning($"PeerSocket.OnSendCompleted():[{Name}] 异常 {e}");
+                FailCurrentSend(args);
             }
+        }
+
+        /// <summary>
+        /// 处理一次Socket发送完成。部分发送只推进当前缓冲区偏移，完整发送后才回收批次并统计消息数。
+        /// </summary>
+        /// <param name="args">本次发送使用的SocketAsyncEventArgs。</param>
+        /// <returns>连接仍可继续由当前发送泵处理时返回true。</returns>
+        private bool ProcessSendCompletion(SocketAsyncEventArgs args)
+        {
+            if (_disposed) {
+                return false;
+            }
+            if (args.SocketError != SocketError.Success || args.BytesTransferred <= 0) {
+                FailCurrentSend(args);
+                return false;
+            }
+
+            ConnectionContext context = args.GetConnectionContext();
+            if (context.sendBuffer == null
+                || args.BytesTransferred > context.sendRemaining) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning(
+                        $"PeerSocket.ProcessSendCompletion():[{Name}] 非法发送完成状态，"
+                        + $"BytesTransferred={args.BytesTransferred}, Remaining={context.sendRemaining}");
+                FailCurrentSend(args);
+                return false;
+            }
+
+            if (Config.IsDebugMode && LogProxy.Debug != null)
+                LogProxy.Debug(
+                    $"PeerSocket.ProcessSendCompletion():[{Name}] 发送完成{args.BytesTransferred}字节，"
+                    + $"批次剩余{context.sendRemaining - args.BytesTransferred}字节");
+
+            context.sendOffset += args.BytesTransferred;
+            context.sendRemaining -= args.BytesTransferred;
+            bool batchCompleted = context.sendRemaining == 0;
+            Status.RecordSentMessage(batchCompleted ? context.curSendMsgCount : 0, args.BytesTransferred);
+            if (!batchCompleted) {
+                return true;
+            }
+
+            ByteBuffer completedBuffer = context.sendBuffer;
+            context.sendBuffer = null;
+            context.curSendMsgCount = 0;
+            context.sendOffset = 0;
+            ReleasePendingSendBytes(completedBuffer.Length);
+            completedBuffer.Recycle();
+
+            try {
+                SendCompleted?.Invoke(this);
+            } catch (Exception e) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"PeerSocket.ProcessSendCompletion():[{Name}] 执行SendCompleted事件异常 {e}");
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 发送失败后丢弃当前连接的全部待发送数据、释放发送泵所有权并触发连接错误处理。
+        /// TCP连接失败后无法确认远端已接收的边界，因此不能在同一连接内盲目重发。
+        /// </summary>
+        /// <param name="args">失败发送使用的SocketAsyncEventArgs。</param>
+        private void FailCurrentSend(SocketAsyncEventArgs args)
+        {
+            ConnectionContext context = args.GetConnectionContext();
+            ByteBuffer failedBuffer = context.sendBuffer;
+            context.sendBuffer = null;
+            context.curSendMsgCount = 0;
+            context.sendOffset = 0;
+            context.sendRemaining = 0;
+            if (failedBuffer != null) {
+                ReleasePendingSendBytes(failedBuffer.Length);
+                failedBuffer.Recycle();
+            }
+            ClearQueuedSendData();
+            Interlocked.Exchange(ref _isSending, 0);
+            try {
+                ProcessError(args);
+            } catch (Exception e) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"PeerSocket.FailCurrentSend():[{Name}] 处理连接错误异常 {e}");
+            }
+        }
+
+        /// <summary>
+        /// 捕获发送泵状态机之外的意外异常，保证线程池异常不会逃逸并永久占用发送权。
+        /// </summary>
+        /// <param name="exception">发送泵运行时捕获的异常。</param>
+        private void AbortSendPumpAfterException(Exception exception)
+        {
+            if (LogProxy.Warning != null)
+                LogProxy.Warning($"PeerSocket.AbortSendPumpAfterException():[{Name}] 异常 {exception}");
+
+            SocketAsyncEventArgs sendArgs = _sendArgs;
+            if (sendArgs != null && sendArgs.UserToken is ConnectionContext) {
+                FailCurrentSend(sendArgs);
+                return;
+            }
+
+            ClearQueuedSendData();
+            Interlocked.Exchange(ref _isSending, 0);
         }
 
         /// <summary>
@@ -760,65 +1048,36 @@ namespace DNET
         private void ProcessError(SocketAsyncEventArgs args)
         {
             if (_disposed) return;
+            if (Interlocked.CompareExchange(ref _errorSignaled, 1, 0) != 0) {
+                return;
+            }
 
             if (LogProxy.Warning != null)
                 LogProxy.Warning($"PeerSocket.ProcessError():[{Name}] 进入了ProcessError,SocketError={args.SocketError}"); //显示下接收的信息
             ConnectionContext context = args.GetConnectionContext(); //使用传递的Token
-            if (context.socket.Connected) {
+            Socket errorSocket = context.socket;
+            if (errorSocket != null) {
                 try {
-                    if (LogProxy.Debug != null)
+                    if (errorSocket.Connected && LogProxy.Debug != null)
                         LogProxy.Debug($"PeerSocket.ProcessError():[{Name}] 调用Shutdown()关闭连接");
-                    context.socket.Shutdown(SocketShutdown.Both);
+                    if (errorSocket.Connected) {
+                        errorSocket.Shutdown(SocketShutdown.Both);
+                    }
                 } catch (Exception ex) {
                     if (LogProxy.Warning != null)
                         LogProxy.Warning($"PeerSocket.ProcessError():[{Name}] Shutdown()异常 {ex}");
                 } finally {
-                    context.socket.Close();
-
-                    // 上面Shutdown了,这里标记发送结束算了
-                    if (_isSending != 0) {
+                    try {
+                        errorSocket.Close();
+                    } catch (Exception ex) {
                         if (LogProxy.Warning != null)
-                            LogProxy.Warning($"PeerSocket.ProcessError():[{Name}] _isSending={_isSending}");
-
-                        Interlocked.Exchange(ref _isSending, 0);
+                            LogProxy.Warning($"PeerSocket.ProcessError():[{Name}] Close()异常 {ex}");
                     }
                 }
             }
+            Interlocked.Exchange(ref _isSending, 0);
             //产生错误事件，这是一个很重要的事件，处理服务器连接断开等
             ErrorOccurred?.Invoke(this, ErrorType.IOError);
-        }
-
-        /// <summary>
-        /// 开始异步发送
-        /// </summary>
-        /// <param name="s">目标Socket</param>
-        /// <param name="args">异步事件参数</param>
-        private bool PrepareSend(Socket s, SocketAsyncEventArgs args)
-        {
-            if (_disposed) return false;
-
-            try {
-                //如果当前没有连接上，就不发送
-                if (!s.Connected) {
-                    if (LogProxy.Warning != null)
-                        LogProxy.Warning($"PeerSocket.PrepareSend():[{Name}] 当前已经断线，但仍尝试发送，已经忽略这条发送.");
-                    return false;
-                }
-                _sendWatch.Restart(); //开始计时
-                // 开始发送,这里作异常处理
-                if (!s.SendAsync(args)) {
-                    // 这个本机上立刻返回十分频繁
-                    // LogProxy.Log("PeerSocket.PrepareSend(): SendAsync立刻返回了!");
-                    OnSendCompleted(this, args); //如果立即返回
-                }
-                return true;
-            } catch (Exception e) {
-                if (LogProxy.Warning != null)
-                    LogProxy.Warning($"PeerSocket.PrepareSend():[{Name}] 异常{e}");
-                // 这里捕获过的异常有：
-                // Thread creation failed.
-            }
-            return false;
         }
 
         /// <summary>
@@ -870,7 +1129,7 @@ namespace DNET
 
         #region IDisposable
 
-        private bool _disposed;
+        private volatile bool _disposed;
 
         /// <summary>
         /// 释放资源

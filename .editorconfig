@@ -12,7 +12,7 @@ indent_style = space
 tab_width = 4
 
 # 新行首选项
-end_of_line = crlf
+end_of_line = lf
 charset = utf-8-bom
 indent_style = space
 indent_size = 4

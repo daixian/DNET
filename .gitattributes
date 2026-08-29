@@ -2,6 +2,11 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
+.gitattributes text eol=lf
+.editorconfig text eol=lf
+
+# Keep C# source files consistent across Windows and non-Windows checkouts.
+*.cs text eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.

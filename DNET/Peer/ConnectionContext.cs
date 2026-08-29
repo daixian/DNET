@@ -1,5 +1,7 @@
 ﻿using System.Net.Sockets;
 
+using System.Collections.Generic;
+
 namespace DNET
 {
     /// <summary>
@@ -18,9 +20,24 @@ namespace DNET
         public ByteBuffer sendBuffer;
 
         /// <summary>
-        /// 因为会对消息进行整合发送,所以这里记录一下当前发送消息数量
+        /// 当前发送批次包含的消息数量，只有整个批次发送完成后才计入消息统计。
         /// </summary>
         public int curSendMsgCount;
+
+        /// <summary>
+        /// 当前发送批次下一次应从缓冲区开始发送的偏移。
+        /// </summary>
+        public int sendOffset;
+
+        /// <summary>
+        /// 当前发送批次尚未提交完成的字节数，用于处理Socket部分发送。
+        /// </summary>
+        public int sendRemaining;
+
+        /// <summary>
+        /// 单连接发送泵复用的合包列表，避免每个批次访问全局List池。
+        /// </summary>
+        public List<ByteBuffer> sendBuffers;
 
         /// <summary>
         /// 接收buffer这里也换着来吧.

@@ -16,6 +16,17 @@ namespace DNET
         private static readonly Lazy<DNServer> _instance = new Lazy<DNServer>(() => new DNServer());
 
         /// <summary>
+        /// 服务器状态检查定时器的执行周期，单位为毫秒。
+        /// </summary>
+        private const int StatusTimerPeriodMilliseconds = 1000;
+
+        /// <summary>
+        /// 标记当前线程正在执行状态定时器回调的服务器，用于避免回调内关闭时等待自身造成死锁。
+        /// </summary>
+        [ThreadStatic]
+        private static DNServer _executingStatusTimerOwner;
+
+        /// <summary>
         /// 单例
         /// </summary>
         public static DNServer Inst => _instance.Value;
@@ -36,9 +47,29 @@ namespace DNET
         private ServerListenerSocket _listenerSocket;
 
         /// <summary>
-        /// 一个定时器
+        /// 监听成功后用于驱动心跳与状态检查的定时器。
         /// </summary>
         private Timer _timer;
+
+        /// <summary>
+        /// 保护定时器创建、启用和释放过程的同步对象。
+        /// </summary>
+        private readonly object _timerLock = new object();
+
+        /// <summary>
+        /// 标记定时器是否允许投递状态检查，使用原子读写与线程池回调同步。
+        /// </summary>
+        private int _timerEnabled;
+
+        /// <summary>
+        /// 标记是否已经存在一个待处理或正在处理的状态检查，防止工作线程阻塞时无界积压。
+        /// </summary>
+        private int _timerCheckPending;
+
+        /// <summary>
+        /// 标记关闭或启动回滚流程正在永久停止当前定时器。
+        /// </summary>
+        private bool _timerLifecycleStopping;
 
         /// <summary>
         /// 防止线程池定时器回调重入。心跳发送必须独立于可能被业务接收阻塞的服务器工作队列。
@@ -93,56 +124,49 @@ namespace DNET
         /// <param name="backlog">监听队列的长度</param>
         public void Start(int port, string hostName = "Any", int backlog = 64)
         {
-            if (IsStarted)
-                return;
+            lock (this) {
+                if (_disposed || IsStarted)
+                    return;
 
-            try {
-                if (LogProxy.Debug != null)
-                    LogProxy.Debug("DNServer.Start():服务器尝试启动...");
-                _port = port;
+                try {
+                    if (LogProxy.Debug != null)
+                        LogProxy.Debug("DNServer.Start():服务器尝试启动...");
+                    _port = port;
 
-                PeerManager.Inst.DeleteAllPeer();
+                    PeerManager.Inst.DeleteAllPeer();
 
-                // 工作线程总是启动
-                if (_workThread == null) {
-                    _workThread = new WorkThread<ServerCommand>("DNServerWorkThread");
-                }
-                _workThread.ClearQueue();
+                    // 工作线程总是启动
+                    if (_workThread == null) {
+                        _workThread = new WorkThread<ServerCommand>("DNServerWorkThread");
+                    }
+                    _workThread.ClearQueue(OnCommandDiscarded);
 
-                // 定时检查的定时器
-                if (_timer == null) {
-                    _timer = new Timer(state => {
-                        // 心跳属于连接控制面，直接由 Timer 线程发送，不能排在高频业务消息之后。
-                        SendDueHeartbeatsFromTimer();
-
-                        // 离线删除与统计仍在单一工作线程串行执行。
-                        WorkThread<ServerCommand> workThread = _workThread;
-                        if (workThread != null) {
-                            var check = new ServerCommand { type = ServerCommand.Type.TimerCheckStatus };
-                            workThread.Post(in check, this);
-                        }
-                    });
-                    _timer.Change(1000, 1000); //一秒后启动
-                }
-
-                // 直接启动监听
-                if (_listenerSocket == null) {
+                    // 清理以前启动失败遗留的监听对象，再创建本次启动所需的实例。
+                    if (_listenerSocket != null) {
+                        _listenerSocket.Dispose();
+                        _listenerSocket = null;
+                    }
                     _listenerSocket = new ServerListenerSocket();
                     _listenerSocket.EventAccept += OnListenerSocketAccept;
 
                     // msg.text1是服务器的主机IP,一般使用Any表示所有的可能IP
                     _listenerSocket.Start(hostName, port, backlog);
-                }
-                if (!_listenerSocket.IsStarted) {
+
+                    if (!_listenerSocket.IsStarted) {
+                        if (LogProxy.Error != null)
+                            LogProxy.Error("DNServer.Start():启动监听失败");
+                        RollbackFailedStart();
+                        return;
+                    }
+
+                    ResumeStatusTimer();
+                    if (LogProxy.Info != null)
+                        LogProxy.Info($"DNServer.Start():服务器启动成功,端口:{_port}");
+                } catch (Exception e) {
                     if (LogProxy.Error != null)
-                        LogProxy.Error("DNServer.Start():启动监听失败");
-                    return;
+                        LogProxy.Error("DNServer.Start():异常 " + e.Message);
+                    RollbackFailedStart();
                 }
-                if (LogProxy.Info != null)
-                    LogProxy.Info($"DNServer.Start():服务器启动成功,端口:{_port}");
-            } catch (Exception e) {
-                if (LogProxy.Error != null)
-                    LogProxy.Error("DNServer.Start():异常 " + e.Message);
             }
         }
 
@@ -156,12 +180,10 @@ namespace DNET
                 LogProxy.Info("DNServer.Close():准备关闭Socket和停止工作线程...");
             lock (this) {
                 try {
-                    _timer?.Dispose();
+                    StopStatusTimerAndWait();
                 } catch (Exception e) {
                     if (LogProxy.Warning != null)
                         LogProxy.Warning($"DNServer.Close():停止Timer异常 {e}");
-                } finally {
-                    _timer = null;
                 }
 
                 // 是否要删除所有客户端?
@@ -176,6 +198,8 @@ namespace DNET
                         LogProxy.Warning($"DNServer.Close():停止工作线程异常 {e}");
                 } finally {
                     _workThread = null;
+                    Interlocked.Exchange(ref _timerCheckPending, 0);
+                    FinishStatusTimerShutdown();
                 }
                 try {
                     if (_listenerSocket != null) {
@@ -251,7 +275,9 @@ namespace DNET
             }
 
             // TODO: peer.peerSocket 为空时会抛出异常，必要时增加保护或提前校验
-            peer.peerSocket.AddSendData(data, offset, count, format, txrId, eventType);
+            if (!peer.peerSocket.TryAddSendData(data, offset, count, format, txrId, eventType)) {
+                return;
+            }
             if (immediately)
                 peer.peerSocket.TryStartSend();
             else {
@@ -324,20 +350,20 @@ namespace DNET
         /// 尝试开始启动发送
         /// </summary>
         /// <param name="peer">目标peer</param>
-        /// <param name="forceUseWorkThread">是否强制使用工作线程补偿发送</param>
+        /// <param name="forceUseWorkThread">是否明确要求切换到服务器工作线程启动发送。</param>
         /// <returns>true表示确实启动了一个发送</returns>
-        public bool TryStartSend(Peer peer, bool forceUseWorkThread = true)
+        public bool TryStartSend(Peer peer, bool forceUseWorkThread = false)
         {
             if (peer == null || _workThread == null || _disposed) {
                 return false;
             }
 
-            if (peer.peerSocket.TryStartSend() && forceUseWorkThread == false)
-                return true;
-            // 在超高并发的时候TryStartSend()可能会漏掉一个发送,所以这里用工作线程再次尝试
-            var msg = new ServerCommand { type = ServerCommand.Type.Send, peer = peer };
-            _workThread.Post(in msg, this);
-            return false;
+            if (forceUseWorkThread) {
+                var msg = new ServerCommand { type = ServerCommand.Type.Send, peer = peer };
+                _workThread.Post(in msg, this);
+                return false;
+            }
+            return peer.peerSocket.TryStartSend();
         }
 
         /// <summary>
@@ -352,6 +378,173 @@ namespace DNET
             var msg = new ServerCommand { type = ServerCommand.Type.SendAll };
             _workThread.Post(in msg, this);
         }
+
+        #region 定时检查与启动回滚
+
+        /// <summary>
+        /// 创建并启用服务器状态检查定时器，只能在监听成功后调用。
+        /// </summary>
+        private void ResumeStatusTimer()
+        {
+            lock (_timerLock) {
+                if (_timerLifecycleStopping || _disposed || !IsStarted) {
+                    return;
+                }
+
+                if (_timer == null) {
+                    _timer = new Timer(
+                        OnStatusTimer,
+                        null,
+                        Timeout.Infinite,
+                        Timeout.Infinite);
+                }
+
+                Volatile.Write(ref _timerEnabled, 1);
+                try {
+                    _timer.Change(
+                        StatusTimerPeriodMilliseconds,
+                        StatusTimerPeriodMilliseconds);
+                } catch {
+                    Volatile.Write(ref _timerEnabled, 0);
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 永久停止当前定时器，并等待已经排入线程池的全部回调退出。
+        /// </summary>
+        private void StopStatusTimerAndWait()
+        {
+            Timer timer;
+            Volatile.Write(ref _timerEnabled, 0);
+            lock (_timerLock) {
+                _timerLifecycleStopping = true;
+                timer = _timer;
+                _timer = null;
+            }
+
+            if (timer == null) {
+                return;
+            }
+
+            if (ReferenceEquals(_executingStatusTimerOwner, this)) {
+                timer.Dispose();
+                return;
+            }
+
+            using (var disposeCompleted = new ManualResetEvent(false)) {
+                if (timer.Dispose(disposeCompleted)) {
+                    disposeCompleted.WaitOne();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 完成关闭或启动回滚流程对定时器生命周期的独占。
+        /// </summary>
+        private void FinishStatusTimerShutdown()
+        {
+            lock (_timerLock) {
+                _timerLifecycleStopping = false;
+            }
+        }
+
+        /// <summary>
+        /// 在线程池回调中发送到期心跳，并合并投递一次状态检查。
+        /// </summary>
+        /// <param name="state">System.Threading.Timer传入的用户状态，本实现不使用。</param>
+        private void OnStatusTimer(object state)
+        {
+            if (Volatile.Read(ref _timerEnabled) == 0) {
+                return;
+            }
+
+            bool posted = false;
+            bool ownsPendingFlag = false;
+            DNServer previousTimerOwner = _executingStatusTimerOwner;
+            _executingStatusTimerOwner = this;
+            try {
+                // 心跳属于连接控制面，直接由Timer线程发送，不能排在高频业务消息之后。
+                SendDueHeartbeatsFromTimer();
+
+                if (Volatile.Read(ref _timerEnabled) == 0
+                    || Interlocked.CompareExchange(ref _timerCheckPending, 1, 0) != 0) {
+                    return;
+                }
+                ownsPendingFlag = true;
+
+                WorkThread<ServerCommand> workThread = _workThread;
+                if (workThread == null) {
+                    return;
+                }
+
+                // 离线删除与统计仍在单一工作线程串行执行。
+                var check = new ServerCommand { type = ServerCommand.Type.TimerCheckStatus };
+                workThread.Post(in check, this);
+                posted = true;
+            } catch (Exception exception) {
+                try {
+                    if (LogProxy.Warning != null)
+                        LogProxy.Warning("DNServer.OnStatusTimer():投递状态检查异常 " + exception);
+                } catch {
+                    // Timer线程不能让日志实现中的异常逃逸到线程池。
+                }
+            } finally {
+                if (ownsPendingFlag && !posted) {
+                    Interlocked.Exchange(ref _timerCheckPending, 0);
+                }
+                _executingStatusTimerOwner = previousTimerOwner;
+            }
+        }
+
+        /// <summary>
+        /// 处理工作队列清理时被丢弃的命令，释放对应的状态检查占用标记。
+        /// </summary>
+        /// <param name="command">被工作线程队列丢弃的命令。</param>
+        private void OnCommandDiscarded(ServerCommand command)
+        {
+            if (command.type == ServerCommand.Type.TimerCheckStatus) {
+                Interlocked.Exchange(ref _timerCheckPending, 0);
+            }
+        }
+
+        /// <summary>
+        /// 回滚监听启动失败后的定时器、监听对象和工作线程，同时保留外部事件绑定供重试使用。
+        /// </summary>
+        private void RollbackFailedStart()
+        {
+            try {
+                StopStatusTimerAndWait();
+            } catch (Exception exception) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("DNServer.RollbackFailedStart():停止Timer异常 " + exception);
+            }
+
+            try {
+                _listenerSocket?.Dispose();
+            } catch (Exception exception) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("DNServer.RollbackFailedStart():关闭监听Socket异常 " + exception);
+            } finally {
+                _listenerSocket = null;
+            }
+
+            PeerManager.Inst.DeleteAllPeer();
+
+            try {
+                _workThread?.Stop();
+            } catch (Exception exception) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning("DNServer.RollbackFailedStart():停止工作线程异常 " + exception);
+            } finally {
+                _workThread = null;
+                Interlocked.Exchange(ref _timerCheckPending, 0);
+                FinishStatusTimerShutdown();
+            }
+        }
+
+        #endregion
 
         #region 工作线程
 
@@ -381,7 +574,11 @@ namespace DNET
                     DoSendAll(msg);
                     break;
                 case ServerCommand.Type.TimerCheckStatus:
-                    DoTimerCheckStatus(msg);
+                    try {
+                        DoTimerCheckStatus(msg);
+                    } finally {
+                        Interlocked.Exchange(ref _timerCheckPending, 0);
+                    }
                     break;
             }
         }
@@ -422,39 +619,36 @@ namespace DNET
         private void DoTimerCheckStatus(ServerCommand msg)
         {
             var peers = PeerManager.Inst.GetAllPeer();
-            for (int i = 0; i < peers.Count; i++) {
-                Peer peer = peers[i];
+            try {
+                for (int i = 0; i < peers.Count; i++) {
+                    Peer peer = peers[i];
 
-                // 驱动一下未发送的数据,按理这里不需要,这是最后一道保险.
-                if (peer.TryStartSend()) {
-                    // dx: 有的时候似乎是服务器正在合并发送的时候,刚好的部分触发了.所以这里也不需要打日志
-                    //LogProxy.LogWarning($"DNServer.DoTimerCheckStatus():{peer.Name}这里TryStartSend成功了,这是不太应该的");
-                }
+                    // 如果还有未提取的消息那么就再次提醒
+                    if (peer.HasReceiveMsg) {
+                        // EventPeerReceData?.Invoke(peer);
+                        // dx: 注意这里不能直接发出事件,否则可能会导致消息的先后顺序不再是按顺序回复的.
+                        // 如果全是是线程池,那么会先发出事件等阻塞处理完了再开始下一个接收,所以永远是按顺序的.
+                        // 如果是工作线程给出接收事件,那么这里直接发出事件则有两个线程同时从消息队列中提取内容并启动异步回发,
+                        // 那么就会导致消息的先后顺序乱掉.
+                        // 如果所有的GetReceiveData()方法都由一个工作线程调用,那么不应该有先后顺序的问题.
+                        // 如果有多个线程调用GetReceiveData()方法,那么应该加锁,并且加锁到Send()方法结束.
+                        OnReceiveCompleted(peer); //让工作线程提醒Peer有数据可处理
+                    }
 
-                // 如果还有未提取的消息那么就再次提醒
-                if (peer.HasReceiveMsg) {
-                    // EventPeerReceData?.Invoke(peer);
-                    // dx: 注意这里不能直接发出事件,否则可能会导致消息的先后顺序不再是按顺序回复的.
-                    // 如果全是是线程池,那么会先发出事件等阻塞处理完了再开始下一个接收,所以永远是按顺序的.
-                    // 如果是工作线程给出接收事件,那么这里直接发出事件则有两个线程同时从消息队列中提取内容并启动异步回发,
-                    // 那么就会导致消息的先后顺序乱掉.
-                    // 如果所有的GetReceiveData()方法都由一个工作线程调用,那么不应该有先后顺序的问题.
-                    // 如果有多个线程调用GetReceiveData()方法,那么应该加锁,并且加锁到Send()方法结束.
-                    OnReceiveCompleted(peer); //让工作线程提醒Peer有数据可处理
-                }
-
-                if (Config.IsAutoHeartbeat) {
-                    if (peer?.Status?.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
-                        if (LogProxy.Debug != null)
-                            LogProxy.Debug($"DNServer.DoTimerCheckStatus():用户 [{peer.ID}] 长时间没有收到心跳包，被删除!");
-                        PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
+                    if (Config.IsAutoHeartbeat) {
+                        if (peer?.Status?.TimeSinceLastReceived > Config.HeartBeatCheckTime) {
+                            if (LogProxy.Debug != null)
+                                LogProxy.Debug($"DNServer.DoTimerCheckStatus():用户 [{peer.ID}] 长时间没有收到心跳包，被删除!");
+                            PeerManager.Inst.DeletePeer(peer.ID, PeerErrorType.HeartBeatTimeout); //删除这个用户
+                        }
+                    }
+                    if (Config.EnablePeerStatistics) {
+                        peer.Status?.UpdateStatus();
                     }
                 }
-                if (Config.EnablePeerStatistics) {
-                    peer.Status?.UpdateStatus();
-                }
+            } finally {
+                ListPool<Peer>.Shared.Recycle(peers);
             }
-            ListPool<Peer>.Shared.Recycle(peers);
         }
 
         /// <summary>
@@ -468,24 +662,27 @@ namespace DNET
                 return;
             }
 
-            var peers = PeerManager.Inst.GetAllPeer();
             try {
-                for (int index = 0; index < peers.Count; index++) {
-                    Peer peer = peers[index];
-                    PeerStatus status = peer?.Status;
-                    if (status == null || status.TimeSinceLastSend <= Config.HeartBeatSendTime) {
-                        continue;
-                    }
+                var peers = PeerManager.Inst.GetAllPeer();
+                try {
+                    for (int index = 0; index < peers.Count; index++) {
+                        Peer peer = peers[index];
+                        PeerStatus status = peer?.Status;
+                        if (status == null || status.TimeSinceLastSend <= Config.HeartBeatSendTime) {
+                            continue;
+                        }
 
-                    if (LogProxy.Debug != null)
-                        LogProxy.Debug($"DNServer.SendDueHeartbeatsFromTimer():向用户 [{peer.ID}] 发送心跳包!");
-                    peer.Send(null, 0, 0, Format.Heart);
+                        if (Config.IsDebugMode && LogProxy.Debug != null)
+                            LogProxy.Debug($"DNServer.SendDueHeartbeatsFromTimer():向用户 [{peer.ID}] 发送心跳包!");
+                        peer.Send(null, 0, 0, Format.Heart);
+                    }
+                } finally {
+                    ListPool<Peer>.Shared.Recycle(peers);
                 }
             } catch (Exception exception) {
                 if (LogProxy.Warning != null)
                     LogProxy.Warning("DNServer.SendDueHeartbeatsFromTimer():异常 " + exception);
             } finally {
-                ListPool<Peer>.Shared.Recycle(peers);
                 Interlocked.Exchange(ref _heartbeatTimerRunning, 0);
             }
         }
@@ -620,19 +817,6 @@ namespace DNET
             _workThread.Post(in msg, this);
 
             //DoReceive(msg);//debug:直接使用这个小线程（结果：貌似性能没有明显提高，也貌似没有稳定性的问题）
-        }
-
-        /// <summary>
-        /// 发送完成后的补偿处理
-        /// </summary>
-        /// <param name="peer">发送完成的peer</param>
-        private void OnSendSendCompleted(Peer peer)
-        {
-            if (peer.peerSocket.WaitSendMsgCount > 0) //如果待发送队列里有消息这里应该不需要这个判断了token.SendingCount < MAX_TOKEN_SENDING_COUNT &&
-            {
-                var msg = new ServerCommand { type = ServerCommand.Type.Send };
-                _workThread.Post(in msg, this);
-            }
         }
 
         #endregion
