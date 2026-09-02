@@ -78,36 +78,33 @@ namespace DNET
         }
 
         /// <summary>
-        /// 关闭一个peer，释放资源，但不从列表删除
-        /// </summary>
-        /// <param name="id">peer的ID</param>
-        /// <param name="type">关闭原因</param>
-        private void DisposePeer(int id, PeerErrorType type)
-        {
-            var peer = GetPeer(id);
-            peer?.Dispose();
-        }
-
-        /// <summary>
-        /// 删除一个peer，先关闭，再从字典移除，触发事件
+        /// 删除一个Peer。通过先从字典原子移除取得唯一删除权，再通知所属服务器并释放连接，
+        /// 保证Socket错误、心跳超时和服务器关闭并发发生时只触发一次断开生命周期。
         /// </summary>
         /// <param name="id">peer的ID</param>
         /// <param name="errorType">关闭的错误原因</param>
         public void DeletePeer(int id, PeerErrorType errorType = PeerErrorType.UserManualDelete)
         {
-            DisposePeer(id, errorType);
+            if (!_dictPeer.TryRemove(id, out Peer peer)) return;
 
-            // 字典中移除
-            if (_dictPeer.TryRemove(id, out _)) {
-                try {
-                    EventDeletePeer?.Invoke(id, errorType);
-                } catch (Exception e) {
-                    if (LogProxy.Warning != null)
-                        LogProxy.Warning($"PeerManager.DeletePeer(): 执行事件EventDeleteToken异常: {e.Message}");
-                }
-                if (LogProxy.Debug != null)
-                    LogProxy.Debug($"PeerManager.DeletePeer(): 关闭了一个客户端. 还有{_dictPeer.Count}个客户端，原因 {errorType}");
+            try {
+                peer.ownerServer?.NotifyPeerDisconnected(peer, errorType);
+            } catch (Exception e) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"PeerManager.DeletePeer():执行服务器断开事件异常: {e.Message}");
+            } finally {
+                peer.Dispose();
+                peer.ownerServer = null;
             }
+
+            try {
+                EventDeletePeer?.Invoke(id, errorType);
+            } catch (Exception e) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"PeerManager.DeletePeer(): 执行事件EventDeleteToken异常: {e.Message}");
+            }
+            if (LogProxy.Debug != null)
+                LogProxy.Debug($"PeerManager.DeletePeer(): 关闭了一个客户端. 还有{_dictPeer.Count}个客户端，原因 {errorType}");
         }
 
         /// <summary>

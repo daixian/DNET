@@ -283,12 +283,22 @@ namespace DNET
         /// <param name="data">要发送的整个数据</param>
         public void Send(byte[] data)
         {
+            TrySend(data);
+        }
+
+        /// <summary>
+        /// 尝试发送一整个字节数组，并返回消息是否成功进入发送队列。
+        /// </summary>
+        /// <param name="data">要发送的整个数据。</param>
+        /// <returns>消息成功进入发送队列时返回true；参数无效、客户端不可用或触发背压时返回false。</returns>
+        public bool TrySend(byte[] data)
+        {
             if (data == null) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning($"DNClient.Send():传入data为null");
-                return; //如果数据为null,那么返回算了
+                    LogProxy.Warning($"DNClient.TrySend():传入data为null");
+                return false;
             }
-            Send(data, 0, data.Length);
+            return TrySend(data, 0, data.Length);
         }
 
         /// <summary>
@@ -309,29 +319,61 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
-            if (_peerSocket == null || _disposed) {
+            TrySend(data, offset, count, format, txrId, eventType, immediately);
+        }
+
+        /// <summary>
+        /// 尝试发送一条字节数据，并返回消息是否成功进入发送队列。
+        /// </summary>
+        /// <param name="data">要发送的数据。</param>
+        /// <param name="offset">数据的起始位置。</param>
+        /// <param name="count">数据的长度。</param>
+        /// <param name="format">数据格式。</param>
+        /// <param name="txrId">事务ID。</param>
+        /// <param name="eventType">消息类型。</param>
+        /// <param name="immediately">是否立刻尝试启动发送泵。</param>
+        /// <returns>消息成功进入发送队列时返回true；客户端不可用、打包失败或触发背压时返回false。</returns>
+        public bool TrySend(byte[] data,
+            int offset,
+            int count,
+            Format format = Format.Raw,
+            int txrId = 0,
+            int eventType = 0,
+            bool immediately = true)
+        {
+            PeerSocket peerSocket = _peerSocket;
+            if (peerSocket == null || _disposed) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning($"DNClient.Send():{Name} PeerSocket为null或者disposed,不能发送.");
-                return;
+                    LogProxy.Warning($"DNClient.TrySend():{Name} PeerSocket为null或者disposed,不能发送.");
+                return false;
+            }
+
+            // TrySend的返回值只表达入队结果；消息一旦入队，后续发送泵驱动异常不能改写这个事实。
+            try {
+                if (!peerSocket.TryAddSendData(data, offset, count, format, txrId, eventType)) {
+                    return false;
+                }
+            } catch (Exception e) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNClient.TrySend():{Name}消息入队异常 " + e.Message);
+                return false;
             }
 
             try {
-                // 这里其实已经开始打包了.
-                if (!_peerSocket.TryAddSendData(data, offset, count, format, txrId, eventType)) {
-                    return;
-                }
                 if (immediately)
-                    _peerSocket.TryStartSend(); //这个函数可以直接启动
+                    peerSocket.TryStartSend(); //这个函数可以直接启动
                 else {
                     // TODO: _workThread 可能为 null，需确认调用前已启动工作线程
                     // 让工作线程处理这个消息
                     var msg = new ClientCommand { type = ClientCommand.Type.Send };
                     _workThread.Post(in msg, this);
                 }
+                return true;
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning($"DNClient.Send():{Name}异常 " + e.Message);
+                    LogProxy.Warning($"DNClient.TrySend():{Name}启动发送泵异常 " + e.Message);
             }
+            return true;
         }
 
         /// <summary>
@@ -348,27 +390,45 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
+            TrySend(text, format, txrId, eventType, immediately);
+        }
+
+        /// <summary>
+        /// 尝试发送字符串数据，并返回消息是否成功进入发送队列。
+        /// </summary>
+        /// <param name="text">字符串数据。</param>
+        /// <param name="format">数据格式。</param>
+        /// <param name="txrId">事务ID。</param>
+        /// <param name="eventType">消息类型。</param>
+        /// <param name="immediately">是否立刻尝试启动发送泵。</param>
+        /// <returns>消息成功进入发送队列时返回true；客户端不可用、编码失败或触发背压时返回false。</returns>
+        public bool TrySend(string text,
+            Format format = Format.Text,
+            int txrId = 0,
+            int eventType = 0,
+            bool immediately = true)
+        {
             if (_peerSocket == null || _disposed) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning($"DNClient.Send():{Name} PeerSocket为null或者disposed,不能发送.");
-                return;
+                    LogProxy.Warning($"DNClient.TrySend():{Name} PeerSocket为null或者disposed,不能发送.");
+                return false;
             }
 
+            ByteBuffer buffer = null;
             try {
-
                 if (string.IsNullOrEmpty(text)) {
-                    // TODO: 确认底层AddSendData对null的处理逻辑，避免空消息引发异常
-                    Send(null, 0, 0, format, txrId, eventType, immediately); //发送一个没有内容的空消息
-                    return;
+                    return TrySend(null, 0, 0, format, txrId, eventType, immediately);
                 }
                 // 直接编码到 buffer 内部数组
                 // 替代 dataBytes = Encoding.UTF8.GetBytes(text);
-                ByteBuffer buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
-                Send(buffer.Bytes, 0, buffer.Length, format, txrId, eventType, immediately);
-                buffer.Recycle();
+                buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
+                return TrySend(buffer.Bytes, 0, buffer.Length, format, txrId, eventType, immediately);
             } catch (Exception e) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning($"DNClient.Send:异常 {e}");
+                    LogProxy.Warning($"DNClient.TrySend:异常 {e}");
+                return false;
+            } finally {
+                buffer?.Recycle();
             }
         }
 

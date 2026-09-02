@@ -26,6 +26,11 @@ namespace DNET
         private PeerSocket _peerSocket;
 
         /// <summary>
+        /// 创建并管理当前连接的服务器，仅供DNET内部统一派发连接生命周期事件。
+        /// </summary>
+        internal DNServer ownerServer;
+
+        /// <summary>
         /// 构造.
         /// </summary>
         internal Peer()
@@ -160,13 +165,47 @@ namespace DNET
             int txrId = 0,
             int eventType = 0)
         {
-            if (peerSocket == null || _disposed) return;
+            TrySend(data, offset, count, format, txrId, eventType);
+        }
 
-            // 这里其实已经开始打包了.
-            if (!peerSocket.TryAddSendData(data, offset, count, format, txrId, eventType)) {
-                return;
+        /// <summary>
+        /// 尝试发送一条数据，并返回消息是否成功进入发送队列。
+        /// </summary>
+        /// <param name="data">要发送的数据。</param>
+        /// <param name="offset">数据的起始位置。</param>
+        /// <param name="count">数据的长度。</param>
+        /// <param name="format">数据格式。</param>
+        /// <param name="txrId">事务ID。</param>
+        /// <param name="eventType">消息类型。</param>
+        /// <returns>消息成功进入发送队列时返回true；Peer不可用、打包失败或触发背压时返回false。</returns>
+        public bool TrySend(byte[] data,
+            int offset,
+            int count,
+            Format format = Format.Raw,
+            int txrId = 0,
+            int eventType = 0)
+        {
+            PeerSocket socket = peerSocket;
+            if (socket == null || _disposed) return false;
+
+            try {
+                if (!socket.TryAddSendData(data, offset, count, format, txrId, eventType)) {
+                    return false;
+                }
+            } catch (Exception e) {
+                if (LogProxy.Error != null)
+                    LogProxy.Error($"Peer.TrySend():消息入队异常 {e}");
+                return false;
             }
-            peerSocket.TryStartSend(); //这个函数可以直接启动
+
+            try {
+                socket.TryStartSend(); //这个函数可以直接启动
+            } catch (Exception e) {
+                // 消息已经成功入队，发送驱动异常不能改写TrySend表达的入队结果。
+                if (LogProxy.Error != null)
+                    LogProxy.Error($"Peer.TrySend():启动发送泵异常 {e}");
+            }
+            return true;
         }
 
         /// <summary>
@@ -181,20 +220,38 @@ namespace DNET
             int txrId = 0,
             int eventType = 0)
         {
-            if (peerSocket == null || _disposed) return;
+            TrySend(text, format, txrId, eventType);
+        }
 
+        /// <summary>
+        /// 尝试发送字符串数据，并返回消息是否成功进入发送队列。
+        /// </summary>
+        /// <param name="text">字符串数据。</param>
+        /// <param name="format">数据格式。</param>
+        /// <param name="txrId">事务ID。</param>
+        /// <param name="eventType">消息类型。</param>
+        /// <returns>消息成功进入发送队列时返回true；Peer不可用、编码失败或触发背压时返回false。</returns>
+        public bool TrySend(string text,
+            Format format = Format.Text,
+            int txrId = 0,
+            int eventType = 0)
+        {
+            if (peerSocket == null || _disposed) return false;
+
+            ByteBuffer buffer = null;
             try {
                 if (string.IsNullOrEmpty(text)) {
-                    Send(null, 0, 0, format, txrId, eventType); //发送一个没有内容的空消息
-                    return;
+                    return TrySend(null, 0, 0, format, txrId, eventType);
                 }
                 // 直接编码到 buffer 内部数组
-                ByteBuffer buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
-                Send(buffer.Bytes, 0, buffer.Length, format, txrId, eventType);
-                buffer.Recycle();
+                buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
+                return TrySend(buffer.Bytes, 0, buffer.Length, format, txrId, eventType);
             } catch (Exception e) {
                 if (LogProxy.Error != null)
-                    LogProxy.Error($"Peer.Send():异常 {e}");
+                    LogProxy.Error($"Peer.TrySend():异常 {e}");
+                return false;
+            } finally {
+                buffer?.Recycle();
             }
         }
 

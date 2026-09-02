@@ -80,6 +80,9 @@ namespace DNET
 
                 //创建一个监听Socket
                 _listenSocket = new Socket(localEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                // 禁止与同一端口上的通配地址或具体地址监听共存。否则服务端可能报告启动成功，
+                // 但客户端连接会被操作系统分发给另一个更具体的监听地址，造成流量串线。
+                _listenSocket.ExclusiveAddressUse = true;
                 //_listenSocket.ReceiveBufferSize = _bufferSize;
                 //_listenSocket.SendBufferSize = _bufferSize;
 

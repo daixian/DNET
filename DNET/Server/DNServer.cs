@@ -111,6 +111,18 @@ namespace DNET
         public event Action<DNServer, Peer, PeerErrorType> PeerErrorOccurred;
 
         /// <summary>
+        /// 某个Peer已经完成底层Socket初始化并开始接收数据时触发。
+        /// 该事件只表示连接建立，不应在回调中执行耗时业务逻辑。
+        /// </summary>
+        public event Action<DNServer, Peer> PeerConnected;
+
+        /// <summary>
+        /// 某个Peer因Socket错误、心跳超时、主动删除或服务器关闭而被统一移除时触发。
+        /// 每个Peer最多触发一次，触发期间仍可读取Peer的连接信息，但不应再发送业务数据。
+        /// </summary>
+        public event Action<DNServer, Peer, PeerErrorType> PeerDisconnected;
+
+        /// <summary>
         /// 事件：某个Peer接收到了数据，注意如果可能会有多线程执行这个事件的时候(如IsFastResponse=True的时候)
         /// 如果特别关心回复的发送顺序,那么要对回调函数中的Peer进行加锁.
         /// </summary>
@@ -216,6 +228,8 @@ namespace DNET
                     if (LogProxy.Debug != null)
                         LogProxy.Debug("DNServer.Close():清空了所有绑定事件...");
                     PeerErrorOccurred = null;
+                    PeerConnected = null;
+                    PeerDisconnected = null;
                     PeerReceived = null;
                 }
 
@@ -241,14 +255,35 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
+            TrySend(peerId, data, offset, count, format, txrId, eventType, immediately);
+        }
+
+        /// <summary>
+        /// 尝试向指定ID的Peer发送一条数据，并返回消息是否成功进入发送队列。
+        /// </summary>
+        /// <param name="peerId">Peer的ID。</param>
+        /// <param name="data">要发送的数据。</param>
+        /// <param name="offset">数据的起始位置。</param>
+        /// <param name="count">数据的长度。</param>
+        /// <param name="format">数据格式。</param>
+        /// <param name="txrId">事务ID。</param>
+        /// <param name="eventType">消息类型。</param>
+        /// <param name="immediately">是否立刻尝试启动发送泵。</param>
+        /// <returns>消息成功进入发送队列时返回true；Peer不存在、服务器不可用或触发背压时返回false。</returns>
+        public bool TrySend(int peerId, byte[] data, int offset, int count,
+            Format format = Format.Raw,
+            int txrId = 0,
+            int eventType = 0,
+            bool immediately = true)
+        {
             Peer peer = PeerManager.Inst.GetPeer(peerId);
             if (peer == null || _disposed) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning($"DNServer.Send():peer为null或者disposed,不能发送.");
-                return;
+                    LogProxy.Warning($"DNServer.TrySend():peer为null或者disposed,不能发送.");
+                return false;
             }
 
-            Send(peer, data, offset, count, format, txrId, eventType, immediately);
+            return TrySend(peer, data, offset, count, format, txrId, eventType, immediately);
         }
 
         /// <summary>
@@ -268,23 +303,51 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
+            TrySend(peer, data, offset, count, format, txrId, eventType, immediately);
+        }
+
+        /// <summary>
+        /// 尝试向指定Peer发送一条数据，并返回消息是否成功进入发送队列。
+        /// </summary>
+        /// <param name="peer">目标Peer。</param>
+        /// <param name="data">要发送的数据。</param>
+        /// <param name="offset">数据的起始位置。</param>
+        /// <param name="count">数据的长度。</param>
+        /// <param name="format">数据格式。</param>
+        /// <param name="txrId">事务ID。</param>
+        /// <param name="eventType">消息类型。</param>
+        /// <param name="immediately">是否立刻尝试启动发送泵。</param>
+        /// <returns>消息成功进入发送队列时返回true；Peer不可用、服务器不可用或触发背压时返回false。</returns>
+        public bool TrySend(Peer peer, byte[] data, int offset, int count,
+            Format format = Format.Raw,
+            int txrId = 0,
+            int eventType = 0,
+            bool immediately = true)
+        {
             if (peer == null || _disposed) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning($"DNServer.Send():peer为null或者disposed,不能发送.");
-                return;
+                    LogProxy.Warning($"DNServer.TrySend():peer为null或者disposed,不能发送.");
+                return false;
             }
 
-            // TODO: peer.peerSocket 为空时会抛出异常，必要时增加保护或提前校验
-            if (!peer.peerSocket.TryAddSendData(data, offset, count, format, txrId, eventType)) {
-                return;
+            PeerSocket peerSocket = peer.peerSocket;
+            if (peerSocket == null
+                || !peerSocket.TryAddSendData(data, offset, count, format, txrId, eventType)) {
+                return false;
             }
-            if (immediately)
-                peer.peerSocket.TryStartSend();
-            else {
-                // TODO: _workThread 可能为 null，需确认在调用前已启动工作线程
-                var msg = new ServerCommand { type = ServerCommand.Type.Send, peer = peer };
-                _workThread.Post(in msg, this);
+            try {
+                if (immediately)
+                    peerSocket.TryStartSend();
+                else {
+                    var msg = new ServerCommand { type = ServerCommand.Type.Send, peer = peer };
+                    _workThread.Post(in msg, this);
+                }
+            } catch (Exception e) {
+                // 消息已经成功入队，发送驱动失败时仍返回true，由后续发送泵或连接错误流程处理。
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNServer.TrySend():启动发送泵异常 {e}");
             }
+            return true;
         }
 
         /// <summary>
@@ -302,24 +365,45 @@ namespace DNET
             int eventType = 0,
             bool immediately = true)
         {
+            TrySend(peer, text, format, txrId, eventType, immediately);
+        }
+
+        /// <summary>
+        /// 尝试向指定Peer发送字符串数据，并返回消息是否成功进入发送队列。
+        /// </summary>
+        /// <param name="peer">目标Peer。</param>
+        /// <param name="text">要发送的文本。</param>
+        /// <param name="format">数据格式。</param>
+        /// <param name="txrId">事务ID。</param>
+        /// <param name="eventType">消息类型。</param>
+        /// <param name="immediately">是否立刻尝试启动发送泵。</param>
+        /// <returns>消息成功进入发送队列时返回true；Peer不可用、编码失败或触发背压时返回false。</returns>
+        public bool TrySend(Peer peer, string text,
+            Format format = Format.Raw,
+            int txrId = 0,
+            int eventType = 0,
+            bool immediately = true)
+        {
             if (peer == null || _disposed) {
                 if (LogProxy.Warning != null)
-                    LogProxy.Warning($"DNServer.Send():peer为null或者disposed,不能发送.");
-                return;
+                    LogProxy.Warning($"DNServer.TrySend():peer为null或者disposed,不能发送.");
+                return false;
             }
 
+            ByteBuffer buffer = null;
             try {
                 if (string.IsNullOrEmpty(text)) {
-                    Send(peer, null, 0, 0, format, txrId, eventType, immediately);
-                    return;
+                    return TrySend(peer, null, 0, 0, format, txrId, eventType, immediately);
                 }
                 // 直接编码到 buffer 内部数组
-                ByteBuffer buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
-                Send(peer, buffer.Bytes, 0, buffer.Length, format, txrId, eventType, immediately);
-                buffer.Recycle();
+                buffer = GlobalBuffer.Inst.GetEncodedUtf8(text);
+                return TrySend(peer, buffer.Bytes, 0, buffer.Length, format, txrId, eventType, immediately);
             } catch (Exception e) {
                 if (LogProxy.Error != null)
-                    LogProxy.Error($"DNServer.Send():发送文本异常 {e}");
+                    LogProxy.Error($"DNServer.TrySend():发送文本异常 {e}");
+                return false;
+            } finally {
+                buffer?.Recycle();
             }
         }
 
@@ -768,9 +852,9 @@ namespace DNET
         private void OnListenerSocketAccept(Socket acceptSocket)
         {
             Peer peer = new Peer(); //创建一个用户
+            peer.ownerServer = this;
             PeerManager.Inst.AddPeer(peer); //把这个用户加入TokenManager,分配一个ID
 
-            peer.peerSocket.SetAcceptSocket(acceptSocket); // 这里会初始化args,会使用name
             peer.peerSocket.ErrorOccurred +=
                 (ps, eventError) => {
                     Peer p = ps.User as Peer;
@@ -803,6 +887,27 @@ namespace DNET
                     // 在有的时候执行事件的时候从队列中提取不出消息,所以这里丢工作线程,双保险算了
                     OnReceiveCompleted(p);
                 };
+
+            // 先绑定全部生命周期回调，再启动底层接收，避免高速连接在事件绑定前完成或断开。
+            peer.peerSocket.SetAcceptSocket(acceptSocket); // 这里会初始化args,会使用name
+            if (peer.peerSocket == null) return;
+
+            try {
+                PeerConnected?.Invoke(this, peer);
+            } catch (Exception e) {
+                if (LogProxy.Warning != null)
+                    LogProxy.Warning($"DNServer.OnListenerSocketAccept():执行PeerConnected事件异常 {e}");
+            }
+        }
+
+        /// <summary>
+        /// 由PeerManager在取得唯一删除权后通知当前服务器连接已经断开。
+        /// </summary>
+        /// <param name="peer">即将释放的Peer。</param>
+        /// <param name="errorType">连接被移除的原因。</param>
+        internal void NotifyPeerDisconnected(Peer peer, PeerErrorType errorType)
+        {
+            PeerDisconnected?.Invoke(this, peer, errorType);
         }
 
         /// <summary>
